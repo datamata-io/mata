@@ -1,0 +1,35 @@
+# Torchvision Detection Model Configurations
+
+models:
+  detect:
+    # Fast CNN detector (best speed/accuracy balance)
+    cnn-fast:
+      source: "torchvision/retinanet_resnet50_fpn"
+      threshold: 0.4
+      device: "auto"
+      weights: "DEFAULT"  # Pretrained COCO weights
+    
+    # Accurate CNN detector (slower but higher mAP)
+    cnn-accurate:
+      source: "torchvision/fasterrcnn_resnet50_fpn_v2"
+      threshold: 0.5
+      device: "auto"
+      weights: "DEFAULT"
+    
+    # Mobile-optimized detector (for edge devices)
+    cnn-mobile:
+      source: "torchvision/ssdlite320_mobilenet_v3_large"
+      threshold: 0.35
+      device: "cpu"
+      weights: "DEFAULT"
+    
+    # Custom fine-tuned model example
+    custom-model:
+      source: "torchvision/retinanet_resnet50_fpn"
+      threshold: 0.6
+      device: "cuda"
+      weights: "/path/to/finetuned_model.pth"
+      id2label:
+        0: "cat"
+        1: "dog"
+        2: "bird"

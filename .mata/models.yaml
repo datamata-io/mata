@@ -1,0 +1,29 @@
+# Project-specific model configuration
+detect:
+  # Fast model for development/testing
+  dev:
+    source: "facebook/detr-resnet-50"
+    threshold: 0.3
+    device: cpu
+
+  # Production model with higher accuracy
+  prod:
+    source: "facebook/detr-resnet-101"
+    threshold: 0.5
+    device: cuda
+
+  # Custom Torchvision model
+  cnn-fast:
+    source: "torchvision/fasterrcnn_resnet50_fpn"
+    threshold: 0.3
+    device: cuda
+
+  # Custom local ONNX model
+  # custom:
+  #   source: "models/custom_detector.onnx"
+  #   threshold: 0.4
+
+ocr:
+  doc-scanner:
+    source: "easyocr"
+    languages: ["en"]

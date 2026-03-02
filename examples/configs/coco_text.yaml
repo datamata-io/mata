@@ -1,0 +1,16 @@
+# COCO-Text v2.0 — OCR evaluation dataset
+# Download: https://bgshih.github.io/cocotext/
+#
+# Expected layout:
+#   /data/coco-text/
+#   ├── val2014/                    # COCO 2014 validation images
+#   └── cocotext_v2.json            # COCO-Text annotations (bbox + text)
+#
+# Usage:
+#   metrics = mata.val("ocr", model="easyocr", data="examples/configs/coco_text.yaml")
+
+path: /data/coco-text
+val: val2014
+annotations: cocotext_v2.json
+names:
+  0: text

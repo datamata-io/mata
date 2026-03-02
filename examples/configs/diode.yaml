@@ -1,0 +1,55 @@
+# DIODE validation dataset configuration for mata.val()
+#
+# Dataset structure:
+#   data/diode/
+#   ├── val/
+#   │   ├── indoors/
+#   │   │   └── scene_XXXXX/scan_XXXXX/
+#   │   │       ├── *.png                   ← RGB images
+#   │   │       ├── *_depth.npy             ← depth ground-truth
+#   │   │       └── *_depth_mask.npy        ← valid-pixel mask
+#   │   └── outdoor/
+#   │       └── scene_XXXXX/scan_XXXXX/     ← same layout
+#   ├── diode_val_annotations.json          ← auto-generated COCO image list
+#   └── depth_gt_flat/                      ← auto-generated flat depth symlinks
+#
+# The annotations and depth_gt_flat directories are generated automatically by
+# running the snippet below (already done — 771 images total):
+#
+#   python - <<'EOF'
+#   import json
+#   from pathlib import Path
+#   diode_root = Path("/home/mtp/code/MATA/data/diode")
+#   depth_gt_dir = diode_root / "depth_gt_flat"
+#   depth_gt_dir.mkdir(exist_ok=True)
+#   images, img_id = [], 1
+#   for png in sorted((diode_root / "val").rglob("*.png")):
+#       stem = png.stem
+#       flat = depth_gt_dir / f"{stem}.npy"
+#       if not flat.exists():
+#           flat.symlink_to(png.parent / f"{stem}_depth.npy")
+#       mask = depth_gt_dir / f"{stem}_mask.npy"
+#       if (png.parent / f"{stem}_depth_mask.npy").exists() and not mask.exists():
+#           mask.symlink_to(png.parent / f"{stem}_depth_mask.npy")
+#       # Use absolute paths so the validator can open images regardless of CWD
+#       images.append({"id": img_id, "file_name": str(png.resolve()),
+#                      "width": 1024, "height": 768})
+#       img_id += 1
+#   (diode_root / "diode_val_annotations.json").write_text(
+#       json.dumps({"images": images, "annotations": [], "categories": []}, indent=2))
+#   EOF
+
+path: /home/mtp/code/MATA/data/diode
+
+# Setting val to the top-level val/ directory causes DatasetLoader to find no
+# direct image files there, which triggers the COCO-registry iteration path and
+# correctly resolves the nested PNG paths stored in the annotations JSON.
+val: val
+
+# COCO-format image list (no bounding boxes — depth task only)
+annotations: diode_val_annotations.json
+
+# Flat directory of {stem}.npy symlinks pointing to the co-located depth GT
+depth_gt: depth_gt_flat
+
+# DIODE covers un-labelled scenes; no class names required for depth evaluation

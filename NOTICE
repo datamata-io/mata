@@ -1,0 +1,75 @@
+MATA — Model-Agnostic Task Architecture
+Copyright 2026 MATA Contributors
+
+This product is licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+===========================================================================
+IMPORTANT: MODEL WEIGHTS ARE NOT COVERED BY THIS LICENSE
+===========================================================================
+
+MATA is a software framework only. It does NOT distribute, bundle, or
+include pre-trained model weights. When you use MATA to load a model —
+whether from HuggingFace Hub, a local file, or any other source — that
+model's weights are governed by their own separate license terms.
+
+You are solely responsible for ensuring that your use of any model weights
+complies with the applicable license for those weights. Common licenses
+encountered include (but are not limited to):
+
+  - Apache License 2.0           (e.g., DETR, RT-DETR, GroundingDINO, SAM,
+                                        Depth Anything V2, Mask2Former)
+  - MIT License                  (e.g., CLIP)
+  - Tongyi Qianwen License       (e.g., Qwen-VL series — commercial use
+                                        requires additional acceptance)
+  - Meta Community License       (e.g., LLaMA-based models — usage thresholds
+                                        and restrictions apply)
+  - Creative Commons BY-NC       (non-commercial use only)
+  - GNU GPL / AGPL               (copyleft — derivative works must be
+                                        open-sourced under same terms)
+
+Some models on HuggingFace Hub require you to agree to additional terms
+before downloading. By using MATA to load such models you acknowledge that
+you have read and accepted those terms independently.
+
+MATA makes no representation or warranty regarding the licensing terms of
+any third-party model weights accessed through this framework.
+
+===========================================================================
+THIRD-PARTY SOFTWARE
+===========================================================================
+
+This product includes or depends on the following third-party software:
+
+  HuggingFace Transformers
+    License: Apache License 2.0
+    https://github.com/huggingface/transformers
+
+  PyTorch
+    License: BSD 3-Clause License
+    https://github.com/pytorch/pytorch
+
+  ONNX Runtime
+    License: MIT License
+    https://github.com/microsoft/onnxruntime
+
+  PyYAML
+    License: MIT License
+    https://github.com/yaml/pyyaml
+
+  NumPy
+    License: BSD 3-Clause License
+    https://github.com/numpy/numpy
+
+  Pillow (PIL Fork)
+    License: Historical Permission Notice and Disclaimer (HPND)
+    https://github.com/python-pillow/Pillow
+
+  Vendored tracking algorithms (ByteTrack, BotSort) are adapted from
+  Ultralytics (AGPL-3.0 upstream). The vendored code in src/mata/trackers/
+  has been independently re-implemented based on the published research
+  papers and is not derived from Ultralytics source code.
+    ByteTrack paper: https://arxiv.org/abs/2110.06864
+    BoTrack/OC-SORT paper: https://arxiv.org/abs/2206.14651

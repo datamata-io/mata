@@ -1,0 +1,172 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mata"
+version = "1.9.0"
+description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "MATA Contributors"}
+]
+keywords = ["computer-vision", "object-detection", "deep-learning", "model-agnostic", "pytorch", "transformers"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.35.0",
+    "huggingface_hub>=0.20.0",
+    "accelerate>=1.12.0",
+    "opencv-python>=4.8.0",
+    "pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/datamata-io/mata"
+Repository = "https://github.com/datamata-io/mata"
+Documentation = "https://github.com/datamata-io/mata#readme"
+"Bug Tracker" = "https://github.com/datamata-io/mata/issues"
+
+[project.optional-dependencies]
+# ONNX Runtime (CPU) — required for .onnx model files
+onnx = [
+    "onnxruntime>=1.16.0",
+]
+
+# ONNX Runtime (GPU) — replaces onnxruntime with CUDA-accelerated build
+onnx-gpu = [
+    "onnxruntime-gpu>=1.16.0",
+]
+
+# CNN classification backbones (timm)
+classification = [
+    "timm>=1.0.24",
+]
+
+# Evaluation metrics and COCO tools — also enables RLE mask encoding
+eval = [
+    "pycocotools>=2.0.7",
+    "matplotlib>=3.5.0",
+]
+
+# Visualization only (matplotlib without COCO tools)
+viz = [
+    "matplotlib>=3.5.0",
+]
+
+# Segmentation spatial helpers
+segmentation = [
+    "scipy>=1.10.0",
+]
+
+# VLM models — no extra deps needed (accelerate is in core dependencies)
+# Reserved for future VLM-specific dependencies
+vlm = []
+
+# OCR — EasyOCR (default, CPU-friendly)
+ocr = [
+    "easyocr>=1.7.0",
+]
+
+# OCR — PaddleOCR backend (large wheel: ~500 MB GPU build)
+ocr-paddle = [
+    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.5.0",   # CPU; use paddlepaddle-gpu for GPU
+]
+
+# OCR — Tesseract backend (also requires Tesseract binary; see docs)
+ocr-tesseract = [
+    "pytesseract>=0.3.10",
+]
+
+# OCR — all engines (easyocr + paddleocr + pytesseract)
+ocr-all = [
+    "easyocr>=1.7.0",
+    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.5.0",
+    "pytesseract>=0.3.10",
+]
+
+# Full installation (all optional features except GPU ONNX)
+all = [
+    "mata[onnx,classification,eval,viz,segmentation,ocr]",
+]
+
+dev = [
+    "mata[all]",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "requests>=2.32.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mata = ["py.typed"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+ignore_missing_imports = true
+# Type annotations are added incrementally; strict mode will be enforced in v2.0
+disallow_untyped_defs = false
+warn_return_any = false
+no_implicit_optional = true
+# Disable categories widespread in ML/CV code with optional deps and tracker
+# subclassing patterns — these are valid Python but trip structural mypy checks
+disable_error_code = [
+    "override",       # tracker/adapter subclass signature narrowing
+    "attr-defined",   # untyped third-party lib attributes (torch, cv2, etc.)
+    "union-attr",     # optional-None chaining (guarded at runtime)
+    "valid-type",     # Protocol/builtins.any used as type hints
+    "misc",           # conditional function overloads in __init__.py
+    "import-untyped", # stubs not installed for yaml / optional deps
+    "no-redef",       # conditional imports on optional backends
+    "type-abstract",  # abstract class instantiation via factory patterns
+    "arg-type",       # numpy/torch overload signature mismatches
+    "assignment",     # mixed-width type assignments (float/int, etc.)
+    "var-annotated",  # unannotated class-level variables
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (requiring model download, deselect with '-m \"not slow\"')",
+]
+# Coverage disabled temporarily - install pytest-cov to enable
+# addopts = "--cov=mata --cov-report=term-missing --cov-report=html"

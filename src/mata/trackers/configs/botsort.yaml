@@ -1,0 +1,14 @@
+# BotSort tracker configuration
+# Ref: https://arxiv.org/abs/2206.14651
+tracker_type: botsort
+track_high_thresh: 0.5      # High confidence threshold — first association
+track_low_thresh: 0.1       # Low confidence threshold  — second association
+new_track_thresh: 0.6       # Threshold to initialise new tracks
+track_buffer: 30            # Frames a lost track is kept before removal
+match_thresh: 0.8           # IoU matching threshold
+fuse_score: true            # Fuse detection score with IoU distance
+# BotSort-specific fields
+gmc_method: sparseOptFlow   # GMC method: 'sparseOptFlow' or null
+proximity_thresh: 0.5       # Minimum IoU for ReID candidate set
+appearance_thresh: 0.25     # Minimum cosine similarity for ReID matching
+with_reid: false            # ReID disabled in v1.8

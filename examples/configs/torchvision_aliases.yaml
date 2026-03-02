@@ -1,0 +1,35 @@
+# Torchvision Detector Aliases Configuration
+# Location: ~/.mata/models.yaml or .mata/models.yaml
+#
+# This configuration enables easy model loading via aliases:
+#   mata.load("detect", "cnn-fast")
+#   mata.load("detect", "cnn-accurate")
+
+detect:
+  # Fast CNN detector (RetinaNet - best speed/accuracy balance)
+  cnn-fast:
+    source: "torchvision/retinanet_resnet50_fpn"
+    threshold: 0.4
+    device: "auto"
+    weights: "DEFAULT"
+
+  # Accurate CNN detector (Faster R-CNN V2 - slower but higher mAP)
+  cnn-accurate:
+    source: "torchvision/fasterrcnn_resnet50_fpn_v2"
+    threshold: 0.5
+    device: "auto"
+    weights: "DEFAULT"
+
+  # Mobile-optimized detector (for edge devices)
+  cnn-mobile:
+    source: "torchvision/ssdlite320_mobilenet_v3_large"
+    threshold: 0.35
+    device: "cpu"
+    weights: "DEFAULT"
+
+  # FCOS detector (anchor-free)
+  cnn-fcos:
+    source: "torchvision/fcos_resnet50_fpn"
+    threshold: 0.4
+    device: "auto"
+    weights: "DEFAULT"

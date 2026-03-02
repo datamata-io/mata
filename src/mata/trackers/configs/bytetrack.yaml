@@ -1,0 +1,14 @@
+# ByteTrack tracker configuration
+# Ref: https://arxiv.org/abs/2110.06864
+tracker_type: bytetrack
+track_high_thresh: 0.5      # High confidence threshold — first association
+track_low_thresh: 0.1       # Low confidence threshold  — second association
+new_track_thresh: 0.6       # Threshold to initialise new tracks
+track_buffer: 30            # Frames a lost track is kept before removal
+match_thresh: 0.8           # IoU matching threshold
+fuse_score: true            # Fuse detection score with IoU distance
+# BotSort-specific fields (ignored by BYTETracker)
+gmc_method: null
+proximity_thresh: 0.5
+appearance_thresh: 0.25
+with_reid: false

@@ -1,0 +1,284 @@
+# MATA Model Configuration
+# ========================
+# Place this file at one of:
+#   - ~/.mata/models.yaml (user-global, applies to all projects)
+#   - .mata/models.yaml (project-local, overrides user-global)
+#
+# Configuration format:
+# <task>:
+#   <alias>:
+#     source: <model_source>  # Required: HF ID, file path, or URL
+#     threshold: <float>       # Optional: confidence threshold (0.0-1.0)
+#     device: <device>         # Optional: "cpu", "cuda", or "auto"
+#     # ... other task-specific parameters
+
+# ============================================================================
+# Object Detection Models
+# ============================================================================
+detect:
+  # -------------------------------------------------------------------------
+  # RT-DETR Models (Real-Time Detection Transformer)
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2304.08069
+  # -------------------------------------------------------------------------
+  rtdetr-r50:
+    source: "facebook/detr-resnet-50"
+    threshold: 0.5
+    device: auto
+    # Balanced speed/accuracy
+
+  rtdetr-r101:
+    source: "facebook/detr-resnet-101"
+    threshold: 0.5
+    device: auto
+    # Highest accuracy RT-DETR variant
+
+  # -------------------------------------------------------------------------
+  # DINO Models (DETR with Improved deNoising anchOr boxes)
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2203.03605
+  # -------------------------------------------------------------------------
+  dino-r50:
+    source: "IDEA-Research/dino-resnet-50"
+    threshold: 0.5
+    device: auto
+    # High-quality detection with improved training
+
+  dino-swin-large:
+    source: "IDEA-Research/dino-swin-large"
+    threshold: 0.4
+    device: auto
+    # State-of-the-art accuracy (requires more compute)
+
+  # -------------------------------------------------------------------------
+  # Conditional DETR Models
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2108.06152
+  # -------------------------------------------------------------------------
+  conditional-detr-r50:
+    source: "microsoft/conditional-detr-resnet-50"
+    threshold: 0.5
+    device: auto
+    # Fast convergence, good general-purpose detector
+
+  # -------------------------------------------------------------------------
+  # RT-DETRv4 TorchScript Models (Optimized Inference)
+  # License: Apache 2.0
+  # Note: Pre-traced models for fast deployment, no config needed
+  # -------------------------------------------------------------------------
+  rtv4-small:
+    source: "examples/models/torchscript/rtv4_s.pt" #CPU
+    threshold: 0.5
+    device: auto
+    input_size: 640
+    # Smallest RT-DETRv4 variant, fastest inference
+
+  rtv4-medium:
+    source: "examples/models/torchscript/rtv4_m.pt"
+    threshold: 0.5
+    device: auto
+    input_size: 640
+    # Medium RT-DETRv4 variant, balanced speed/accuracy
+
+  rtv4-large:
+    source: "examples/models/torchscript/rtv4_l.pt"
+    threshold: 0.5
+    device: auto
+    input_size: 640
+    # Large RT-DETRv4 variant, high accuracy
+
+  rtv4-xlarge:
+    source: "examples/models/torchscript/rtv4_x.pt"
+    threshold: 0.5
+    device: auto
+    input_size: 640
+    # Extra large RT-DETRv4 variant, highest accuracy
+
+  # -------------------------------------------------------------------------
+  # Custom Local Models (Examples)
+  # -------------------------------------------------------------------------
+  # my-custom-onnx:
+  #   source: "/path/to/custom_model.onnx"
+  #   threshold: 0.4
+  #   device: cuda
+
+  # my-custom-checkpoint:
+  #   source: "/path/to/checkpoint.pth"
+  #   config: "/path/to/config.yaml"
+  #   threshold: 0.5
+  #   device: cuda
+
+  # my-custom-torchscript:
+  #   source: "/path/to/model.pt"
+  #   threshold: 0.5
+  #   device: cuda
+  #   input_size: 640
+  #   # id2label: # Optional: custom label mapping for non-COCO models
+  #   #   0: "custom_class_1"
+  #   #   1: "custom_class_2"
+  #   #   ...
+
+  # -------------------------------------------------------------------------
+  # Default Model (Optional)
+  # If you want a specific default instead of the framework default
+  # -------------------------------------------------------------------------
+  # default:
+  #   source: rtdetr-r18  # Points to another alias
+  #   # OR
+  #   # source: "facebook/detr-resnet-50"  # Direct model ID
+
+# ============================================================================
+# Instance Segmentation Models (Future)
+# ============================================================================
+# segment:
+#   mask2former:
+#     source: "facebook/mask2former-swin-base-coco-instance"
+#     threshold: 0.5
+#     device: auto
+
+# ============================================================================
+# ============================================================================
+# Image Classification Models
+# ============================================================================
+classify:
+  # -------------------------------------------------------------------------
+  # ResNet Models (Residual Networks)
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/1512.03385
+  # -------------------------------------------------------------------------
+  resnet-50:
+    source: "microsoft/resnet-50"
+    top_k: 5
+    device: auto
+    # ImageNet-1k pre-trained, 1000 classes
+
+  resnet-101:
+    source: "microsoft/resnet-101"
+    top_k: 5
+    device: auto
+    # Deeper variant, higher accuracy
+
+  # -------------------------------------------------------------------------
+  # Vision Transformer (ViT) Models
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2010.11929
+  # -------------------------------------------------------------------------
+  vit-base:
+    source: "google/vit-base-patch16-224"
+    top_k: 5
+    device: auto
+    # Standard ViT, balanced performance
+
+  vit-large:
+    source: "google/vit-large-patch16-224"
+    top_k: 5
+    device: auto
+    # Larger ViT variant, higher capacity
+
+  # -------------------------------------------------------------------------
+  # ConvNeXt Models (Modernized ConvNet)
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2201.03545
+  # -------------------------------------------------------------------------
+  convnext-base:
+    source: "facebook/convnext-base-224"
+    top_k: 5
+    device: auto
+    # Efficient and accurate
+
+  convnext-large:
+    source: "facebook/convnext-large-224"
+    top_k: 5
+    device: auto
+    # Higher capacity variant
+
+  # -------------------------------------------------------------------------
+  # EfficientNet Models
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/1905.11946
+  # -------------------------------------------------------------------------
+  efficientnet-b0:
+    source: "google/efficientnet-b0"
+    top_k: 5
+    device: auto
+    # Smallest, fastest variant
+
+  efficientnet-b7:
+    source: "google/efficientnet-b7"
+    top_k: 5
+    device: auto
+    # Largest, most accurate variant
+
+  # -------------------------------------------------------------------------
+  # Swin Transformer Models
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2103.14030
+  # -------------------------------------------------------------------------
+  swin-base:
+    source: "microsoft/swin-base-patch4-window7-224"
+    top_k: 5
+    device: auto
+    # Hierarchical vision transformer
+
+  swin-large:
+    source: "microsoft/swin-large-patch4-window7-224"
+    top_k: 5
+    device: auto
+    # Larger Swin variant
+
+  # -------------------------------------------------------------------------
+  # BEiT Models (BERT Pre-Training of Image Transformers)
+  # License: MIT
+  # Paper: https://arxiv.org/abs/2106.08254
+  # -------------------------------------------------------------------------
+  beit-base:
+    source: "microsoft/beit-base-patch16-224"
+    top_k: 5
+    device: auto
+    # Self-supervised pre-trained
+
+  # -------------------------------------------------------------------------
+  # DeiT Models (Data-efficient Image Transformers)
+  # License: Apache 2.0
+  # Paper: https://arxiv.org/abs/2012.12877
+  # -------------------------------------------------------------------------
+  deit-base:
+    source: "facebook/deit-base-patch16-224"
+    top_k: 5
+    device: auto
+    # Efficient training with distillation
+
+# ============================================================================
+# Object Tracking Models (Future)
+# ============================================================================
+# track:
+#   bytetrack:
+#     source: "bytetrack-x"
+#     device: auto
+
+# ============================================================================
+# Configuration Tips
+# ============================================================================
+# 1. Use absolute paths for local model files
+# 2. Use forward slashes (/) even on Windows
+# 3. Set device to "auto" for automatic GPU/CPU selection
+# 4. Adjust thresholds based on your use case:
+#    - Detection: Higher threshold (0.5-0.7) = fewer false positives
+#    - Classification: top_k controls number of predictions returned
+# 5. Project-local configs (.mata/models.yaml) override user-global (~/.mata/models.yaml)
+# 6. You can add custom parameters specific to your models
+
+# ============================================================================
+# Usage Examples
+# ============================================================================
+# # Load using alias
+# detector = mata.load("detect", "rtdetr-r50")
+# classifier = mata.load("classify", "resnet-50")
+#
+# # Register at runtime
+# mata.register_model("detect", "my-model", "/path/to/model.onnx", threshold=0.6)
+# mata.register_model("classify", "custom-clf", "org/model-id", top_k=10)
+#
+# # Load registered model
+# detector = mata.load("detect", "my-model")
+# classifier = mata.load("classify", "custom-clf")
