@@ -155,6 +155,7 @@ class TestTorchScriptClassifyAdapter:
 
         # Use real torch device and functional operations
         mock_torch.device = torch.device
+        mock_torch.cuda.is_available.return_value = False
         mock_torch.no_grad.return_value.__enter__ = Mock()
         mock_torch.no_grad.return_value.__exit__ = Mock()
         mock_torch.nn = torch.nn  # Use real torch.nn for functional.softmax
@@ -211,6 +212,7 @@ class TestTorchScriptClassifyAdapter:
 
         # Use real torch device and functional operations
         mock_torch.device = torch.device
+        mock_torch.cuda.is_available.return_value = False
         mock_torch.no_grad.return_value.__enter__ = Mock()
         mock_torch.no_grad.return_value.__exit__ = Mock()
         mock_torch.nn = torch.nn
@@ -260,6 +262,7 @@ class TestTorchScriptClassifyAdapter:
 
         # Use real torch device and functional operations
         mock_torch.device = torch.device
+        mock_torch.cuda.is_available.return_value = False
         mock_torch.no_grad.return_value.__enter__ = Mock()
         mock_torch.no_grad.return_value.__exit__ = Mock()
         mock_torch.nn = torch.nn
