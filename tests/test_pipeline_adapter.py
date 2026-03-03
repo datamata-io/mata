@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
+import torch
 from PIL import Image
 
 from mata.adapters.pipeline_adapter import GroundingDINOSAMPipeline
@@ -52,6 +53,7 @@ class TestPipelineInitialization:
         assert pipeline.detection_threshold == 0.4
         assert pipeline.segmentation_threshold == 0.6
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
     def test_init_with_custom_device(self):
         """Test initialization with custom device."""
         pipeline = GroundingDINOSAMPipeline(
