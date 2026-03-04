@@ -109,7 +109,7 @@ import mata
 
 # Transformer-based detection (RT-DETR)
 result = mata.run("detect", "image.jpg",
-    model="facebook/rt-detr-r18",
+    model="PekingU/rtdetr_r18vd",
     threshold=0.4)
 
 # CNN-based detection (Apache 2.0, torchvision)
