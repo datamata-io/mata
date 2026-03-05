@@ -709,7 +709,6 @@ See [examples/segment/sam_segment.py](examples/segment/sam_segment.py) for compr
 | Model                    | HuggingFace ID                         | Runtime Support    | Description                   |
 | ------------------------ | -------------------------------------- | ------------------ | ----------------------------- |
 | **DETR**                 | `facebook/detr-resnet-50`              | PyTorch ✅ ONNX ✅ | Original transformer detector |
-| **DINO**                 | `IDEA-Research/dino-resnet-50`         | PyTorch ✅         | High-quality detection        |
 | **Conditional DETR**     | `microsoft/conditional-detr-resnet-50` | PyTorch ✅         | Fast convergence              |
 | **GroundingDINO** (zero) | `IDEA-Research/grounding-dino-tiny`    | PyTorch ✅         | Text-prompted detection       |
 | **OWL-ViT v2** (zero)    | `google/owlv2-base-patch16`            | PyTorch ✅         | Open-vocabulary detection     |
