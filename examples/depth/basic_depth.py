@@ -38,7 +38,7 @@ def example_depth_v1():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     result.save(OUTPUT_DIR / "depth_v1.png", colormap="magma")
     result.save(OUTPUT_DIR / "depth_v1.json")
-    print(f"Saved → {OUTPUT_DIR}/depth_v1.png and depth_v1.json")
+    print(f"Saved to {OUTPUT_DIR}/depth_v1.png and depth_v1.json")
 
 
 # === Section 2: One-Shot Depth (Depth Anything V2) ===
@@ -61,7 +61,7 @@ def example_depth_v2():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     result.save(OUTPUT_DIR / "depth_v2.png", colormap="magma")
     result.save(OUTPUT_DIR / "depth_v2.json")
-    print(f"Saved → {OUTPUT_DIR}/depth_v2.png and depth_v2.json")
+    print(f"Saved to {OUTPUT_DIR}/depth_v2.png and depth_v2.json")
 
 
 # === Section 3: Load Once, Predict Many ===
@@ -104,6 +104,8 @@ def main():
         example_load_once()
     except Exception as exc:
         print(f"  [error] load-once: {exc}")
+
+    print("\nDone.")
 
 
 if __name__ == "__main__":

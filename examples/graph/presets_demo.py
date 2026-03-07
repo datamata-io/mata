@@ -53,19 +53,21 @@ def create_mock_providers():
     # Classifier
     mock_classifier = Mock()
     mock_classifier.predict = Mock(return_value=ClassifyResult(
-        classifications=[
-            Classification(label="outdoor", score=0.82),
-            Classification(label="indoor", score=0.18),
+        predictions=[
+            Classification(label=0, score=0.82, label_name="outdoor"),
+            Classification(label=1, score=0.18, label_name="indoor"),
         ],
         meta={"model": "mock-clip"},
     ))
+    mock_classifier.classify = mock_classifier.predict
 
     # Depth estimator
     mock_depth = Mock()
     mock_depth.predict = Mock(return_value=DepthResult(
-        depth_map=np.random.rand(480, 640).astype(np.float32),
+        depth=np.random.rand(480, 640).astype(np.float32),
         meta={"model": "mock-depth"},
     ))
+    mock_depth.estimate = mock_depth.predict
 
     # Tracker
     mock_tracker = Mock()
@@ -83,7 +85,7 @@ def create_mock_providers():
         "detector": mock_detector,
         "segmenter": mock_segmenter,
         "classifier": mock_classifier,
-        "depth_estimator": mock_depth,
+        "depth": mock_depth,
         "tracker": mock_tracker,
         "vlm": mock_vlm,
     }
@@ -122,7 +124,7 @@ def main():
     )
     print(f"  Graph: {g1.name}, Nodes: {len(g1._nodes)}")
     print("  Usage: detector + segmenter providers")
-    print("  Flow: Detect → Filter → [NMS] → PromptBoxes → RefineMask → Fuse")
+    print("  Flow: Detect > Filter > [NMS] > PromptBoxes > RefineMask > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 2: Segment and Refine (Segment Everything)
@@ -131,7 +133,7 @@ def main():
     g2 = segment_and_refine()
     print(f"  Graph: {g2.name}, Nodes: {len(g2._nodes)}")
     print("  Usage: segmenter provider")
-    print("  Flow: SegmentEverything → RefineMask → Fuse")
+    print("  Flow: SegmentEverything > RefineMask > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 3: Detection + Pose
@@ -144,7 +146,7 @@ def main():
     )
     print(f"  Graph: {g3.name}, Nodes: {len(g3._nodes)}")
     print("  Usage: detector provider")
-    print("  Flow: Detect → Filter → [NMS] → [TopK] → Fuse")
+    print("  Flow: Detect > Filter > [NMS] > [TopK] > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 4: Full Scene Analysis (Parallel)
@@ -155,7 +157,7 @@ def main():
     )
     print(f"  Graph: {g4.name}, Nodes: {len(g4._nodes)}")
     print("  Usage: detector + classifier + depth_estimator providers")
-    print("  Flow: parallel(Detect, Classify, EstimateDepth) → Filter → Fuse")
+    print("  Flow: parallel(Detect, Classify, EstimateDepth) > Filter > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 5: Detection + Tracking
@@ -163,13 +165,13 @@ def main():
     print("\n=== Preset 5: detect_and_track ===")
     g5 = detect_and_track(
         detection_threshold=0.5,
-        track_thresh=0.4,
+        track_threshold=0.4,
         track_buffer=30,
-        match_thresh=0.8,
+        match_threshold=0.8,
     )
     print(f"  Graph: {g5.name}, Nodes: {len(g5._nodes)}")
     print("  Usage: detector + tracker providers")
-    print("  Flow: Detect → Filter → Track → Fuse")
+    print("  Flow: Detect > Filter > Track > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 6: VLM Grounded Detection
@@ -178,7 +180,7 @@ def main():
     g6 = vlm_grounded_detection()
     print(f"  Graph: {g6.name}, Nodes: {len(g6._nodes)}")
     print("  Usage: vlm + detector providers")
-    print("  Flow: parallel(VLMDetect, Detect) → Filter → PromoteEntities → Fuse")
+    print("  Flow: parallel(VLMDetect, Detect) > Filter > PromoteEntities > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 7: VLM Scene Understanding
@@ -187,7 +189,7 @@ def main():
     g7 = vlm_scene_understanding()
     print(f"  Graph: {g7.name}, Nodes: {len(g7._nodes)}")
     print("  Usage: vlm + detector + depth_estimator providers")
-    print("  Flow: parallel(VLMDescribe, Detect, EstimateDepth) → Fuse")
+    print("  Flow: parallel(VLMDescribe, Detect, EstimateDepth) > Fuse")
 
     # -----------------------------------------------------------------------
     # Preset 8: VLM Multi-Image Comparison
@@ -196,29 +198,43 @@ def main():
     g8 = vlm_multi_image_comparison()
     print(f"  Graph: {g8.name}, Nodes: {len(g8._nodes)}")
     print("  Usage: vlm provider")
-    print("  Flow: VLMQuery → Fuse")
+    print("  Flow: VLMQuery > Fuse")
 
     # -----------------------------------------------------------------------
     # Execute a preset with mata.infer()
     # -----------------------------------------------------------------------
     print("\n=== Executing a Preset ===")
 
-    if "--real" not in sys.argv:
-        import mata
+    import mata
 
+    if "--real" in sys.argv:
+        print("  Loading real models (this may take a moment)...")
+        detector = mata.load("detect", "facebook/detr-resnet-50")
+        classifier = mata.load("classify", "openai/clip-vit-base-patch32")
+        depth = mata.load("depth", "depth-anything/Depth-Anything-V2-Small-hf")
+        real_providers = {
+            "detector": detector,
+            "classifier": classifier,
+            "depth": depth,
+        }
+        result = mata.infer(
+            image="examples/images/000000039769.jpg",
+            graph=g4,  # full_scene_analysis preset
+            providers=real_providers,
+        )
+    else:
+        print("  (Running with mock providers — use --real for actual models)")
         result = mata.infer(
             image="examples/images/000000039769.jpg",
             graph=g4,  # full_scene_analysis preset
             providers=providers,
         )
 
-        print("full_scene_analysis result:")
-        print(f"  Channels: {list(result.channels.keys())}")
-        if result.has_channel("detections"):
-            dets = result.get_channel("detections")
-            print(f"  Detections: {len(dets.instances)} objects")
-    else:
-        print("  (Use --real flag with actual model providers)")
+    print("full_scene_analysis result:")
+    print(f"  Channels: {list(result.channels.keys())}")
+    if result.has_channel("dets"):
+        dets = result.get_channel("dets")
+        print(f"  Detections: {len(dets.instances)} objects")
 
     # -----------------------------------------------------------------------
     # Quick reference

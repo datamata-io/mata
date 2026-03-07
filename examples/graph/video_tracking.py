@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Video processing with object tracking: Detect → Track across frames.
+"""Video processing with object tracking: Detect > Track across frames.
 
 Demonstrates:
 1. Building a detection + tracking graph
@@ -11,6 +11,7 @@ Demonstrates:
 Usage:
     python examples/graph/video_tracking.py
     python examples/graph/video_tracking.py --real
+    python examples/graph/video_tracking.py --video_path /path/to/video.mp4
 
 Note:
     Requires OpenCV for video file processing:
@@ -21,7 +22,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 # ---------------------------------------------------------------------------
 # Mock providers
@@ -32,6 +32,7 @@ def create_mock_providers():
     from unittest.mock import Mock
 
     from mata.core.types import Instance, VisionResult
+    from mata.nodes.track import SimpleIOUTracker
 
     # Simulate a detector that returns slightly different bboxes each frame
     # (mimicking real object movement)
@@ -59,39 +60,26 @@ def create_mock_providers():
     mock_detector = Mock()
     mock_detector.predict = mock_predict
 
-    # Simple mock tracker (Track node uses its own internal tracker
-    # via ByteTrackWrapper / SimpleIOUTracker, so we use "tracker" as provider name)
-    mock_tracker = Mock()
+    # Use SimpleIOUTracker (built-in) as the tracker — returns real Tracks artifacts
+    tracker = SimpleIOUTracker()
 
-    return {"detector": mock_detector, "tracker": mock_tracker}
+    return {
+        "detect": {"detector": mock_detector},
+        "track": {"tracker": tracker},
+    }
 
 
-def create_mock_video(num_frames: int = 30, fps: float = 30.0) -> str:
-    """Create a short mock video file for demo purposes.
+DEFAULT_VIDEO_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "videos", "cup.mp4"
+)
 
-    Returns path to temporary video file.
-    """
-    try:
-        import cv2
-    except ImportError:
-        return ""
 
-    import numpy as np
-
-    path = os.path.join(tempfile.gettempdir(), "mata_demo_video.avi")
-    fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-    writer = cv2.VideoWriter(path, fourcc, fps, (640, 480))
-
-    for i in range(num_frames):
-        # Simple frame with a moving rectangle (simulating object motion)
-        frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        x = 50 + i * 10
-        cv2.rectangle(frame, (x, 100), (x + 100, 300), (0, 255, 0), -1)
-        cv2.rectangle(frame, (400, 150), (500, 250), (255, 0, 0), -1)
-        writer.write(frame)
-
-    writer.release()
-    return path
+def get_video_path() -> str:
+    """Return video path from --video_path arg or the default cup.mp4."""
+    for i, arg in enumerate(sys.argv):
+        if arg == "--video_path" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return DEFAULT_VIDEO_PATH
 
 
 # ---------------------------------------------------------------------------
@@ -112,13 +100,17 @@ def main():
     use_real = "--real" in sys.argv
     if use_real:
         import mata
+        from mata.nodes.track import SimpleIOUTracker
         print("Loading real models...")
+        detector = mata.load("detect", "PekingU/rtdetr_r50vd")
+        # VideoProcessor needs nested {capability: {name: adapter}} format
         providers = {
-            "detector": mata.load("detect", "PekingU/rtdetr_v2_r18vd"),
-            "tracker": "simple_iou",  # Track node has built-in tracker
+            "detect": {"detector": detector},
+            "track": {"tracker": SimpleIOUTracker()},
         }
     else:
         print("Running with mock providers")
+        # VideoProcessor needs nested {capability: {name: adapter}} format
         providers = create_mock_providers()
 
     # -----------------------------------------------------------------------
@@ -140,8 +132,8 @@ def main():
     # Every 3rd frame — good for offline video processing
     policy_every3 = FramePolicyEveryN(n=3)
     print(f"EveryN(3): frame 0={policy_every3.should_process(0)}, "
-          f"frame 1={policy_every3.should_process(1)}, "
-          f"frame 3={policy_every3.should_process(3)}")
+            f"frame 1={policy_every3.should_process(1)}, "
+            f"frame 3={policy_every3.should_process(3)}")
 
     # Latest frame only — good for real-time (RTSP/webcam)
     policy_latest = FramePolicyLatest()
@@ -156,14 +148,20 @@ def main():
     # -----------------------------------------------------------------------
     print("\n=== Video File Processing ===")
 
-    # Create a mock video for demo
-    video_path = create_mock_video(num_frames=15, fps=15.0)
-    if not video_path:
-        print("OpenCV not installed — skipping video demo")
-        print("Install with: pip install opencv-python")
+    video_path = get_video_path()
+    if not os.path.exists(video_path):
+        print(f"Video not found: {video_path}")
+        print("Provide a path with: --video_path /path/to/video.mp4")
     else:
-        # Compile the graph for VideoProcessor
-        compiled = graph.compile(providers=providers)
+        print(f"Video: {video_path}")
+        # providers is nested {capability: {name: adapter}} for VideoProcessor/ExecutionContext.
+        # graph.compile() validator needs flat {name: adapter}, so flatten for it.
+        flat_providers = {
+            name: prov
+            for cap_dict in providers.values()
+            for name, prov in cap_dict.items()
+        }
+        compiled = graph.compile(providers=flat_providers)
 
         # Process with EveryN policy (every 3rd frame)
         processor = VideoProcessor(
@@ -177,7 +175,7 @@ def main():
             max_frames=15,  # Limit to 15 frames for demo
         )
 
-        print(f"Processed {len(results)} frames (every 3rd of 15)")
+        print(f"Processed {len(results)} frames (every 3rd, up to 15)")
         for i, frame_result in enumerate(results):
             channels = list(frame_result.channels.keys())
             print(f"  Frame {i}: channels={channels}")
@@ -185,9 +183,6 @@ def main():
             if frame_result.has_channel("tracks"):
                 tracks = frame_result.get_channel("tracks")
                 print(f"    Active tracks: {len(tracks.tracks) if hasattr(tracks, 'tracks') else 'N/A'}")
-
-        # Clean up temp video
-        os.unlink(video_path)
 
     # -----------------------------------------------------------------------
     # Example 3: Using the detect_and_track preset
@@ -197,9 +192,9 @@ def main():
 
     preset_graph = detect_and_track(
         detection_threshold=0.5,
-        track_thresh=0.4,
+        track_threshold=0.4,
         track_buffer=30,
-        match_thresh=0.8,
+        match_threshold=0.8,
     )
     print(f"Preset graph: {preset_graph.name}")
     print(f"Nodes: {len(preset_graph._nodes)}")
@@ -236,7 +231,7 @@ def main():
     # From another thread: stop_event.set() to stop
     """)
 
-    print("✓ Video tracking example complete!")
+    print("Video tracking example complete!")
 
 
 if __name__ == "__main__":

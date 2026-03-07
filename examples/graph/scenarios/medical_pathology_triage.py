@@ -30,7 +30,7 @@ Models:
     - VLM: Qwen/Qwen3-VL-2B (detailed analysis for flagged regions)
 
 Graph Flow:
-    Detect → Filter → ExtractROIs → Classify → [Conditional VLM Query] → Fuse
+    Detect > Filter > ExtractROIs > Classify > [Conditional VLM Query] > Fuse
 
 Usage:
     python medical_pathology_triage.py                    # Mock mode
@@ -129,25 +129,25 @@ def main():
         print("Complex Conditional Pipeline (Example-Only Pattern):")
         print()
         print("  Flow:")
-        print("    1. Detect → identify regions of interest")
-        print("    2. ExtractROIs → crop each region")
-        print("    3. Classify → triage as [normal, benign, atypical, uncertain]")
+        print("    1. Detect > identify regions of interest")
+        print("    2. ExtractROIs > crop each region")
+        print("    3. Classify > triage as [normal, benign, atypical, uncertain]")
         print("    4. Conditional Logic:")
         print("       - If 'atypical' or 'uncertain' score > 0.3:")
-        print("         → Flag for VLM detailed analysis (research review queue)")
+        print("         > Flag for VLM detailed analysis (research review queue)")
         print("       - Otherwise:")
-        print("         → Mark as routine")
+        print("         > Mark as routine")
         print()
-        print("Graph: Detect → Filter → ExtractROIs → Classify → [Conditional] → Fuse")
+        print("Graph: Detect > Filter > ExtractROIs > Classify > [Conditional] > Fuse")
         print("Models: DETR (detector) + CLIP (classifier) + Qwen3-VL (optional VLM)")
         print()
         print("This demonstrates the most complex scenario: conditional branching")
         print("with real-world research triage logic for prioritizing expert review.")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → detected regions")
-        print("  result['final'].rois → cropped region images")
-        print("  result['final'].classifications → triage classifications")
+        print("  result['final'].instances > detected regions")
+        print("  result['final'].rois > cropped region images")
+        print("  result['final'].classifications > triage classifications")
         print("  Conditional logic identifies which regions need expert review")
         print()
 

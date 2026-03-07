@@ -24,7 +24,7 @@ Models:
     - Classifier: openai/clip-vit-base-patch32 (zero-shot)
 
 Graph Flow:
-    Parallel(Detect, SegmentImage, EstimateDepth, Classify) → Filter → Fuse
+    Parallel(Detect, SegmentImage, EstimateDepth, Classify) > Filter > Fuse
 
 Usage:
     python driving_road_scene.py                    # Mock mode
@@ -77,14 +77,14 @@ def main():
     else:
         print("=== Autonomous Driving: Comprehensive Road Scene Analysis (Mock) ===")
         print()
-        print("Graph: Parallel(Detect, SegmentImage, EstimateDepth, Classify) → Filter → Fuse")
+        print("Graph: Parallel(Detect, SegmentImage, EstimateDepth, Classify) > Filter > Fuse")
         print("Models: DETR + Mask2Former + Depth Anything + CLIP")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → detected objects")
-        print("  result['final'].masks → panoptic segmentation (road, sidewalk, sky)")
-        print("  result['final'].depth → depth map for spatial context")
-        print("  result['final'].classifications → scene type classification")
+        print("  result['final'].instances > detected objects")
+        print("  result['final'].masks > panoptic segmentation (road, sidewalk, sky)")
+        print("  result['final'].depth > depth map for spatial context")
+        print("  result['final'].classifications > scene type classification")
         print()
         print("This is the most comprehensive driving preset with 4 parallel tasks.")
         print()

@@ -87,12 +87,12 @@ def section_export(output_dir: Path):
     # Save to .json file
     json_path = output_dir / "detections.json"
     result.save(str(json_path))
-    print(f"[export] Saved JSON  → {json_path}")
+    print(f"[export] Saved JSON  to {json_path}")
 
     # Save annotated image (overlay bboxes on the source image)
     img_path = output_dir / "detections_overlay.jpg"
     result.save(str(img_path))
-    print(f"[export] Saved image → {img_path}")
+    print(f"[export] Saved image to {img_path}")
 
 
 # === Section 6: Config Aliases ===
@@ -104,7 +104,7 @@ def section_config_aliases():
     mata.register_model("detect", "my-rtdetr",  "PekingU/rtdetr_r50vd",   threshold=0.6)
 
     detector = mata.load("detect", "my-detr")
-    print(f"[alias] Loaded 'my-detr' → {detector.__class__.__name__}")
+    print(f"[alias] Loaded 'my-detr' to {detector.__class__.__name__}")
 
     # Config-file aliases work the same way — set them in .mata/models.yaml
     # and load by name without calling register_model() in code.

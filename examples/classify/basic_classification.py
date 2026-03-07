@@ -1,6 +1,6 @@
 """Basic Classification Examples — MATA Framework
 
-Progressive examples: one-shot → load/reuse → model comparison → filtering.
+Progressive examples: one-shot > load/reuse > model comparison > filtering.
 Run: python examples/classify/basic_classification.py
 """
 
@@ -31,7 +31,7 @@ def load_and_reuse():
     for _ in range(2):
         result = classifier.predict(get_image())
         top1 = result.get_top1()
-        print(f"  → {top1.label_name}: {top1.score * 100:.2f}%")
+        print(f"  to {top1.label_name}: {top1.score * 100:.2f}%")
 
 
 # === Section 3: Access Results (.get_top1, top-5 predictions) ===

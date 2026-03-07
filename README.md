@@ -1171,72 +1171,7 @@ export MATA_CONFIG=/path/to/config.json
 
 ## 🛣️ Roadmap
 
-### ✅ Completed (v1.9.0 - Current)
-
-#### **OCR / Text Extraction** — Five backends, graph nodes, evaluation pipeline
-
-- ✅ **Five OCR backends**: EasyOCR (80+ languages), PaddleOCR (multilingual), Tesseract (classic), GOT-OCR2 (HuggingFace end-to-end), TrOCR (HuggingFace line-level)
-- ✅ **`mata.run("ocr", ...)` API**: Unified entry point — `model=` selects backend or HuggingFace ID
-- ✅ **`mata.load("ocr", ...)` API**: Returns persistent adapter for repeated inference
-- ✅ **`OCRResult` type**: `.full_text`, `.regions` (list of `TextRegion` with bbox + score + text)
-- ✅ **Multi-format export**: `.save("out.txt")`, `.save("out.csv")`, `.save("out.json")`, `.save("overlay.png")`
-- ✅ **`filter_by_score()`**: Confidence-threshold filtering on OCR results
-- ✅ **`OCRText` graph artifact**: Strongly-typed artifact for graph pipelines
-- ✅ **`OCR` graph node**: Accepts `Image` or `ROIs` input, aggregates per-crop results with `instance_id` correlation
-- ✅ **`ExtractROIs` graph node**: Crops detection regions for downstream OCR
-- ✅ **`OCRWrapper`**: Protocol-based capability wrapper enabling OCR as a graph provider
-- ✅ **VLM tool integration**: `"ocr"` registered in `ToolRegistry` and `TASK_SCHEMA_DEFAULTS` for agent mode
-- ✅ **UniversalLoader routing**: Bare engine names (`"easyocr"`, `"paddleocr"`, `"tesseract"`) routed via `_EXTERNAL_OCR_ENGINES`; HuggingFace OCR IDs routed through `_load_from_huggingface()`
-- ✅ **Optional dependencies**: EasyOCR, PaddleOCR, Tesseract declared as optional extras in `pyproject.toml`
-- ✅ **71 evaluation tests**: `test_eval_ocr.py` — all passing, zero regressions against 4307+ total
-- ⏳ **`mata.val("ocr", ...)` evaluation**: `OCRMetrics` (word accuracy, character accuracy, precision, recall, F1) with COCO-Text JSON dataset loader | PENDING for v1.9.1 release due to dataset licensing review.
-
-### ✅ Completed (v1.8)
-
-#### **Object Tracking** — ByteTrack + BotSort
-
-- ✅ **Vendored ByteTrack**: Zero-dependency implementation in `src/mata/trackers/` (no yolox/ultralytics)
-- ✅ **Vendored BotSort**: IoU + Global Motion Compensation (GMC via sparse optical flow)
-- ✅ **`mata.track()` API**: One-liner video/stream/webcam/image-dir tracking
-- ✅ **`mata.load("track", ...)` API**: Returns `TrackingAdapter` for persistent per-frame tracking
-- ✅ **Multiple source types**: Video files, RTSP streams, webcams, image directories, single images
-- ✅ **Track ID rendering**: `show_track_ids=True` with deterministic per-track colors
-- ✅ **Trajectory trails**: `show_trails=True` — PIL-native polyline history rendering
-- ✅ **CSV/JSON export**: MOT-compatible CSV export, multi-frame JSON with metadata
-- ✅ **Graph node upgrade**: `Track` node uses vendored trackers, `BotSortWrapper` added
-- ✅ **Graph presets**: BotSort variants added to surveillance/driving presets
-- ✅ **YAML config**: Tracker settings in `~/.mata/models.yaml` under `track:` task
-- ✅ **687 tests**: All passing, zero regressions against 4047+ total
-
-### ✅ Completed (v1.6)
-
-#### **Graph System Architecture** - Multi-task workflows with parallel execution
-
-- ✅ **Artifact Type System**: Strongly-typed vision primitives (Image, Detections, Masks, Keypoints, Tracks, ROIs)
-- ✅ **Task Graph Builder**: Fluent API for composing multi-task pipelines (Detect → Segment → Pose)
-- ✅ **Parallel Execution**: Automatic parallelization of independent tasks (1.5-3x speedup, 41x in benchmarks)
-- ✅ **Conditional Branching**: Result-driven workflow control with If/else, HasLabel, CountAbove, ScoreAbove
-- ✅ **Temporal Processing**: Video inference with BYTETrack/IoU tracking and frame policies
-- ✅ **Capability Providers**: Protocol-based model registry with lazy loading
-- ✅ **VLM Graph Nodes**: VLMDescribe, VLMDetect, VLMQuery, PromoteEntities for Entity→Instance workflows
-- ✅ **Visualization Nodes**: Native Annotate and NMS nodes reusing existing PIL/matplotlib backends
-- ✅ **Pre-built Presets**: 8 graph presets (detection+segmentation, scene analysis, VLM workflows, tracking)
-- ✅ **Observability**: Metrics collection, execution tracing, and provenance tracking
-- ✅ **`mata.infer()` API**: New public API for graph execution with flat provider dicts
-- ✅ **Backward Compatibility**: 100% compatible with existing `mata.load()`/`mata.run()` APIs
-- ✅ **Comprehensive Testing**: 2185 tests, >80% coverage
-
-### ✅ Completed (v1.5.3)
-
-- ✅ **Multi-Task Support**: Detection, classification, segmentation, depth estimation, vision-language models (VLM)
-- ✅ **Zero-Shot Capabilities**: CLIP (classify), GroundingDINO/OWL-ViT (detect), SAM/SAM3 (segment)
-- ✅ **Vision-Language Models**: Image captioning, VQA, visual understanding with Qwen3-VL - February 2026
-- ✅ **Universal Loader**: llama.cpp-style loading with 5-strategy auto-detection
-- ✅ **Multi-Format Runtime**: PyTorch, ONNX Runtime, TorchScript, Torchvision support
-- ✅ **Torchvision CNN Detection**: Apache 2.0 licensed models (RetinaNet, Faster R-CNN, FCOS, SSD) - February 2026
-- ✅ **Export & Visualization**: JSON/CSV/image/crops with dual backends (PIL/matplotlib)
-- ✅ **Plugin Removal**: Simplified architecture, -1,268 lines of legacy code
-- ✅ **Comprehensive Testing**: 405 tests (exceeded 202+ target), 60-85% coverage
+> **For a full history of completed features, see [CHANGELOG.md](CHANGELOG.md).**
 
 ### 🔄 In Progress
 
@@ -1245,7 +1180,7 @@ export MATA_CONFIG=/path/to/config.json
 - ⏳ **ReID model integration**: Feature embeddings via HuggingFace ReID models
 - ⏳ **Cross-camera tracking**: Match track IDs across camera feeds
 - ⏳ **BotSort ReID mode**: Enable `with_reid=true` in botsort config
-- **Status**: Planned for v1.9
+- **Status**: Planned for v1.9.x
 
 #### **2. KACA Integration** - MIT-licensed CNN detection with PyTorch and ONNX support
 
@@ -1261,6 +1196,7 @@ export MATA_CONFIG=/path/to/config.json
 - 🔄 **Model Recommendations**: Suggest best models based on task and hardware constraints
 - 🔄 **Batch Model Download**: Pre-download common models for air-gapped environments
 - 🔄 **Enhanced Search**: Filter by task, license, performance metrics
+- **Status**: Planned for v2.x
 
 ### ⏳ Planned (v2.0 - Q2 2026)
 

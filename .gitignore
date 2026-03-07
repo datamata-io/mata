@@ -167,6 +167,8 @@ runs/
 # Dev Test Artifacts
 examples/inference/outputs/
 bm_test/
+example_test.sh
+example_test.ps1
 
 # Auto Claude data directory
 .auto-claude/

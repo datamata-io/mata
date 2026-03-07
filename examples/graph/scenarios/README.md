@@ -27,53 +27,53 @@ python retail_shelf_analysis.py --real shelf_image.jpg
 
 | Script                               | Problem                                   | Models               | Graph Pattern             |
 | ------------------------------------ | ----------------------------------------- | -------------------- | ------------------------- |
-| `manufacturing_defect_classify.py`   | Surface defect detection & classification | GroundingDINO + CLIP | Detect → ROI → Classify   |
-| `manufacturing_defect_segment.py`    | Defect segmentation & measurement         | GroundingDINO + SAM  | Detect → Segment → Refine |
-| `manufacturing_assembly_verify.py`   | Assembly verification with VLM            | Qwen3-VL + DETR      | VLM ‖ Detect → Fuse       |
-| `manufacturing_component_inspect.py` | Per-component VLM inspection              | DETR + Qwen3-VL      | Detect → ROI → VLM        |
+| `manufacturing_defect_classify.py`   | Surface defect detection & classification | GroundingDINO + CLIP | Detect > ROI > Classify   |
+| `manufacturing_defect_segment.py`    | Defect segmentation & measurement         | GroundingDINO + SAM  | Detect > Segment > Refine |
+| `manufacturing_assembly_verify.py`   | Assembly verification with VLM            | Qwen3-VL + DETR      | VLM ‖ Detect > Fuse       |
+| `manufacturing_component_inspect.py` | Per-component VLM inspection              | DETR + Qwen3-VL      | Detect > ROI > VLM        |
 
 ### 🛒 Retail (3 scenarios)
 
 | Script                     | Problem                                  | Models                 | Graph Pattern                 |
 | -------------------------- | ---------------------------------------- | ---------------------- | ----------------------------- |
-| `retail_shelf_analysis.py` | Product detection + brand classification | Faster R-CNN + CLIP    | Detect → NMS → ROI → Classify |
-| `retail_product_search.py` | Zero-shot product search & segmentation  | GroundingDINO + SAM    | Detect → Segment              |
+| `retail_shelf_analysis.py` | Product detection + brand classification | Faster R-CNN + CLIP    | Detect > NMS > ROI > Classify |
+| `retail_product_search.py` | Zero-shot product search & segmentation  | GroundingDINO + SAM    | Detect > Segment              |
 | `retail_stock_level.py`    | Multi-modal stock assessment             | Qwen3-VL + DETR + CLIP | VLM ‖ Detect ‖ Classify       |
 
 ### 🚗 Autonomous Driving (4 scenarios)
 
 | Script                           | Problem                               | Models                                   | Graph Pattern             |
 | -------------------------------- | ------------------------------------- | ---------------------------------------- | ------------------------- |
-| `driving_distance_estimation.py` | Vehicle distance estimation           | DETR + Depth Anything                    | Detect ‖ Depth → Fuse     |
-| `driving_road_scene.py`          | Complete road scene analysis          | 4 models (detect/segment/depth/classify) | 4-way parallel → Fuse     |
-| `driving_traffic_tracking.py`    | Traffic object tracking               | RT-DETR + BYTETrack                      | Detect → Track → Annotate |
+| `driving_distance_estimation.py` | Vehicle distance estimation           | DETR + Depth Anything                    | Detect ‖ Depth > Fuse     |
+| `driving_road_scene.py`          | Complete road scene analysis          | 4 models (detect/segment/depth/classify) | 4-way parallel > Fuse     |
+| `driving_traffic_tracking.py`    | Traffic object tracking               | RT-DETR + BYTETrack                      | Detect > Track > Annotate |
 | `driving_obstacle_vlm.py`        | Obstacle detection with VLM reasoning | Qwen3-VL + GroundingDINO + Depth         | VLM ‖ Detect ‖ Depth      |
 
 ### 🔒 Security/Surveillance (3 scenarios)
 
-| Script                                 | Problem                                    | Models                         | Graph Pattern            |
-| -------------------------------------- | ------------------------------------------ | ------------------------------ | ------------------------ |
-| `security_crowd_monitoring.py`         | Person detection + tracking                | DETR + BYTETrack               | Detect → Filter → Track  |
-| `security_suspicious_object.py`        | Suspicious object detection + VLM analysis | GroundingDINO + SAM + Qwen3-VL | Detect → Segment → VLM   |
-| `security_situational_awareness.py`    | Situational awareness monitoring           | Qwen3-VL + GroundingDINO       | VLM → PromoteEntities    |
+| Script                              | Problem                                    | Models                         | Graph Pattern           |
+| ----------------------------------- | ------------------------------------------ | ------------------------------ | ----------------------- |
+| `security_crowd_monitoring.py`      | Person detection + tracking                | DETR + BYTETrack               | Detect > Filter > Track |
+| `security_suspicious_object.py`     | Suspicious object detection + VLM analysis | GroundingDINO + SAM + Qwen3-VL | Detect > Segment > VLM  |
+| `security_situational_awareness.py` | Situational awareness monitoring           | Qwen3-VL + GroundingDINO       | VLM > PromoteEntities   |
 
 ### 🌾 Agriculture (3 scenarios)
 
-| Script                             | Problem                           | Models                    | Graph Pattern              |
-| ---------------------------------- | --------------------------------- | ------------------------- | -------------------------- |
-| `agriculture_disease_classify.py`  | Crop disease classification       | GroundingDINO + CLIP      | Detect → ROI → Classify    |
-| `agriculture_aerial_crop.py`       | Aerial crop segmentation          | Mask2Former + Depth       | Segment ‖ Depth → Fuse     |
-| `agriculture_pest_detection.py`    | Pest detection & area mapping     | GroundingDINO + SAM       | Detect → Segment           |
+| Script                            | Problem                       | Models               | Graph Pattern           |
+| --------------------------------- | ----------------------------- | -------------------- | ----------------------- |
+| `agriculture_disease_classify.py` | Crop disease classification   | GroundingDINO + CLIP | Detect > ROI > Classify |
+| `agriculture_aerial_crop.py`      | Aerial crop segmentation      | Mask2Former + Depth  | Segment ‖ Depth > Fuse  |
+| `agriculture_pest_detection.py`   | Pest detection & area mapping | GroundingDINO + SAM  | Detect > Segment        |
 
 ### 🏥 Healthcare (3 scenarios)
 
 ⚠️ **DISCLAIMER**: Research and demonstration purposes only. NOT for clinical use.
 
-| Script                            | Problem                              | Models                        | Graph Pattern                   |
-| --------------------------------- | ------------------------------------ | ----------------------------- | ------------------------------- |
-| `medical_roi_segmentation.py`     | ROI segmentation & measurement       | GroundingDINO + SAM           | Detect → Segment                |
-| `medical_report_generation.py`    | Medical image report generation      | Qwen3-VL                      | VLM → Fuse                      |
-| `medical_pathology_triage.py`     | Pathology triage workflow            | DETR + CLIP + Qwen3-VL        | Detect → ROI → Classify → VLM   |
+| Script                         | Problem                         | Models                 | Graph Pattern                 |
+| ------------------------------ | ------------------------------- | ---------------------- | ----------------------------- |
+| `medical_roi_segmentation.py`  | ROI segmentation & measurement  | GroundingDINO + SAM    | Detect > Segment              |
+| `medical_report_generation.py` | Medical image report generation | Qwen3-VL               | VLM > Fuse                    |
+| `medical_pathology_triage.py`  | Pathology triage workflow       | DETR + CLIP + Qwen3-VL | Detect > ROI > Classify > VLM |
 
 ## Usage Patterns
 
@@ -94,7 +94,7 @@ Real-World Problem:
   Retailers need automated shelf monitoring...
 
 Graph Flow:
-  Detect → Filter → NMS → ExtractROIs → Classify → Fuse
+  Detect > Filter > NMS > ExtractROIs > Classify > Fuse
 
 ✓ Graph 'shelf_product_analysis' constructed with 6 nodes
 ```
@@ -140,7 +140,7 @@ Examples combine multiple vision tasks for comprehensive insights:
 
 ```python
 # VLM + Detection + Classification in parallel
-stock_level_analysis()  # → semantic + quantitative + categorical
+stock_level_analysis()  # > semantic + quantitative + categorical
 ```
 
 ### 3. Preset Reuse
@@ -186,7 +186,7 @@ scenarios/
 
 **Beginners**:
 
-1. Start with `retail_shelf_analysis.py` — simple detect → classify pattern
+1. Start with `retail_shelf_analysis.py` — simple detect > classify pattern
 2. Try `retail_product_search.py` — learn zero-shot detection
 3. Explore `manufacturing_defect_classify.py` — see domain transfer
 

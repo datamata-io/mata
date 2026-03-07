@@ -122,7 +122,7 @@ Built-in Tools (zoom, crop) + Provider Tools (detect, classify, etc.)
 - **Error modes**: retry (default), skip, fail
 - **Observability**: Full tracing and metrics integration
 
-**Testing:** 336 comprehensive tests in `test_tool_schema.py`, `test_tool_registry.py`, `test_agent_loop.py`, `test_tool_prompts.py`, `test_tool_call_parser.py`, etc. All passing with zero regressions.
+**Testing:** 342 comprehensive tests in `test_tool_schema.py`, `test_tool_registry.py`, `test_agent_loop.py`, `test_tool_prompts.py`, `test_tool_call_parser.py`, etc. All passing with zero regressions.
 
 **Documentation:** See `docs/VLM_TOOL_CALLING_SUMMARY.md` for complete architecture details, design decisions, limitations, and future roadmap.
 
@@ -152,7 +152,7 @@ pytest tests/test_track_node.py -v         # Track graph node (39 tests)
 
 # VLM tool-calling test suites (v1.7.0)
 pytest tests/test_tool_schema.py -v        # Tool schema (33 tests)
-pytest tests/test_tool_registry.py -v      # Tool registry (44 tests)
+pytest tests/test_tool_registry.py -v      # Tool registry (49 tests)
 pytest tests/test_agent_loop.py -v         # Agent loop (51 tests)
 pytest tests/test_tool_prompts.py -v       # Tool prompts (18 tests)
 pytest tests/test_tool_call_parser.py -v   # Tool call parser (51 tests)

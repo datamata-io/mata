@@ -150,7 +150,7 @@ def example4_batch_classification():
     for name, img in images:
         result = classifier.predict(img, text_prompts=text_prompts, top_k=2)
         top2 = [(p.label_name, f"{p.score:.4f}") for p in result.predictions]
-        print(f"  {name:15s} → {top2}")
+        print(f"  {name:15s} to {top2}")
 
 
 def main():

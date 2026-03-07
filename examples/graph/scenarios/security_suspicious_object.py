@@ -24,7 +24,7 @@ Models:
     - VLM: Qwen/Qwen3-VL-2B-Instruct (contextual reasoning)
 
 Graph Flow:
-    Detect → Filter → PromptBoxes(SAM) → RefineMask → VLMQuery → Fuse
+    Detect > Filter > PromptBoxes(SAM) > RefineMask > VLMQuery > Fuse
 
 Usage:
     python security_suspicious_object.py                    # Mock mode
@@ -78,13 +78,13 @@ def main():
     else:
         print("=== Security: Suspicious Unattended Object Detection (Mock) ===")
         print()
-        print("Graph: Detect → Filter → PromptBoxes → RefineMask → VLMQuery → Fuse")
+        print("Graph: Detect > Filter > PromptBoxes > RefineMask > VLMQuery > Fuse")
         print("Models: GroundingDINO + SAM + Qwen3-VL (3-model chain)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of detected suspicious objects")
-        print("  result['final'].masks → precise segmentation masks for each object")
-        print("  result['final'].vlm_analysis → VLM reasoning about each object")
+        print("  result['final'].instances > list of detected suspicious objects")
+        print("  result['final'].masks > precise segmentation masks for each object")
+        print("  result['final'].vlm_analysis > VLM reasoning about each object")
         print()
         print("Why 3 models?")
         print("  1. GroundingDINO: Zero-shot detection via text prompts")
@@ -98,7 +98,7 @@ def main():
         print("Real-world deployment considerations:")
         print("  - Temporal analysis: Track if object remains unattended over time")
         print("  - Owner proximity detection: Use person detection + spatial proximity")
-        print("  - Alert escalation: High-risk objects → immediate human review")
+        print("  - Alert escalation: High-risk objects > immediate human review")
         print()
 
         # Verify preset construction

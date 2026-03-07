@@ -24,7 +24,7 @@ Models:
     - Classifier: openai/clip-vit-base-patch32 (stock level categorization)
 
 Graph Flow:
-    Parallel(VLMDescribe, Detect, Classify) → Filter → Fuse
+    Parallel(VLMDescribe, Detect, Classify) > Filter > Fuse
 
 Use Cases:
     - Automated restocking alerts
@@ -141,7 +141,7 @@ def main():
         print("  3. CLIP categories stock level (fully/partially/low/empty)")
         print()
         print("Graph Flow:")
-        print("  Parallel(VLMDescribe, Detect, Classify) → Filter → Fuse")
+        print("  Parallel(VLMDescribe, Detect, Classify) > Filter > Fuse")
         print()
         print("Models:")
         print("  - VLM: Qwen/Qwen3-VL-2B-Instruct")
@@ -149,9 +149,9 @@ def main():
         print("  - Classifier: openai/clip-vit-base-patch32")
         print()
         print("Expected output structure:")
-        print("  result['final'].meta['vlm_description'] → semantic assessment")
-        print("  result['final'].instances → detected products (count)")
-        print("  result['final'].meta['classifications'] → stock level category")
+        print("  result['final'].meta['vlm_description'] > semantic assessment")
+        print("  result['final'].instances > detected products (count)")
+        print("  result['final'].meta['classifications'] > stock level category")
         print()
         print("Benefits:")
         print("  • Quantitative: Exact product count from detector")

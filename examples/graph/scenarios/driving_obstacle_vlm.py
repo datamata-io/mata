@@ -23,7 +23,7 @@ Models:
     - Depth: depth-anything/Depth-Anything-V2-Small-hf
 
 Graph Flow:
-    Parallel(VLMDescribe, Detect, EstimateDepth) → Fuse
+    Parallel(VLMDescribe, Detect, EstimateDepth) > Fuse
     (Reuses vlm_scene_understanding preset with custom prompt)
 
 Usage:
@@ -80,7 +80,7 @@ def main():
     else:
         print("=== Autonomous Driving: Obstacle Detection with VLM Reasoning (Mock) ===")
         print()
-        print("Graph: Parallel(VLMDescribe, Detect, EstimateDepth) → Fuse")
+        print("Graph: Parallel(VLMDescribe, Detect, EstimateDepth) > Fuse")
         print("Models: Qwen3-VL (reasoning) + DETR (detection) + Depth Anything")
         print()
         print("Key Design Pattern: REUSING EXISTING PRESET")
@@ -90,9 +90,9 @@ def main():
         print("  only the prompt differs.")
         print()
         print("Expected output structure:")
-        print("  result['scene'].description → VLM's road hazard analysis")
-        print("  result['scene'].instances → detected objects")
-        print("  result['scene'].depth → depth map for spatial awareness")
+        print("  result['scene'].description > VLM's road hazard analysis")
+        print("  result['scene'].instances > detected objects")
+        print("  result['scene'].depth > depth map for spatial awareness")
         print()
         print("VLM Capabilities for Driving:")
         print("  • Identify unusual obstacles (debris, animals, construction)")

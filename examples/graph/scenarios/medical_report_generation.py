@@ -24,7 +24,7 @@ Models:
     - Depth: depth-anything/Depth-Anything-V2-Small-hf (depth estimation)
 
 Graph Flow:
-    Parallel(VLMDescribe, Detect, EstimateDepth) → Filter → Fuse
+    Parallel(VLMDescribe, Detect, EstimateDepth) > Filter > Fuse
 
 Usage:
     python medical_report_generation.py                    # Mock mode
@@ -92,14 +92,14 @@ def main():
         print("⚠️  DISCLAIMER: Research and demonstration purposes only.")
         print("    NOT for clinical diagnosis or treatment decisions.")
         print()
-        print("Graph: Parallel(VLMDescribe, Detect, EstimateDepth) → Filter → Fuse")
+        print("Graph: Parallel(VLMDescribe, Detect, EstimateDepth) > Filter > Fuse")
         print("Models: Qwen3-VL + DETR + Depth Anything")
         print("VLM prompt: Medical abnormality description")
         print()
         print("Expected output structure:")
-        print("  result['description'] → VLM natural language description")
-        print("  result['final'].instances → detected objects with bboxes")
-        print("  result['depth'] → depth map for spatial understanding")
+        print("  result['description'] > VLM natural language description")
+        print("  result['final'].instances > detected objects with bboxes")
+        print("  result['depth'] > depth map for spatial understanding")
         print()
         print("This preset demonstrates reusing vlm_scene_understanding()")
         print("with domain-specific medical prompts for research applications.")

@@ -27,7 +27,7 @@ Models:
     - Depth: depth-anything/Depth-Anything-V2-Small-hf (spatial understanding)
 
 Graph Flow:
-    Parallel(VLMDescribe, Detect, EstimateDepth) → Fuse
+    Parallel(VLMDescribe, Detect, EstimateDepth) > Fuse
 
 Usage:
     python security_situational_awareness.py                    # Mock mode
@@ -115,7 +115,7 @@ def main():
     else:
         print("=== Security: Comprehensive Situational Awareness (Mock) ===")
         print()
-        print("Graph: Parallel(VLMDescribe, Detect, EstimateDepth) → Fuse")
+        print("Graph: Parallel(VLMDescribe, Detect, EstimateDepth) > Fuse")
         print("Models: Qwen3-VLM + DETR + Depth-Anything")
         print()
         print("Key Design Pattern: PRESET REUSABILITY")
@@ -126,9 +126,9 @@ def main():
         print("architecture now provides security-specific insights.")
         print()
         print("Expected output structure:")
-        print("  result['scene'].description   → VLM's security assessment")
-        print("  result['scene'].instances      → Detected objects (people, vehicles, etc.)")
-        print("  result['scene'].depth_map      → Spatial depth information")
+        print("  result['scene'].description   > VLM's security assessment")
+        print("  result['scene'].instances      > Detected objects (people, vehicles, etc.)")
+        print("  result['scene'].depth_map      > Spatial depth information")
         print()
         print("Security use cases:")
         print("  - Perimeter security: Detect intrusions, unusual activity")

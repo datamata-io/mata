@@ -19,7 +19,7 @@ Models:
     - Tracker: ByteTrackWrapper (ByteTrack) or BotSortWrapper (BotSort + GMC)
 
 Graph Flow:
-    Detect → Filter(person) → Track → Annotate → Fuse
+    Detect > Filter(person) > Track > Annotate > Fuse
 
 Usage:
     python security_crowd_monitoring.py                       # Mock mode
@@ -84,7 +84,7 @@ def main():
     else:
         print("=== Security: Crowd Monitoring with Alert System (Mock) ===")
         print()
-        print("Graph: Detect → Filter(person) → Track → Annotate → Fuse")
+        print("Graph: Detect > Filter(person) > Track > Annotate > Fuse")
         print("Models: DETR (detector) + ByteTrackWrapper or BotSortWrapper (tracker)")
         print()
         print("Tracker options:")
@@ -92,7 +92,7 @@ def main():
         print("  BotSortWrapper    — GMC-enabled, better for panning/zooming cameras")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of tracked person instances")
+        print("  result['final'].instances > list of tracked person instances")
         print("  Each instance has:")
         print("    - track_id: unique persistent ID across frames")
         print("    - bbox: bounding box coordinates")

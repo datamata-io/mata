@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"       Tracker: {args.tracker}  conf={args.conf}")
         print()
 
-        # stream=True → returns a generator, never accumulates full result list
+        # stream=True > returns a generator, never accumulates full result list
         frame_gen = mata.track(
             source,
             model=args.model,

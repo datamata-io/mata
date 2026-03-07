@@ -239,7 +239,7 @@ def main():
     print("DEMONSTRATION COMPLETE")
     print("=" * 70)
     print("\nKey takeaways:")
-    print("  • Extension auto-detection: .json → JSON, .csv → CSV, .png → image")
+    print("  • Extension auto-detection: .json > JSON, .csv > CSV, .png > image")
     print("  • Image path auto-stored when using file paths")
     print("  • PIL/numpy inputs require explicit image for overlay/crops")
     print("  • Customize overlays with show_boxes/show_labels/show_scores/alpha")

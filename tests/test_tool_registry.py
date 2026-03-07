@@ -475,6 +475,92 @@ def test_schema_for_capability_uses_provider_name():
     assert schema.task == "detect"
 
 
+def test_schema_marks_text_prompts_required_for_zeroshot_provider():
+    """Zero-shot provider: text_prompts must be required=True in generated schema.
+
+    When a zero-shot detector (class name contains 'ZeroShot') is registered,
+    ToolRegistry must upgrade text_prompts to required so the VLM system prompt
+    tells the agent to always supply object class names.
+    """
+
+    # Build a mock provider whose underlying adapter class name contains 'ZeroShot'
+    class MockZeroShotDetectAdapter:
+        pass
+
+    mock_adapter = MockZeroShotDetectAdapter()
+    mock_provider = Mock()
+    mock_provider.adapter = mock_adapter  # Simulates DetectorWrapper.adapter
+
+    ctx = ExecutionContext(providers={"detect": {"grounding_dino": mock_provider}})
+    registry = ToolRegistry(ctx, ["grounding_dino"])
+    schema = registry.get_schema("grounding_dino")
+
+    text_prompts_param = next((p for p in schema.parameters if p.name == "text_prompts"), None)
+    assert text_prompts_param is not None
+    assert text_prompts_param.required is True, (
+        "text_prompts must be required=True for zero-shot providers so the VLM "
+        "knows it must always supply class names"
+    )
+    assert "REQUIRED" in text_prompts_param.description
+
+
+def test_schema_marks_text_prompts_required_for_unwrapped_zeroshot_adapter():
+    """Zero-shot adapter without wrapper: text_prompts still required=True."""
+
+    class HuggingFaceZeroShotDetectAdapter:
+        pass
+
+    mock_provider = HuggingFaceZeroShotDetectAdapter()  # No wrapper — raw adapter
+    ctx = ExecutionContext(providers={"detect": {"zs_detector": mock_provider}})
+    registry = ToolRegistry(ctx, ["zs_detector"])
+    schema = registry.get_schema("zs_detector")
+
+    text_prompts_param = next(p for p in schema.parameters if p.name == "text_prompts")
+    assert text_prompts_param.required is True
+
+
+def test_schema_keeps_text_prompts_optional_for_standard_provider():
+    """Standard (supervised) provider: text_prompts stays optional in schema.
+
+    Non-zero-shot detectors (DETR, YOLO, RT-DETR, etc.) do not use text prompts,
+    so the parameter must remain optional in the schema.
+    """
+    mock_provider = Mock()  # Class name is 'Mock', no 'ZeroShot'
+    ctx = ExecutionContext(providers={"detect": {"detr": mock_provider}})
+    registry = ToolRegistry(ctx, ["detr"])
+    schema = registry.get_schema("detr")
+
+    text_prompts_param = next((p for p in schema.parameters if p.name == "text_prompts"), None)
+    assert text_prompts_param is not None
+    assert text_prompts_param.required is False, "text_prompts must remain optional for supervised/standard detectors"
+
+
+def test_is_zero_shot_provider_detects_via_wrapper():
+    """_is_zero_shot_provider() unwraps through wrapper.adapter."""
+
+    class HuggingFaceZeroShotDetectAdapter:
+        pass
+
+    class DetectorWrapper:
+        def __init__(self, adapter):
+            self.adapter = adapter
+
+    wrapper = DetectorWrapper(HuggingFaceZeroShotDetectAdapter())
+    ctx = ExecutionContext(providers={"detect": {"zs": wrapper}})
+    registry = ToolRegistry(ctx, ["zs"])
+
+    assert registry._is_zero_shot_provider(wrapper) is True
+
+
+def test_is_zero_shot_provider_false_for_standard():
+    """_is_zero_shot_provider() returns False for non-zero-shot providers."""
+    mock_provider = Mock()  # 'Mock' has no 'ZeroShot' in name
+    ctx = ExecutionContext(providers={"detect": {"detr": mock_provider}})
+    registry = ToolRegistry(ctx, ["detr"])
+
+    assert registry._is_zero_shot_provider(mock_provider) is False
+
+
 # ============================================================================
 # BUILTIN_SCHEMAS Tests
 # ============================================================================

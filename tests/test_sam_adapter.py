@@ -592,7 +592,7 @@ def test_sam3_text_with_negative_boxes(mock_transformers, mock_pycocotools):
     assert call_kwargs["text"] == "handle"
     assert "input_boxes" in call_kwargs
     assert "input_boxes_labels" in call_kwargs
-    assert call_kwargs["input_boxes_labels"] == [[[0]]]  # Negative
+    assert call_kwargs["input_boxes_labels"] == [[0]]  # Negative
 
     assert isinstance(result, VisionResult)
     assert len(result.masks) == 1

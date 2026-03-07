@@ -151,7 +151,7 @@ class ToolRegistry:
                 # Provider-based tool - search all capabilities
                 capability, provider = self._resolve_provider(tool_name)
                 self._tool_map[tool_name] = (capability, provider)
-                self._schemas[tool_name] = self._schema_for_capability(capability, tool_name)
+                self._schemas[tool_name] = self._schema_for_capability(capability, tool_name, provider)
                 logger.debug(f"Registered provider tool: {tool_name} (capability: {capability})")
 
     def _resolve_provider(self, tool_name: str) -> tuple[str, Any]:
@@ -196,18 +196,38 @@ class ToolRegistry:
             f"Available built-in tools: {builtin_str}"
         )
 
-    def _schema_for_capability(self, capability: str, tool_name: str) -> ToolSchema:
-        """Generate ToolSchema for a capability.
+    def _is_zero_shot_provider(self, provider: Any) -> bool:
+        """Return True if the provider wraps a zero-shot adapter.
 
-        Uses the default task schemas from TASK_SCHEMA_DEFAULTS, but customizes
-        the name to match the provider name (e.g., "detr" instead of "detect").
+        Unwraps one level of wrapper (e.g. DetectorWrapper) then checks the
+        class name for the 'ZeroShot' marker used by all MATA zero-shot adapters.
+
+        Args:
+            provider: Provider instance (may be a wrapper or raw adapter)
+
+        Returns:
+            True if the underlying adapter is a zero-shot model
+        """
+        # Unwrap through a single wrapper layer (DetectorWrapper, ClassifierWrapper, etc.)
+        adapter = getattr(provider, "adapter", provider)
+        return "ZeroShot" in type(adapter).__name__
+
+    def _schema_for_capability(self, capability: str, tool_name: str, provider: Any) -> ToolSchema:
+        """Generate ToolSchema for a capability, tailored to the actual provider.
+
+        Uses the default task schemas from TASK_SCHEMA_DEFAULTS as a base, but
+        customizes the name and — for zero-shot providers — upgrades
+        ``text_prompts`` to ``required=True`` so the VLM's system prompt
+        correctly instructs the model to always supply the parameter.
 
         Args:
             capability: Task capability ("detect", "classify", "segment", "depth")
-            tool_name: Provider name to use in schema
+            tool_name: Provider name to use in schema (e.g. "detector", "detr")
+            provider: The resolved provider instance (wrapper or raw adapter)
 
         Returns:
-            ToolSchema for this capability
+            ToolSchema for this capability, with text_prompts required when the
+            provider is a zero-shot model.
         """
         if capability not in TASK_SCHEMA_DEFAULTS:
             # For unknown capabilities (e.g., "vlm"), create a minimal schema
@@ -221,11 +241,34 @@ class ToolRegistry:
 
         # Clone the default schema but use the provider name
         default = TASK_SCHEMA_DEFAULTS[capability]
+
+        # For zero-shot providers, upgrade text_prompts to required so the VLM
+        # knows it must always supply the classes it wants to detect/classify.
+        params = default.parameters
+        if self._is_zero_shot_provider(provider):
+            params = [
+                ToolParameter(
+                    p.name,
+                    p.type,
+                    (
+                        (
+                            "Object classes to detect, dot-separated (e.g. 'cat . dog . person'). "
+                            "REQUIRED — this is a zero-shot model and cannot run without class names."
+                        )
+                        if p.name == "text_prompts"
+                        else p.description
+                    ),
+                    required=True if p.name == "text_prompts" else p.required,
+                    default=None if p.name == "text_prompts" else p.default,
+                )
+                for p in default.parameters
+            ]
+
         return ToolSchema(
             name=tool_name,  # Use provider name, not capability
             description=default.description,
             task=default.task,
-            parameters=default.parameters,
+            parameters=params,
             builtin=False,
         )
 
