@@ -19,7 +19,7 @@ Models:
     - Tracker: ByteTrackWrapper (ByteTrack) or BotSortWrapper (BotSort + GMC)
 
 Graph Flow:
-    Detect → Filter(vehicle classes) → Track → Annotate → Fuse
+    Detect > Filter(vehicle classes) > Track > Annotate > Fuse
 
 Usage:
     python driving_traffic_tracking.py                          # Mock mode (simulates 30 frames)
@@ -121,7 +121,7 @@ def main():
     else:
         print("=== Autonomous Driving: Multi-Object Traffic Tracking (Mock) ===")
         print()
-        print("Graph: Detect → Filter → Track → Annotate → Fuse")
+        print("Graph: Detect > Filter > Track > Annotate > Fuse")
         print("Models: RT-DETR (detector) + ByteTrackWrapper or BotSortWrapper (tracker)")
         print()
         print("Tracker options:")
@@ -129,9 +129,9 @@ def main():
         print("  BotSortWrapper    — GMC-enabled for panning/tilting cameras")
         print()
         print("Expected output structure (per frame):")
-        print("  result['final'].instances → detected objects with track IDs")
-        print("  result['final'].tracks → tracking state information")
-        print("  result['final'].image → annotated frame with track visualizations")
+        print("  result['final'].instances > detected objects with track IDs")
+        print("  result['final'].tracks > tracking state information")
+        print("  result['final'].image > annotated frame with track visualizations")
         print()
         print("Video Processing Pattern:")
         print("  1. Create tracker instance ONCE before video loop")

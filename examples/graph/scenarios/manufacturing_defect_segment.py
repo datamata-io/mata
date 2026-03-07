@@ -16,7 +16,7 @@ Models:
     - Segmenter: facebook/sam-vit-base (prompt-based segmentation)
 
 Graph Flow:
-    Detect("scratch . crack . dent") → PromptBoxes(SAM) → RefineMask → MaskToBox
+    Detect("scratch . crack . dent") > PromptBoxes(SAM) > RefineMask > MaskToBox
 
 Usage:
     python manufacturing_defect_segment.py                    # Mock mode
@@ -64,11 +64,11 @@ def main():
     else:
         print("=== Manufacturing: Defect Segmentation & Area Measurement (Mock) ===")
         print()
-        print("Graph: Detect → PromptBoxes(SAM) → RefineMask → MaskToBox")
+        print("Graph: Detect > PromptBoxes(SAM) > RefineMask > MaskToBox")
         print("Models: GroundingDINO (detector) + SAM (segmenter)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of defect instances")
+        print("  result['final'].instances > list of defect instances")
         print("  Each instance has:")
         print("    - bbox: bounding box derived from segmentation mask")
         print("    - mask: pixel-precise segmentation mask (RLE format)")

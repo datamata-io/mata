@@ -17,7 +17,7 @@ Models:
     - Depth: depth-anything/Depth-Anything-V2-Small-hf (monocular depth)
 
 Graph Flow:
-    Parallel(Detect, EstimateDepth) → Filter(vehicle classes) → Fuse
+    Parallel(Detect, EstimateDepth) > Filter(vehicle classes) > Fuse
 
 Usage:
     python driving_distance_estimation.py                    # Mock mode
@@ -61,12 +61,12 @@ def main():
     else:
         print("=== Autonomous Driving: Vehicle Distance Estimation (Mock) ===")
         print()
-        print("Graph: Parallel(Detect, EstimateDepth) → Filter → Fuse")
+        print("Graph: Parallel(Detect, EstimateDepth) > Filter > Fuse")
         print("Models: DETR (detector) + Depth Anything (depth)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → detected vehicles/pedestrians with bboxes")
-        print("  result['final'].depth → depth map (H, W) numpy array")
+        print("  result['final'].instances > detected vehicles/pedestrians with bboxes")
+        print("  result['final'].depth > depth map (H, W) numpy array")
         print("  Distance correlation: sample depth values at bbox centers")
         print()
 

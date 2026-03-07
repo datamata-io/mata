@@ -453,7 +453,8 @@ class HuggingFaceSAMAdapter(PyTorchBaseAdapter):
                 # SAM3 uses different format: List[List[List[float]]] for batching
                 input_boxes = [[list(box) for box in box_prompts]]
                 # SAM3 uses box labels (1=positive, 0=negative)
-                input_boxes_labels = [[box_labels or ([1] * len(box_prompts))]]
+                # Format: List[List[int]] = [image_batch, [per_box_labels]]
+                input_boxes_labels = [box_labels or ([1] * len(box_prompts))]
             else:
                 # Original SAM: List[List[List[float]]] - batch, num_boxes, 4
                 # All boxes in a single batch

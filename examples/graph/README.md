@@ -18,7 +18,7 @@ These examples demonstrate the fundamental graph system capabilities:
 
 | Example                                     | Description                                  | Key Features                                     |
 | ------------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
-| ✅ [simple_pipeline.py](simple_pipeline.py) | Detection → Filter → Segmentation → Fuse     | `mata.infer()`, `Graph.then()`, basic pipeline   |
+| ✅ [simple_pipeline.py](simple_pipeline.py) | Detection > Filter > Segmentation > Fuse     | `mata.infer()`, `Graph.then()`, basic pipeline   |
 | [parallel_tasks.py](parallel_tasks.py)      | Parallel detection + classification + depth  | `Graph.parallel()`, `ParallelScheduler`, speedup |
 | [video_tracking.py](video_tracking.py)      | Video processing with object tracking        | `VideoProcessor`, `Track`, frame policies        |
 | [vlm_workflows.py](vlm_workflows.py)        | VLM grounded detection & scene understanding | `VLMDetect`, `PromoteEntities`, VLM presets      |

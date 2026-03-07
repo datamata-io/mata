@@ -88,7 +88,7 @@ def example_grounding_dino():
     output_image = draw_detections(image.copy(), result, text_prompts)
     output_path = "examples/images/output_grounding_dino.jpg"
     output_image.save(output_path)
-    print(f"\n✓ Saved visualization to: {output_path}")
+    print(f"\n Saved visualization to: {output_path}")
 
     return result
 
@@ -119,7 +119,7 @@ def example_owlvit_v2():
     output_image = draw_detections(image.copy(), result, text_prompts)
     output_path = "examples/images/output_owlvit_v2.jpg"
     output_image.save(output_path)
-    print(f"\n✓ Saved visualization to: {output_path}")
+    print(f"\n Saved visualization to: {output_path}")
 
     return result
 
@@ -153,7 +153,7 @@ def example_batch_processing():
         for instance in result.instances:
             print(f"      - {instance.label_name}: {instance.score:.3f}")
 
-    print(f"\n✓ Processed {len(images)} images in batch")
+    print(f"\n Processed {len(images)} images in batch")
 
     return results
 
@@ -214,9 +214,9 @@ def example_model_comparison():
     print(f"   OWL-ViT v2: {len(result_owlv2.instances)} objects")
 
     print("\n[Results] Model comparison:")
-    print(f"   ├─ GroundingDINO: {len(result_gdino.instances)} detections")
-    print(f"   ├─ OWL-ViT v1:    {len(result_owlv1.instances)} detections")
-    print(f"   └─ OWL-ViT v2:    {len(result_owlv2.instances)} detections")
+    print(f"   - GroundingDINO: {len(result_gdino.instances)} detections")
+    print(f"   - OWL-ViT v1:    {len(result_owlv1.instances)} detections")
+    print(f"   - OWL-ViT v2:    {len(result_owlv2.instances)} detections")
 
     return result_gdino, result_owlv1, result_owlv2
 
@@ -238,17 +238,18 @@ def main():
         example_model_comparison()
 
         print("\n" + "=" * 70)
-        print("✓ All examples completed successfully!")
+        print(" All examples completed successfully!")
         print("=" * 70)
         print("\nNext steps:")
         print("  1. Check the output images in examples/images/")
         print("  2. Try with your own images")
         print("  3. Experiment with different text prompts")
-        print("  4. Explore the GroundingDINO→SAM pipeline: examples/segment/grounding_sam_pipeline.py")
+        print("  4. Explore the GroundingDINO then SAM pipeline: examples/segment/grounding_sam_pipeline.py")
         print()
+        print("Done")
 
     except Exception as e:
-        print(f"\n✗ Error: {e}", file=sys.stderr)
+        print(f"\n Error: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         sys.exit(1)

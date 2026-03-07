@@ -22,7 +22,7 @@ Models:
     - Segmenter: facebook/sam-vit-base (prompt-based segmentation)
 
 Graph Flow:
-    Detect("lesion . nodule . mass") → Filter → PromptBoxes(SAM) → RefineMask → Fuse
+    Detect("lesion . nodule . mass") > Filter > PromptBoxes(SAM) > RefineMask > Fuse
 
 Usage:
     python medical_roi_segmentation.py                    # Mock mode
@@ -87,12 +87,12 @@ def main():
         print("⚠️  DISCLAIMER: Research and demonstration purposes only.")
         print("    NOT for clinical diagnosis or treatment decisions.")
         print()
-        print("Graph: Detect → Filter → PromptBoxes(SAM) → RefineMask → Fuse")
+        print("Graph: Detect > Filter > PromptBoxes(SAM) > RefineMask > Fuse")
         print("Models: GroundingDINO (detector) + SAM (segmenter)")
         print("Text prompts: 'lesion . nodule . mass . abnormality'")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of ROI instances")
+        print("  result['final'].instances > list of ROI instances")
         print("  Each instance has:")
         print("    - bbox: bounding box derived from segmentation mask")
         print("    - mask: pixel-precise segmentation mask (RLE format)")

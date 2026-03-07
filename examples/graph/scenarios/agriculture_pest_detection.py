@@ -18,7 +18,7 @@ Models:
     - Segmenter: facebook/sam-vit-base (prompt-based segmentation)
 
 Graph Flow:
-    Detect("insect . pest . caterpillar . aphid . beetle") → Filter → PromptBoxes(SAM) → RefineMask → Fuse
+    Detect("insect . pest . caterpillar . aphid . beetle") > Filter > PromptBoxes(SAM) > RefineMask > Fuse
 
 Usage:
     python agriculture_pest_detection.py                    # Mock mode
@@ -58,11 +58,11 @@ def main():
         print("  Early pest detection is critical for crop protection.")
         print("  Need to identify locations, measure affected areas, and prioritize treatment.")
         print()
-        print("Graph: Detect → Filter → PromptBoxes(SAM) → RefineMask → Fuse")
+        print("Graph: Detect > Filter > PromptBoxes(SAM) > RefineMask > Fuse")
         print("Models: GroundingDINO (detector) + SAM (segmenter)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → pest detections with precise segmentation masks")
+        print("  result['final'].instances > pest detections with precise segmentation masks")
         print("  Each instance has bbox + mask for area measurement")
         print("  Enables: targeted pesticide application, infestation monitoring")
         print()

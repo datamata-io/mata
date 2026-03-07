@@ -18,7 +18,7 @@ Models:
     - Depth: depth-anything/Depth-Anything-V2-Small-hf (monocular depth estimation)
 
 Graph Flow:
-    Parallel(SegmentImage, EstimateDepth) → Fuse
+    Parallel(SegmentImage, EstimateDepth) > Fuse
 
 Usage:
     python agriculture_aerial_crop.py                    # Mock mode
@@ -59,12 +59,12 @@ def main():
         print("  Precision agriculture needs crop distribution + terrain topology")
         print("  from aerial imagery for optimized resource planning.")
         print()
-        print("Graph: Parallel(SegmentImage, EstimateDepth) → Fuse")
+        print("Graph: Parallel(SegmentImage, EstimateDepth) > Fuse")
         print("Models: Mask2Former (segmenter) + Depth Anything (depth)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → segmented crop regions with masks")
-        print("  result['final'].depth → terrain depth map (H, W) array")
+        print("  result['final'].instances > segmented crop regions with masks")
+        print("  result['final'].depth > terrain depth map (H, W) array")
         print("  Enables: crop coverage area, terrain-aware irrigation/spraying")
         print()
 

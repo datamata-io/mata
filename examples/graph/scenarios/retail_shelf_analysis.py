@@ -17,7 +17,7 @@ Models:
     - Classifier: openai/clip-vit-base-patch32 (zero-shot brand matching)
 
 Graph Flow:
-    Detect → Filter → NMS → ExtractROIs → Classify → Fuse
+    Detect > Filter > NMS > ExtractROIs > Classify > Fuse
 
 Use Cases:
     - Planogram compliance verification
@@ -102,17 +102,17 @@ def main():
         print("  4. CLIP classifies each crop into brand/category")
         print()
         print("Graph Flow:")
-        print("  Detect → Filter → NMS → ExtractROIs → Classify → Fuse")
+        print("  Detect > Filter > NMS > ExtractROIs > Classify > Fuse")
         print()
         print("Models:")
         print("  - Detector: torchvision/fasterrcnn_resnet50_fpn_v2")
         print("  - Classifier: openai/clip-vit-base-patch32")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of product instances")
+        print("  result['final'].instances > list of product instances")
         print("    - Each instance has: bbox, label_name (brand), score")
-        print("  result['rois'] → cropped images of each product")
-        print("  result['classes'] → classification results per crop")
+        print("  result['rois'] > cropped images of each product")
+        print("  result['classes'] > classification results per crop")
         print()
 
         # Verify preset construction

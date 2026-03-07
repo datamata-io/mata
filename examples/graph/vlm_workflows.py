@@ -2,10 +2,10 @@
 """VLM (Vision-Language Model) graph workflows.
 
 Demonstrates:
-1. VLM grounded detection: VLM semantic → GroundingDINO spatial → promoted instances
+1. VLM grounded detection: VLM semantic > GroundingDINO spatial > promoted instances
 2. VLM scene understanding: parallel VLM + detection + depth
 3. Multi-image comparison with VLMQuery
-4. Entity → Instance promotion with PromoteEntities
+4. Entity > Instance promotion with PromoteEntities
 5. Using VLM presets
 
 Usage:

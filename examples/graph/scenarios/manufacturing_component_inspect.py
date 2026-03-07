@@ -17,7 +17,7 @@ Models:
     - VLM: Qwen/Qwen3-VL-2B-Instruct (detailed per-component inspection)
 
 Graph Flow:
-    Detect → Filter → ExtractROIs → VLMQuery → Fuse
+    Detect > Filter > ExtractROIs > VLMQuery > Fuse
 
 Usage:
     python manufacturing_component_inspect.py                    # Mock mode
@@ -69,12 +69,12 @@ def main():
     else:
         print("=== Manufacturing: Per-Component Detailed Inspection (Mock) ===")
         print()
-        print("Graph: Detect → Filter → ExtractROIs → VLMQuery → Fuse")
+        print("Graph: Detect > Filter > ExtractROIs > VLMQuery > Fuse")
         print("Models: DETR (detector) + Qwen3-VL (VLM)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → detected components")
-        print("  result['final'].rois → cropped images of each component")
+        print("  result['final'].instances > detected components")
+        print("  result['final'].rois > cropped images of each component")
         print("  Each component gets individual VLM inspection report:")
         print('    "Component shows minor surface wear on upper edge. No critical defects."')
         print('    "Excellent condition. No visible defects or contamination."')

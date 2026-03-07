@@ -125,7 +125,7 @@ def demo_load_once():
         if not _check_image(img_path):
             continue
         result = adapter.predict(img_path)
-        print(f"  [{img_path.name}] → {result.full_text[:80]!r}")
+        print(f"  [{img_path.name}] > {result.full_text[:80]!r}")
 
 
 # === Section 7: Export Results ===

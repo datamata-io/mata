@@ -1,11 +1,11 @@
 """GroundingDINO + SAM Pipeline Examples — MATA Framework
 
-Demonstrates text-prompt-based instance segmentation using the GroundingDINO→SAM
+Demonstrates text-prompt-based instance segmentation using the GroundingDINO>SAM
 pipeline. Combines zero-shot object detection with zero-shot instance segmentation
 for precise masks.
 
 Pipeline Flow:
-    Text Prompts → GroundingDINO (bboxes) → SAM (masks) → VisionResult
+    Text Prompts > GroundingDINO (bboxes) > SAM (masks) > VisionResult
 
 Run: python examples/segment/grounding_sam_pipeline.py
 Requirements: pip install mata transformers pillow numpy
@@ -84,12 +84,12 @@ def visualize_instances(image, result, output_path):
 
 
 def example_basic_pipeline():
-    """Example 1: Basic GroundingDINO→SAM pipeline with text prompts."""
+    """Example 1: Basic GroundingDINO>SAM pipeline with text prompts."""
     print("\n" + "=" * 70)
-    print("Example 1: Basic Pipeline - Text → BBox → Mask")
+    print("Example 1: Basic Pipeline - Text > BBox > Mask")
     print("=" * 70)
 
-    print("\n[1/4] Loading GroundingDINO→SAM pipeline...")
+    print("\n[1/4] Loading GroundingDINO>SAM pipeline...")
     pipeline = mata.load(
         "pipeline", 
         detector_model_id="IDEA-Research/grounding-dino-tiny", 

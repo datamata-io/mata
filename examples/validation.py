@@ -5,7 +5,7 @@ End-to-end examples for all four supported tasks:
   2. Segmentation   (COCO)
   3. Classification (ImageNet)
   4. Depth          (DIODE / NYU)
-  5. Standalone     (pre-run predictions → metrics without re-running inference)
+  5. Standalone     (pre-run predictions > metrics without re-running inference)
 
 Dataset path setup
 ------------------
@@ -68,7 +68,7 @@ def _save_metrics_json(metrics: object, save_dir: str, filename: str = "metrics.
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / filename
     out_path.write_text(metrics.to_json(), encoding="utf-8")
-    print(f"Metrics saved → {out_path}")
+    print(f"Metrics saved to {out_path}")
 
 
 # ---------------------------------------------------------------------------

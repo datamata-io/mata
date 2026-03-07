@@ -18,7 +18,7 @@ Models:
     - Detector: facebook/detr-resnet-50 (component detection)
 
 Graph Flow:
-    Parallel(VLMQuery, Detect) → Filter → Fuse
+    Parallel(VLMQuery, Detect) > Filter > Fuse
 
 Usage:
     python manufacturing_assembly_verify.py                    # Mock mode
@@ -70,12 +70,12 @@ def main():
     else:
         print("=== Manufacturing: Assembly Verification with VLM (Mock) ===")
         print()
-        print("Graph: Parallel(VLMQuery, Detect) → Filter → Fuse")
+        print("Graph: Parallel(VLMQuery, Detect) > Filter > Fuse")
         print("Models: Qwen3-VL (VLM) + DETR (detector)")
         print()
         print("Expected output structure:")
-        print("  result['vlm_assessment'] → VLM's holistic inspection report")
-        print("  result['final'].instances → detected components with counts")
+        print("  result['vlm_assessment'] > VLM's holistic inspection report")
+        print("  result['final'].instances > detected components with counts")
         print()
         print("Example VLM output:")
         print('  "Assembly appears complete. All 4 screws present and torqued correctly."')

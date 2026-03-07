@@ -19,7 +19,7 @@ Models:
     - Segmenter: facebook/sam-vit-base (segment-anything)
 
 Graph Flow:
-    Detect(text_prompts) → Filter → PromptBoxes(SAM) → RefineMask → Fuse
+    Detect(text_prompts) > Filter > PromptBoxes(SAM) > RefineMask > Fuse
 
 Use Cases:
     - Visual product search in inventory photos
@@ -103,7 +103,7 @@ def main():
         print("  for precise boundary extraction.")
         print()
         print("Graph Flow:")
-        print("  Detect(text_prompts) → Filter → PromptBoxes(SAM) → RefineMask → Fuse")
+        print("  Detect(text_prompts) > Filter > PromptBoxes(SAM) > RefineMask > Fuse")
         print()
         print("Models:")
         print("  - Detector: IDEA-Research/grounding-dino-tiny (zero-shot)")
@@ -115,7 +115,7 @@ def main():
         print('  "organic product . gluten_free label . sale tag"')
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of detected products")
+        print("  result['final'].instances > list of detected products")
         print("    - Each instance has: bbox, mask (segmentation), score, label_name")
         print("  Mask area can be used for shelf space allocation calculations")
         print()

@@ -16,7 +16,7 @@ Models:
     - Classifier: openai/clip-vit-base-patch32 (zero-shot classification)
 
 Graph Flow:
-    Detect("scratch . crack . dent") → Filter → ExtractROIs → Classify → Fuse
+    Detect("scratch . crack . dent") > Filter > ExtractROIs > Classify > Fuse
 
 Usage:
     python manufacturing_defect_classify.py                    # Mock mode
@@ -53,13 +53,13 @@ def main():
     else:
         print("=== Manufacturing: Defect Detection & Classification (Mock) ===")
         print()
-        print("Graph: Detect → Filter → ExtractROIs → Classify → Fuse")
+        print("Graph: Detect > Filter > ExtractROIs > Classify > Fuse")
         print("Models: GroundingDINO (detector) + CLIP (classifier)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of defect instances with bboxes")
-        print("  result['final'].rois → cropped images of each defect")
-        print("  result['final'].classifications → defect type per crop")
+        print("  result['final'].instances > list of defect instances with bboxes")
+        print("  result['final'].rois > cropped images of each defect")
+        print("  result['final'].classifications > defect type per crop")
         print()
 
         # Verify preset construction

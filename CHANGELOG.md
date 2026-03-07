@@ -11,6 +11,26 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.1] - 2026-03-08
+
+### Changed
+
+- Refactored graph flow notation from `→` to `>` in all examples, scripts, and documentation for consistency with the DSL operator syntax
+- Updated expected output structure descriptions in examples and docs to match the new `>` notation
+
+### Added
+
+- `ToolRegistry` now requires `text_prompts` for zero-shot providers (GroundingDINO, OWL-ViT, CLIP) and raises `ValueError` when they are missing
+- Improved tool schema generation: zero-shot providers automatically include a `text_prompts` parameter in their generated `ToolSchema`
+- Tests for zero-shot provider detection and `text_prompts` schema requirement in `test_tool_registry.py`
+
+### Fixed
+
+- SAM adapter: minor issue where prompt-less calls could silently produce empty masks instead of raising a clear error
+- Video tracking examples: corrected frame iteration and output path handling in `examples/track/`
+
+---
+
 ## [1.9.0] - 2026-03-02
 
 ### Added

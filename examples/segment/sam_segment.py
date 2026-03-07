@@ -62,7 +62,7 @@ try:
         "segment",
         str(IMG_PATH),
         model=SAM3_MODEL,
-        text_prompts="cat",
+        text_prompts=["cat"],
         box_prompts=[(0, 0, 100, 100)],  # Exclude top-left region
         box_labels=[0],  # 0 = negative box (exclude)
         threshold=0.5,
@@ -71,8 +71,10 @@ try:
     print(f"Found {len(result_text_refined.masks)} cats (excluded top-left region)")
     print("Use case: Remove false positives by excluding specific areas")
 
-except Exception:
-    print("SAM3 not available (skipping)")
+except Exception as e:
+    print(f"SAM3 not available: {e}")
+    print("Install with: pip install -U transformers>=4.46.0")
+    print("Continuing with original SAM examples (visual prompts)...")
 
 # =================================================================
 # Example 1: Basic Point Prompt (Foreground Click)

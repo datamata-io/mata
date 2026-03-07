@@ -19,7 +19,7 @@ Models:
     - Classifier: openai/clip-vit-base-patch32 (zero-shot classification)
 
 Graph Flow:
-    Detect("diseased leaf . pest damage . healthy leaf") → Filter → ExtractROIs → Classify → Fuse
+    Detect("diseased leaf . pest damage . healthy leaf") > Filter > ExtractROIs > Classify > Fuse
 
 Usage:
     python agriculture_disease_classify.py                    # Mock mode
@@ -60,13 +60,13 @@ def main():
         print("  Farmers need automated disease detection to prevent crop loss.")
         print("  Manual inspection is slow and inconsistent across large fields.")
         print()
-        print("Graph: Detect → Filter → ExtractROIs → Classify → Fuse")
+        print("Graph: Detect > Filter > ExtractROIs > Classify > Fuse")
         print("Models: GroundingDINO (detector) + CLIP (classifier)")
         print()
         print("Expected output structure:")
-        print("  result['final'].instances → list of leaf regions with disease classifications")
-        print("  result['final'].rois → cropped images of each detected leaf")
-        print("  result['final'].classifications → disease type per crop")
+        print("  result['final'].instances > list of leaf regions with disease classifications")
+        print("  result['final'].rois > cropped images of each detected leaf")
+        print("  result['final'].classifications > disease type per crop")
         print()
 
         # Verify preset construction

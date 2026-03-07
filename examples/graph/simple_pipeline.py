@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple two-stage pipeline: Detect → Filter → Segment → Fuse.
+"""Simple two-stage pipeline: Detect > Filter > Segment > Fuse.
 
 Demonstrates the core MATA graph workflow:
 1. Load provider models (detector + segmenter)
@@ -22,7 +22,7 @@ from pathlib import Path
 # Setup paths
 IMAGE_DIR = Path(__file__).parent.parent / "images"
 IMAGE_1 = IMAGE_DIR / "000000039769.jpg"
-IMAGE_2 = IMAGE_DIR / "hanvin-cheong-tuR2XRPdtYI-unsplash.jpg"
+IMAGE_2 = IMAGE_DIR / "street_001.jpg"
 
 # ---------------------------------------------------------------------------
 # Mock providers for standalone demo (no model downloads required)
@@ -127,12 +127,19 @@ def main():
     # Access results via channel names
     print(f"Result type: {type(result).__name__}")
     print(f"Channels: {list(result.channels.keys())}")
-    if result.has_channel("detections"):
-        dets = result.get_channel("detections")
-        print(f"Detections: {len(dets.instances)} objects")
-        for inst in dets.instances:
-            print(f"  - {inst.label_name}: score={inst.score:.2f}, bbox={inst.bbox}")
-
+    if result.has_channel("final"):
+        final = result.get_channel("final")
+        if final.has_channel("detections"):
+            dets = final.get_channel("detections")
+            print(f"Final detections: {len(dets.instances)} objects")
+            for inst in dets.instances:
+                print(f"  - {inst.label_name}: score={inst.score:.2f}, bbox={inst.bbox}")
+        if final.has_channel("masks"):
+            masks = final.get_channel("masks")
+            print(f"Final masks: {len(masks.instances)} objects")
+            for inst in masks.instances:
+                print(f"  - {inst.label_name}: mask shape={inst.mask}")
+            
     # -----------------------------------------------------------------------
     # Option B: Build a Graph with the fluent builder API
     # -----------------------------------------------------------------------
@@ -156,6 +163,25 @@ def main():
 
     print(f"Graph '{graph.name}' completed")
     print(f"Channels: {list(result_b.channels.keys())}")
+
+    # -----------------------------------------------------------------------
+    # Option C: Build a Graph with the fluent builder API (hidden: not documented yet :D)
+    # -----------------------------------------------------------------------
+    print("\n=== Option C: Graph builder ===")
+
+    result_c = (
+        Graph("detect_and_segment")
+        .then(Detect(using="detector", out="dets", text_prompts="cat . dog . person"))
+        .then(Filter(src="dets", score_gt=0.3, out="filtered"))
+        .then(PromptBoxes(using="segmenter", dets_src="filtered", out="masks"))
+        .then(Fuse(detections="filtered", masks="masks", out="final"))
+    ).run(
+        image=str(IMAGE_1),
+        providers=providers,
+    )
+
+    print(f"Graph '{graph.name}' completed")
+    print(f"Channels: {list(result_c.channels.keys())}")
 
     print("\n✓ Simple pipeline example complete!")
 

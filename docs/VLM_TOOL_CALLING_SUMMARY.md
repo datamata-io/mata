@@ -1,9 +1,10 @@
 # VLM Tool-Calling Agent System — Architecture Summary
 
-**Version**: 1.7.0  
+**Version**: 1.7.1  
 **Implementation Date**: February 16, 2026  
+**Last Updated**: March 8, 2026  
 **Status**: ✅ Production Ready  
-**Test Coverage**: 336 comprehensive tests, all passing
+**Test Coverage**: 342 comprehensive tests, all passing
 
 ---
 
@@ -267,6 +268,31 @@ mata.infer(
 - **Clean separation**: Image operations distinct from model inference.
 
 **Implementation**: `ToolRegistry` checks `schema.builtin` flag and routes to `image_tools.py`.
+
+---
+
+### 8. **Provider-Aware Schema Generation for Zero-Shot Models** _(v1.7.1)_
+
+**Decision**: `ToolRegistry` introspects the actual provider at registration time and upgrades `text_prompts` to `required=True` for zero-shot adapters.
+
+**Rationale**:
+
+- **VLM must know `text_prompts` is required** — The default `TASK_SCHEMA_DEFAULTS["detect"]` marks `text_prompts` as optional (correct for supervised detectors like RT-DETR, YOLO). But zero-shot models (GroundingDINO, OWL-ViT) **cannot run without class names**. If the schema shows the parameter as optional, the VLM's system prompt will say _"optional"_ and the agent will omit it, causing a `TypeError` or `InvalidInputError` at execution time.
+- **Zero-shot contract is enforced at the adapter level** — `HuggingFaceZeroShotDetectAdapter.predict()` keeps `text_prompts` as a required positional argument. The fix is upstream: make the _schema_ match the adapter's actual contract.
+- **Clean detection via class name** — All MATA zero-shot adapters have `"ZeroShot"` in their class name. `_is_zero_shot_provider()` unwraps one layer of wrapper (e.g., `DetectorWrapper.adapter`) and checks the underlying class name — no new class attributes or protocol changes needed.
+- **`TASK_SCHEMA_DEFAULTS` stays generic** — The shared default schema is not modified; customization happens per-provider at `ToolRegistry` construction time.
+
+**Agentic chain this enables**:
+
+```
+VLM: "I see an unknown object. Let me classify it."
+  → classifier(region=[80,120,220,300])  → "cat (0.92)"
+VLM: "It's a cat. Let me find all cats using the detector."
+  → detector(text_prompts="cat")         → 2 cats detected
+VLM: "Found 2 cats at [80,120,220,300] and [300,130,440,280]. Summary..."
+```
+
+**Implementation**: `_is_zero_shot_provider()` + upgraded `_schema_for_capability(capability, tool_name, provider)` in `src/mata/core/tool_registry.py` (v1.7.1).
 
 ---
 
@@ -559,6 +585,11 @@ result = AgentResult(
 - **Status**: Handled gracefully
 - **Impact**: VLMs may output `"0.5"` instead of `0.5` for floats
 - **Solution**: Comprehensive type coercion in `validate_tool_call()`
+
+#### ~~4. Zero-Shot Detector Omits `text_prompts`~~ _(Fixed — v1.7.1)_
+
+- **Was**: `TASK_SCHEMA_DEFAULTS["detect"]` marked `text_prompts` as optional, causing the VLM to omit it. Zero-shot adapters require it, so the call failed with `TypeError`.
+- **Fix**: `ToolRegistry._schema_for_capability()` now introspects the actual provider via `_is_zero_shot_provider()` and upgrades `text_prompts` to `required=True` for zero-shot adapters. The VLM's system prompt now correctly says the parameter is required, so the agent always populates it from its own reasoning.
 
 ---
 
