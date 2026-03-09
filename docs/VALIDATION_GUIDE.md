@@ -121,7 +121,7 @@ def val(
 
 | Parameter      | Type                     | Default    | Description                                                                                                  |
 | -------------- | ------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| `task`         | `str`                    | _required_ | One of `"detect"`, `"segment"`, `"classify"`, `"depth"`, `"ocr"`                                                   |
+| `task`         | `str`                    | _required_ | One of `"detect"`, `"segment"`, `"classify"`, `"depth"`, `"ocr"`                                             |
 | `model`        | `str \| adapter \| None` | `None`     | HuggingFace ID, local path, config alias, or a pre-loaded adapter. Required when `predictions` is not given. |
 | `data`         | `str \| dict \| None`    | `None`     | Path to a dataset YAML file, or dict with equivalent keys. Required when `predictions` is not given.         |
 | `predictions`  | `list \| None`           | `None`     | Pre-computed `VisionResult`/`ClassifyResult`/`DepthResult` list (standalone mode).                           |
@@ -202,8 +202,8 @@ annotations: diode_val_annotations.json # {rgb_path: depth_npy_path} mapping
 ```yaml
 # examples/configs/coco_text.yaml
 path: /data/coco-text
-val: val2014                 # COCO 2014 validation images directory
-annotations: cocotext_v2.json  # COCO-Text annotations with "text" field per annotation
+val: val2014 # COCO 2014 validation images directory
+annotations: cocotext_v2.json # COCO-Text annotations with "text" field per annotation
 names:
   0: text
 ```
@@ -212,10 +212,23 @@ The annotation JSON must follow COCO-Text format — each annotation dict contai
 
 ```json
 {
-  "images": [{"id": 1, "file_name": "COCO_val2014_000001.jpg", "width": 640, "height": 480}],
-  "categories": [{"id": 1, "name": "text"}],
+  "images": [
+    {
+      "id": 1,
+      "file_name": "COCO_val2014_000001.jpg",
+      "width": 640,
+      "height": 480
+    }
+  ],
+  "categories": [{ "id": 1, "name": "text" }],
   "annotations": [
-    {"id": 1, "image_id": 1, "category_id": 1, "bbox": [100, 200, 50, 20], "text": "STOP"}
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [100, 200, 50, 20],
+      "text": "STOP"
+    }
   ]
 }
 ```
@@ -565,18 +578,18 @@ from mata import OCRMetrics  # or: from mata.eval import OCRMetrics
 
 #### Configuration Fields
 
-| Field            | Type   | Default | Description                                                                                                  |
-| ---------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------ |
+| Field            | Type   | Default | Description                                                                                                    |
+| ---------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------- |
 | `case_sensitive` | `bool` | `False` | When `False` (default), both predicted and GT text are lowercased before comparison. Matches ICDAR convention. |
 
 #### Metric Fields
 
-| Field      | Type               | Description                                                                                     |
-| ---------- | ------------------ | ----------------------------------------------------------------------------------------------- |
-| `cer`      | `float`            | Mean Character Error Rate: $\text{CER} = \frac{\text{Levenshtein}(pred, gt)}{\max(|gt|, 1)}$ |
-| `wer`      | `float`            | Mean Word Error Rate: $\text{WER} = \frac{\text{Levenshtein}(pred_{words}, gt_{words})}{\max(|gt_{words}|, 1)}$ |
+| Field      | Type               | Description                                                                                                 |
+| ---------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | ----------- | ------ |
+| `cer`      | `float`            | Mean Character Error Rate: $\text{CER} = \frac{\text{Levenshtein}(pred, gt)}{\max(                          | gt          | , 1)}$ |
+| `wer`      | `float`            | Mean Word Error Rate: $\text{WER} = \frac{\text{Levenshtein}(pred*{words}, gt*{words})}{\max(               | gt\_{words} | , 1)}$ |
 | `accuracy` | `float`            | Exact-match accuracy: $\frac{\text{count}(pred = gt)}{N}$ — fraction of images with identical transcription |
-| `speed`    | `dict[str, float]` | Timing breakdown per image                                                                      |
+| `speed`    | `dict[str, float]` | Timing breakdown per image                                                                                  |
 
 #### Key Methods
 
@@ -596,21 +609,21 @@ metrics.update(pred_text, gt_text)
 
 #### Properties
 
-| Property               | Returns     | Description                              |
-| ---------------------- | ----------- | ---------------------------------------- |
-| `metrics.fitness`      | `float`     | `accuracy` (exact-match ratio)           |
-| `metrics.keys`         | `list[str]` | 3 metric key names                       |
-| `metrics.results_dict` | `dict`      | 4 entries (3 metrics + fitness)          |
+| Property               | Returns     | Description                     |
+| ---------------------- | ----------- | ------------------------------- |
+| `metrics.fitness`      | `float`     | `accuracy` (exact-match ratio)  |
+| `metrics.keys`         | `list[str]` | 3 metric key names              |
+| `metrics.results_dict` | `dict`      | 4 entries (3 metrics + fitness) |
 
 #### Methods
 
-| Method           | Returns      | Description                               |
-| ---------------- | ------------ | ----------------------------------------- |
-| `mean_results()` | `list[float]`| `[cer, wer, accuracy]`                    |
-| `summary()`      | `list[dict]` | Single-row summary with all metrics       |
-| `to_dict()`      | `dict`       | Full results dict                         |
-| `to_json()`      | `str`        | JSON string                               |
-| `to_csv()`       | `str`        | CSV string (header + one data row)        |
+| Method           | Returns       | Description                         |
+| ---------------- | ------------- | ----------------------------------- |
+| `mean_results()` | `list[float]` | `[cer, wer, accuracy]`              |
+| `summary()`      | `list[dict]`  | Single-row summary with all metrics |
+| `to_dict()`      | `dict`        | Full results dict                   |
+| `to_json()`      | `str`         | JSON string                         |
+| `to_csv()`       | `str`         | CSV string (header + one data row)  |
 
 #### `case_sensitive` Parameter
 
@@ -1139,11 +1152,11 @@ Appearance-Based Re-Identification (ReID) in MATA enhances BotSort's track-recov
 ### What ReID Adds
 
 Without ReID, BotSort associates detections to tracks using two cues:
+
 1. **IoU** — spatial overlap between predicted and detected bounding boxes
 2. **GMC** — global motion compensation (sparse optical flow) for camera motion
 
-With ReID enabled (`reid_model=...`), a third cue is added:
-3. **Cosine appearance distance** — L2-normalised embedding vectors extracted from detection crops are compared against cached track features (`smooth_feat`)
+With ReID enabled (`reid_model=...`), a third cue is added: 3. **Cosine appearance distance** — L2-normalised embedding vectors extracted from detection crops are compared against cached track features (`smooth_feat`)
 
 This allows BotSort to re-associate tracks even when the predicted position drifts significantly due to occlusion gaps.
 
@@ -1230,14 +1243,14 @@ if matches:
 
 ### ReID Validation Tips
 
-| Scenario | Recommended Approach |
-| -------- | -------------------- |
-| Verify embeddings are populated | Check `inst.embedding is not None` after `update()` |
-| Measure track-recovery rate | Count frames where a lost track recovers its original ID |
-| Tune appearance threshold | Adjust `appearance_thresh` in `tracker_config` (BotSort default: 0.25) |
-| Reduce false re-associations | Increase `reid_model` → use a more discriminative encoder (e.g., OSNet vs CLIP) |
-| GPU inference for ReID | Pass `device="cuda"` at `mata.load("track", ..., device="cuda")` |
-| ONNX production deployment | Export your ReID model to ONNX and pass the `.onnx` path as `reid_model` |
+| Scenario                        | Recommended Approach                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| Verify embeddings are populated | Check `inst.embedding is not None` after `update()`                             |
+| Measure track-recovery rate     | Count frames where a lost track recovers its original ID                        |
+| Tune appearance threshold       | Adjust `appearance_thresh` in `tracker_config` (BotSort default: 0.25)          |
+| Reduce false re-associations    | Increase `reid_model` → use a more discriminative encoder (e.g., OSNet vs CLIP) |
+| GPU inference for ReID          | Pass `device="cuda"` at `mata.load("track", ..., device="cuda")`                |
+| ONNX production deployment      | Export your ReID model to ONNX and pass the `.onnx` path as `reid_model`        |
 
 ### Known Limitations (ReID)
 
@@ -1249,4 +1262,4 @@ if matches:
 
 4. **Embedding warm-up:** BotSort's `smooth_feat` is a running average that stabilises after ~5 frames. Track re-association quality may be lower for newly initialised tracks.
 
-5. **Valkey dependency for `ReIDBridge`:** `ReIDBridge` requires `pip install mata[valkey]` (or `mata[redis]`). If the server is unreachable, `publish()` / `query()` log a warning and return gracefully — tracking continues unaffected.
+5. **Valkey dependency for `ReIDBridge`:** `ReIDBridge` requires `pip install datamata[valkey]` (or `datamata[redis]`). If the server is unreachable, `publish()` / `query()` log a warning and return gracefully — tracking continues unaffected.

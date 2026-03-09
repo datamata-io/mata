@@ -101,8 +101,8 @@ pip install onnxruntime-gpu  # GPU
 pip install matplotlib
 
 # For Valkey/Redis result storage
-pip install mata[valkey]   # valkey-py client (recommended)
-pip install mata[redis]    # redis-py client (alternative)
+pip install datamata[valkey]   # valkey-py client (recommended)
+pip install datamata[redis]    # redis-py client (alternative)
 ```
 
 ## 🚀 Quick Start

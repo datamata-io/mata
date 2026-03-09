@@ -27,9 +27,9 @@ Usage (real Valkey server):
     python examples/track/cross_camera_reid.py --valkey valkey://localhost:6379
 
 Requirements:
-    pip install mata[valkey] transformers torch
+    pip install datamata[valkey] transformers torch
     # or:
-    pip install mata[redis] transformers torch
+    pip install datamata[redis] transformers torch
 """
 from __future__ import annotations
 

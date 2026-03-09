@@ -15,7 +15,7 @@ All examples run in **mock mode** by default (no model downloads, no real Valkey
 server required).  When running against a real server, pass ``--real``.
 
 Requirements:
-    pip install mata[valkey]    # or mata[redis]
+    pip install datamata[valkey]    # or datamata[redis]
 
 Usage:
     # Mock mode — fully self-contained, no server needed
@@ -372,7 +372,7 @@ def main():
 
     if use_real:
         print(f"Running against real Valkey server: {url}")
-        print("Make sure valkey-py is installed:  pip install mata[valkey]")
+        print("Make sure valkey-py is installed:  pip install datamata[valkey]")
         providers = create_real_providers()
     else:
         print("Running in MOCK mode (in-memory store, no server required)")

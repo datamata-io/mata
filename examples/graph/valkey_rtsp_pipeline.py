@@ -11,8 +11,8 @@ frame's results are:
 A round-trip verification load is performed after the loop.
 
 Requirements:
-    pip install mata[valkey]       # Valkey / Redis client
-    pip install mata opencv-python # RTSP frame capture
+    pip install datamata[valkey]       # Valkey / Redis client
+    pip install datamata opencv-python # RTSP frame capture
 
 Usage:
     python examples/graph/rtsp_pipeline.py
@@ -163,7 +163,7 @@ def main():
 
     print(f"Valkey server : {url}")
     print(f"RTSP source   : {rtsp_url}")
-    print("Make sure valkey-py is installed:  pip install mata[valkey]")
+    print("Make sure valkey-py is installed:  pip install datamata[valkey]")
 
     tracker = create_tracker(rtsp_url)
     run(url=url, rtsp_url=rtsp_url, tracker=tracker, frames=frames)

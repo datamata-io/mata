@@ -183,7 +183,7 @@ class TestExportValkey:
 
         # Patch the imports inside the function
         with patch.dict(sys.modules, {"valkey": None, "redis": None}):
-            with pytest.raises(ImportError, match="pip install mata"):
+            with pytest.raises(ImportError, match="pip install datamata"):
                 valkey_exporter._get_valkey_client("valkey://localhost:6379")
 
     def test_valkey_client_fallback_to_redis(self):

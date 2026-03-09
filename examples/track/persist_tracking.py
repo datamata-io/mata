@@ -20,7 +20,7 @@ Usage:
     python examples/track/persist_tracking.py --real examples/videos/cup.mp4
 
 Requirements:
-    pip install mata opencv-python
+    pip install datamata opencv-python
 """
 from __future__ import annotations
 

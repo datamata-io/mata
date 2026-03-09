@@ -23,28 +23,28 @@ This document showcases 20 production-ready computer vision scenarios built with
 
 ## Quick Reference Table
 
-| # | Scenario | Industry | Preset Used | Example Script | Models |
-|---|----------|----------|-------------|----------------|--------|
-| 1 | Surface defect detection & classification | Manufacturing | `defect_detect_classify` | `manufacturing_defect_classify.py` | GroundingDINO + CLIP |
-| 2 | Defect segmentation & area measurement | Manufacturing | `grounding_dino_sam` | `manufacturing_defect_segment.py` | GroundingDINO + SAM |
-| 3 | Assembly verification with VLM | Manufacturing | `assembly_verification` | `manufacturing_assembly_verify.py` | Qwen3-VL + DETR |
-| 4 | Per-component VLM inspection | Manufacturing | `component_inspection` | `manufacturing_component_inspect.py` | DETR + Qwen3-VL |
-| 5 | Shelf product analysis | Retail | `shelf_product_analysis` | `retail_shelf_analysis.py` | Faster R-CNN + CLIP |
-| 6 | Zero-shot product search | Retail | `grounding_dino_sam` | `retail_product_search.py` | GroundingDINO + SAM |
-| 7 | Multi-modal stock assessment | Retail | `stock_level_analysis` | `retail_stock_level.py` | Qwen3-VL + DETR + CLIP |
-| 8 | Vehicle distance estimation | Driving | `vehicle_distance_estimation` | `driving_distance_estimation.py` | DETR + Depth Anything |
-| 9 | Complete road scene analysis | Driving | `road_scene_analysis` | `driving_road_scene.py` | DETR + Mask2Former + Depth + CLIP |
-| 10 | Traffic object tracking | Driving | `traffic_tracking` | `driving_traffic_tracking.py` | RT-DETR + BYTETrack |
-| 11 | Obstacle detection with VLM | Driving | `vlm_scene_understanding` | `driving_obstacle_vlm.py` | Qwen3-VL + GroundingDINO + Depth |
-| 12 | Crowd monitoring & tracking | Security | `crowd_monitoring` | `security_crowd_monitoring.py` | DETR + BYTETrack |
-| 13 | Suspicious object detection | Security | `suspicious_object_detection` | `security_suspicious_object.py` | GroundingDINO + SAM + Qwen3-VL |
-| 14 | Situational awareness monitoring | Security | `vlm_scene_understanding` | `security_situational_awareness.py` | Qwen3-VL + GroundingDINO |
-| 15 | Crop disease classification | Agriculture | `defect_detect_classify` | `agriculture_disease_classify.py` | GroundingDINO + CLIP |
-| 16 | Aerial crop segmentation | Agriculture | `aerial_crop_analysis` | `agriculture_aerial_crop.py` | Mask2Former + Depth Anything |
-| 17 | Pest detection & mapping | Agriculture | `grounding_dino_sam` | `agriculture_pest_detection.py` | GroundingDINO + SAM |
-| 18 | Medical ROI segmentation | Healthcare | Custom graph | `medical_roi_segmentation.py` | GroundingDINO + SAM |
-| 19 | Medical report generation | Healthcare | `vlm_scene_understanding` | `medical_report_generation.py` | Qwen3-VL |
-| 20 | Pathology triage workflow | Healthcare | Custom graph | `medical_pathology_triage.py` | DETR + CLIP + Qwen3-VL |
+| #   | Scenario                                  | Industry      | Preset Used                   | Example Script                       | Models                            |
+| --- | ----------------------------------------- | ------------- | ----------------------------- | ------------------------------------ | --------------------------------- |
+| 1   | Surface defect detection & classification | Manufacturing | `defect_detect_classify`      | `manufacturing_defect_classify.py`   | GroundingDINO + CLIP              |
+| 2   | Defect segmentation & area measurement    | Manufacturing | `grounding_dino_sam`          | `manufacturing_defect_segment.py`    | GroundingDINO + SAM               |
+| 3   | Assembly verification with VLM            | Manufacturing | `assembly_verification`       | `manufacturing_assembly_verify.py`   | Qwen3-VL + DETR                   |
+| 4   | Per-component VLM inspection              | Manufacturing | `component_inspection`        | `manufacturing_component_inspect.py` | DETR + Qwen3-VL                   |
+| 5   | Shelf product analysis                    | Retail        | `shelf_product_analysis`      | `retail_shelf_analysis.py`           | Faster R-CNN + CLIP               |
+| 6   | Zero-shot product search                  | Retail        | `grounding_dino_sam`          | `retail_product_search.py`           | GroundingDINO + SAM               |
+| 7   | Multi-modal stock assessment              | Retail        | `stock_level_analysis`        | `retail_stock_level.py`              | Qwen3-VL + DETR + CLIP            |
+| 8   | Vehicle distance estimation               | Driving       | `vehicle_distance_estimation` | `driving_distance_estimation.py`     | DETR + Depth Anything             |
+| 9   | Complete road scene analysis              | Driving       | `road_scene_analysis`         | `driving_road_scene.py`              | DETR + Mask2Former + Depth + CLIP |
+| 10  | Traffic object tracking                   | Driving       | `traffic_tracking`            | `driving_traffic_tracking.py`        | RT-DETR + BYTETrack               |
+| 11  | Obstacle detection with VLM               | Driving       | `vlm_scene_understanding`     | `driving_obstacle_vlm.py`            | Qwen3-VL + GroundingDINO + Depth  |
+| 12  | Crowd monitoring & tracking               | Security      | `crowd_monitoring`            | `security_crowd_monitoring.py`       | DETR + BYTETrack                  |
+| 13  | Suspicious object detection               | Security      | `suspicious_object_detection` | `security_suspicious_object.py`      | GroundingDINO + SAM + Qwen3-VL    |
+| 14  | Situational awareness monitoring          | Security      | `vlm_scene_understanding`     | `security_situational_awareness.py`  | Qwen3-VL + GroundingDINO          |
+| 15  | Crop disease classification               | Agriculture   | `defect_detect_classify`      | `agriculture_disease_classify.py`    | GroundingDINO + CLIP              |
+| 16  | Aerial crop segmentation                  | Agriculture   | `aerial_crop_analysis`        | `agriculture_aerial_crop.py`         | Mask2Former + Depth Anything      |
+| 17  | Pest detection & mapping                  | Agriculture   | `grounding_dino_sam`          | `agriculture_pest_detection.py`      | GroundingDINO + SAM               |
+| 18  | Medical ROI segmentation                  | Healthcare    | Custom graph                  | `medical_roi_segmentation.py`        | GroundingDINO + SAM               |
+| 19  | Medical report generation                 | Healthcare    | `vlm_scene_understanding`     | `medical_report_generation.py`       | Qwen3-VL                          |
+| 20  | Pathology triage workflow                 | Healthcare    | Custom graph                  | `medical_pathology_triage.py`        | DETR + CLIP + Qwen3-VL            |
 
 ---
 
@@ -59,6 +59,7 @@ Manufacturing quality control requires automated visual inspection to maintain p
 **Problem Statement**: Detect surface defects (scratches, cracks, dents) on metal/plastic parts and classify each defect type for root-cause analysis.
 
 **Architecture Diagram**:
+
 ```
 Image → GroundingDINO → Filter → ExtractROIs → CLIP → Fuse
         (text-prompted    (>0.3)   (crop each    (classify
@@ -72,11 +73,13 @@ Image → GroundingDINO → Filter → ExtractROIs → CLIP → Fuse
 | `classifier` | Zero-shot classifier | Defect type classification | `openai/clip-vit-base-patch32` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (4GB+ VRAM)
 - **CPU**: Supported (slower inference, ~5-10x)
 - **Inference Time**: ~200ms per image (GPU), ~2s (CPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import defect_detect_classify
@@ -101,6 +104,7 @@ for inst in result['final'].instances:
 ```
 
 **Use Cases**:
+
 - Automotive body panel inspection
 - Electronics PCB defect detection
 - Metal casting quality control
@@ -113,6 +117,7 @@ for inst in result['final'].instances:
 **Problem Statement**: Segment defect regions precisely and measure their area in pixels/mm² for acceptance criteria evaluation.
 
 **Architecture Diagram**:
+
 ```
 Image → GroundingDINO → Filter → PromptBoxes(SAM) → RefineMask → Fuse
         (detect          (>0.25)  (segment each      (morphology
@@ -126,11 +131,13 @@ Image → GroundingDINO → Filter → PromptBoxes(SAM) → RefineMask → Fuse
 | `segmenter` | Prompt-based segmenter | Pixel-precise masks | `facebook/sam-vit-base` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (6GB+ VRAM for SAM)
 - **CPU**: Supported (very slow, 10-20s per image)
 - **Inference Time**: ~500ms per image (GPU), ~15s (CPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import grounding_dino_sam
@@ -158,6 +165,7 @@ for inst in result['final'].instances:
 **Problem Statement**: Verify assembled products have all components installed correctly using holistic VLM assessment alongside component detection.
 
 **Architecture Diagram**:
+
 ```
                     ┌─→ VLMQuery (holistic check)
 Image ──parallel────┤
@@ -174,11 +182,13 @@ Image ──parallel────┤
 | `detector` | Object detector | Component detection | `facebook/detr-resnet-50` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM for VLM)
 - **CPU**: Not recommended (VLM inference extremely slow)
 - **Inference Time**: ~1-2s per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import assembly_verification
@@ -206,6 +216,7 @@ print(f"Detected {len(result['final'].instances)} components")
 **Problem Statement**: Detect individual components, crop each, then use VLM to inspect for issues like damage, incorrect orientation, or missing sub-parts.
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → TopK → ExtractROIs → VLMQuery → Fuse
         (find     (>0.5)   (top 5  (crop each     (inspect
@@ -219,11 +230,13 @@ Image → Detect → Filter → TopK → ExtractROIs → VLMQuery → Fuse
 | `vlm` | Vision-Language Model | Per-component inspection | `Qwen/Qwen3-VL-2B-Instruct` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM)
 - **CPU**: Not recommended
 - **Inference Time**: ~2-5s per image depending on component count
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import component_inspection
@@ -254,6 +267,7 @@ Retail operations require automated shelf monitoring, inventory tracking, and pl
 **Problem Statement**: Detect products on shelves, identify brands, and verify planogram compliance.
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → NMS → ExtractROIs → Classify → Fuse
         (find     (>0.5)   (0.5   (crop each    (brand/
@@ -267,11 +281,13 @@ Image → Detect → Filter → NMS → ExtractROIs → Classify → Fuse
 | `classifier` | Zero-shot classifier | Brand identification | `openai/clip-vit-base-patch32` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (4GB+ VRAM)
 - **CPU**: Supported (~3-5s per image)
 - **Inference Time**: ~300ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import shelf_product_analysis
@@ -300,6 +316,7 @@ print("Brand counts:", dict(brands))
 **Problem Statement**: Find specific products on shelves using natural language descriptions without pre-training.
 
 **Architecture Diagram**:
+
 ```
 Image → GroundingDINO → Filter → PromptBoxes(SAM) → RefineMask → Fuse
         (text-prompted   (>0.3)   (segment each      (cleanup
@@ -313,11 +330,13 @@ Image → GroundingDINO → Filter → PromptBoxes(SAM) → RefineMask → Fuse
 | `segmenter` | Prompt segmenter | Precise boundaries | `facebook/sam-vit-base` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (6GB+ VRAM)
 - **CPU**: Supported (~10s per image)
 - **Inference Time**: ~500ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import grounding_dino_sam
@@ -342,6 +361,7 @@ print(f"Found {len(result['final'].instances)} products matching prompts")
 **Problem Statement**: Comprehensive stock evaluation combining VLM semantic assessment, object counting, and stock level classification.
 
 **Architecture Diagram**:
+
 ```
                     ┌─→ VLMDescribe (semantic stock check)
                     │
@@ -360,11 +380,13 @@ Image ──parallel────┼─→ Detect → Filter (count products)
 | `classifier` | Zero-shot classifier | Stock level category | `openai/clip-vit-base-patch32` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM)
 - **CPU**: Not recommended
 - **Inference Time**: ~1.5s per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import stock_level_analysis
@@ -400,6 +422,7 @@ Autonomous vehicles and ADAS systems require real-time scene understanding, incl
 **Problem Statement**: Detect vehicles/pedestrians and estimate their distance using depth maps for collision avoidance.
 
 **Architecture Diagram**:
+
 ```
                     ┌─→ Detect → Filter (vehicles/pedestrians)
 Image ──parallel────┤            (>0.4)
@@ -415,11 +438,13 @@ Image ──parallel────┤            (>0.4)
 | `depth` | Depth estimator | Monocular depth | `depth-anything/Depth-Anything-V2-Small-hf` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (4GB+ VRAM)
 - **CPU**: Supported (~5s per frame)
 - **Inference Time**: ~150ms per frame (GPU) — 6 FPS real-time capable
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import vehicle_distance_estimation
@@ -451,6 +476,7 @@ for inst in result['final'].instances:
 **Problem Statement**: Comprehensive scene understanding with detection, segmentation, depth, and scene classification.
 
 **Architecture Diagram**:
+
 ```
                     ┌─→ Detect (objects)
                     │
@@ -472,11 +498,13 @@ Image ──parallel────┤
 | `classifier` | Zero-shot classifier | Scene classification | `openai/clip-vit-base-patch32` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM for Mask2Former)
 - **CPU**: Not recommended (very slow)
 - **Inference Time**: ~800ms per frame (GPU) — 1-2 FPS
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import road_scene_analysis
@@ -505,6 +533,7 @@ print(f"Detected {len(result['final'].instances)} objects")
 **Problem Statement**: Track vehicles and pedestrians across video frames with persistent IDs for traffic flow analysis.
 
 **Architecture Diagram**:
+
 ```
 Frame → Detect → Filter → Track → Annotate → Fuse
         (fast     (>0.4)   (BYTETrack  (draw IDs
@@ -519,11 +548,13 @@ Frame → Detect → Filter → Track → Annotate → Fuse
 | `tracker` | Multi-object tracker | Persistent ID assignment | `ByteTrackWrapper` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (4GB VRAM)
 - **CPU**: Supported (~10 FPS)
 - **Inference Time**: ~50ms per frame (GPU) — 20 FPS real-time
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import traffic_tracking
@@ -541,7 +572,7 @@ for frame_idx, frame in enumerate(video_frames):
         ),
         providers={"detector": detector, "tracker": tracker},
     )
-    
+
     print(f"Frame {frame_idx}: {len(result['final'].instances)} tracked objects")
     for inst in result['final'].instances:
         print(f"  Track ID {inst.track_id}: {inst.label} at {inst.bbox}")
@@ -554,6 +585,7 @@ for frame_idx, frame in enumerate(video_frames):
 **Problem Statement**: Detect road obstacles and use VLM to reason about hazard level and recommended actions.
 
 **Architecture Diagram**:
+
 ```
                     ┌─→ VLMQuery (hazard assessment)
                     │
@@ -572,11 +604,13 @@ Image ──parallel────┼─→ Detect (obstacles)
 | `depth` | Depth estimator | Distance estimation | `depth-anything/Depth-Anything-V2-Small-hf` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM)
 - **CPU**: Not recommended
 - **Inference Time**: ~1s per frame (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import vlm_scene_understanding
@@ -610,6 +644,7 @@ Security operations require automated monitoring for crowd management, suspiciou
 **Problem Statement**: Track individuals in crowded spaces for density analysis and safety alerts.
 
 **Architecture Diagram**:
+
 ```
 Frame → Detect → Filter(person) → Track → Annotate → Fuse
         (person   (fuzzy match    (persistent  (render
@@ -623,11 +658,13 @@ Frame → Detect → Filter(person) → Track → Annotate → Fuse
 | `tracker` | Multi-object tracker | Crowd tracking | `ByteTrackWrapper` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (4GB VRAM)
 - **CPU**: Supported (~5 FPS)
 - **Inference Time**: ~100ms per frame (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import crowd_monitoring
@@ -657,6 +694,7 @@ if len(unique_ids) > 50:
 **Problem Statement**: Detect abandoned objects (bags, packages) and use VLM to assess suspiciousness.
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → PromptBoxes(SAM) → RefineMask → VLMQuery → Fuse
         (text-    (>0.25)  (segment           (cleanup)    (assess
@@ -672,11 +710,13 @@ Image → Detect → Filter → PromptBoxes(SAM) → RefineMask → VLMQuery →
 | `vlm` | Vision-Language Model | Contextual reasoning | `Qwen/Qwen3-VL-2B-Instruct` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (10GB+ VRAM for 3-model chain)
 - **CPU**: Not recommended
 - **Inference Time**: ~2s per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import suspicious_object_detection
@@ -706,6 +746,7 @@ for inst in result['final'].instances:
 **Problem Statement**: Use VLM to monitor camera feeds for security concerns, unusual behavior, or policy violations.
 
 **Architecture Diagram**:
+
 ```
 Image → VLMQuery → PromoteEntities → Fuse
         (security           (extract bboxes
@@ -719,11 +760,13 @@ Image → VLMQuery → PromoteEntities → Fuse
 | `detector` | Zero-shot detector | Entity extraction | `IDEA-Research/grounding-dino-tiny` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM)
 - **CPU**: Not recommended
 - **Inference Time**: ~1s per frame (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import vlm_scene_understanding
@@ -758,6 +801,7 @@ Agricultural monitoring requires early disease detection, crop health assessment
 **Problem Statement**: Detect diseased leaves and classify disease types for targeted treatment.
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → ExtractROIs → Classify → Fuse
         (diseased (>0.5)   (crop each    (disease
@@ -771,11 +815,13 @@ Image → Detect → Filter → ExtractROIs → Classify → Fuse
 | `classifier` | Zero-shot classifier | Disease classification | `openai/clip-vit-base-patch32` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (4GB+ VRAM)
 - **CPU**: Supported (~2s per image)
 - **Inference Time**: ~200ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import defect_detect_classify
@@ -805,6 +851,7 @@ print("Disease distribution:", dict)
 **Problem Statement**: Segment aerial images into crop regions and estimate terrain depth for coverage/planning.
 
 **Architecture Diagram**:
+
 ```
                     ┌─→ SegmentImage (crop regions)
 Image ──parallel────┤
@@ -820,11 +867,13 @@ Image ──parallel────┤
 | `depth` | Depth estimator | Terrain depth | `depth-anything/Depth-Anything-V2-Small-hf` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM for Mask2Former)
 - **CPU**: Not recommended
 - **Inference Time**: ~600ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import aerial_crop_analysis
@@ -850,6 +899,7 @@ print(f"Identified {len(stuff_regions)} crop/terrain regions")
 **Problem Statement**: Detect and segment pest infestations for targeted treatment planning.
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → PromptBoxes(SAM) → RefineMask → Fuse
         (text-    (>0.3)   (segment pests)   (cleanup
@@ -864,11 +914,13 @@ Image → Detect → Filter → PromptBoxes(SAM) → RefineMask → Fuse
 | `segmenter` | Prompt segmenter | Infestation area | `facebook/sam-vit-base` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (6GB+ VRAM)
 - **CPU**: Supported (~10s per image)
 - **Inference Time**: ~500ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import grounding_dino_sam
@@ -903,6 +955,7 @@ Medical imaging research requires automated ROI detection, segmentation, and ana
 **Problem Statement**: Detect and segment regions of interest (lesions, nodules, masses) with area measurements for research analysis.
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → PromptBoxes(SAM) → RefineMask → Fuse
         (text-    (>0.25)  (segment ROIs)    (cleanup
@@ -917,11 +970,13 @@ Image → Detect → Filter → PromptBoxes(SAM) → RefineMask → Fuse
 | `segmenter` | Prompt segmenter | Precise boundaries | `facebook/sam-vit-base` |
 
 **Hardware Requirements**:
+
 - **GPU**: Recommended (6GB+ VRAM)
 - **CPU**: Supported (~10s per image)
 - **Inference Time**: ~500ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import grounding_dino_sam
@@ -949,6 +1004,7 @@ for inst in result['final'].instances:
 **Problem Statement**: Generate descriptive reports of medical images for research documentation.
 
 **Architecture Diagram**:
+
 ```
 Image → VLMQuery → Fuse
         (describe
@@ -961,11 +1017,13 @@ Image → VLMQuery → Fuse
 | `vlm` | Vision-Language Model | Image description | `Qwen/Qwen3-VL-2B-Instruct` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM)
 - **CPU**: Not recommended
 - **Inference Time**: ~800ms per image (GPU)
 
 **Code Example**:
+
 ```python
 import mata
 from mata.presets import vlm_scene_understanding
@@ -991,6 +1049,7 @@ print("Research Report:", result['final'].meta.get('vlm_response'))
 **Problem Statement**: Automated triage system for pathology samples using detection + classification + conditional VLM analysis (research tool).
 
 **Architecture Diagram**:
+
 ```
 Image → Detect → Filter → ExtractROIs → Classify → [Conditional VLM] → Fuse
         (find     (>0.4)   (crop        (normal/benign/    (detailed
@@ -1006,11 +1065,13 @@ Image → Detect → Filter → ExtractROIs → Classify → [Conditional VLM] �
 | `vlm` | Vision-Language Model | Detailed analysis | `Qwen/Qwen3-VL-2B-Instruct` |
 
 **Hardware Requirements**:
+
 - **GPU**: Required (8GB+ VRAM)
 - **CPU**: Not recommended
 - **Inference Time**: ~1-3s per image depending on flagged regions
 
 **Code Example**:
+
 ```python
 import mata
 from mata.core.graph.graph import Graph
@@ -1057,36 +1118,40 @@ for inst in result['classifications'].instances:
 
 ### Models Used Across Scenarios
 
-| Model | Type | Scenarios | Total Uses |
-|-------|------|-----------|------------|
-| `IDEA-Research/grounding-dino-tiny` | Zero-shot detection | 1, 2, 6, 11, 13, 14, 15, 17, 18 | 9 |
-| `openai/clip-vit-base-patch32` | Zero-shot classification | 1, 5, 7, 9, 15, 20 | 6 |
-| `facebook/sam-vit-base` | Prompt segmentation | 2, 6, 13, 17, 18 | 5 |
-| `Qwen/Qwen3-VL-2B-Instruct` | Vision-Language Model | 3, 4, 7, 11, 13, 14, 19, 20 | 8 |
-| `facebook/detr-resnet-50` | Object detection | 3, 4, 7, 8, 9, 12, 20 | 7 |
-| `depth-anything/Depth-Anything-V2-Small-hf` | Depth estimation | 8, 9, 11, 16 | 4 |
-| `torchvision/fasterrcnn_resnet50_fpn_v2` | Object detection | 5, 12 | 2 |
-| `facebook/mask2former-swin-large-cityscapes` | Panoptic segmentation | 9 | 1 |
-| `facebook/mask2former-swin-large-ade` | Panoptic segmentation | 16 | 1 |
-| `PekingU/rtdetr_r18vd` | Fast detection | 10 | 1 |
-| `ByteTrackWrapper` | Multi-object tracking | 10, 12 | 2 |
+| Model                                        | Type                     | Scenarios                       | Total Uses |
+| -------------------------------------------- | ------------------------ | ------------------------------- | ---------- |
+| `IDEA-Research/grounding-dino-tiny`          | Zero-shot detection      | 1, 2, 6, 11, 13, 14, 15, 17, 18 | 9          |
+| `openai/clip-vit-base-patch32`               | Zero-shot classification | 1, 5, 7, 9, 15, 20              | 6          |
+| `facebook/sam-vit-base`                      | Prompt segmentation      | 2, 6, 13, 17, 18                | 5          |
+| `Qwen/Qwen3-VL-2B-Instruct`                  | Vision-Language Model    | 3, 4, 7, 11, 13, 14, 19, 20     | 8          |
+| `facebook/detr-resnet-50`                    | Object detection         | 3, 4, 7, 8, 9, 12, 20           | 7          |
+| `depth-anything/Depth-Anything-V2-Small-hf`  | Depth estimation         | 8, 9, 11, 16                    | 4          |
+| `torchvision/fasterrcnn_resnet50_fpn_v2`     | Object detection         | 5, 12                           | 2          |
+| `facebook/mask2former-swin-large-cityscapes` | Panoptic segmentation    | 9                               | 1          |
+| `facebook/mask2former-swin-large-ade`        | Panoptic segmentation    | 16                              | 1          |
+| `PekingU/rtdetr_r18vd`                       | Fast detection           | 10                              | 1          |
+| `ByteTrackWrapper`                           | Multi-object tracking    | 10, 12                          | 2          |
 
 ### Model Substitutions
 
 Most scenarios support model substitutions:
 
 **Detection**:
+
 - `facebook/detr-resnet-50` ↔ `PekingU/rtdetr_r18vd` (faster)
 - `IDEA-Research/grounding-dino-tiny` ↔ `IDEA-Research/grounding-dino-base` (better accuracy)
 
 **Classification**:
+
 - `openai/clip-vit-base-patch32` ↔ `openai/clip-vit-large-patch14` (better accuracy)
 
 **Segmentation**:
+
 - `facebook/sam-vit-base` ↔ `facebook/sam-vit-huge` (better quality)
 - Mask2Former models interchangeable depending on target domain
 
 **VLM**:
+
 - `Qwen/Qwen3-VL-2B-Instruct` ↔ `Qwen/Qwen3-VL-7B-Instruct` (better reasoning)
 
 ---
@@ -1124,11 +1189,11 @@ python retail_stock_level.py --real retail_shelf.jpg
 
 ```bash
 # Install MATA with all dependencies
-pip install mata[all]
+pip install datamata[all]
 
 # Or minimal install + selective model backends
-pip install mata[transformers]  # HuggingFace models only
-pip install mata[torchvision]   # Torchvision models only
+pip install datamata[transformers]  # HuggingFace models only
+pip install datamata[torchvision]   # Torchvision models only
 ```
 
 ### Mock vs. Real Mode
@@ -1136,12 +1201,14 @@ pip install mata[torchvision]   # Torchvision models only
 Every scenario supports two modes:
 
 **Mock Mode** (default):
+
 - No model downloads
 - Verifies graph construction
 - Prints expected output structure
 - **Use for**: Testing, learning, CI/CD
 
 **Real Mode** (`--real <image>`):
+
 - Downloads models on first run
 - Runs actual inference
 - Returns real results
@@ -1154,6 +1221,7 @@ Every scenario supports two modes:
 ### CPU vs. GPU Scenarios
 
 **CPU-Compatible** (acceptable performance on CPU):
+
 - Scenario 1: Defect detection & classification (~2s/image)
 - Scenario 5: Shelf product analysis (~3s/image)
 - Scenario 6: Product search (~10s/image)
@@ -1161,6 +1229,7 @@ Every scenario supports two modes:
 - Scenario 15: Crop disease classification (~2s/image)
 
 **GPU-Recommended** (slow on CPU, practical on GPU):
+
 - Scenario 2: Defect segmentation (~15s CPU, ~500ms GPU)
 - Scenario 9: Road scene analysis (~60s CPU, ~800ms GPU)
 - Scenario 16: Aerial crop (~40s CPU, ~600ms GPU)
@@ -1168,6 +1237,7 @@ Every scenario supports two modes:
 - Scenario 18: Medical ROI (~10s CPU, ~500ms GPU)
 
 **GPU-Required** (VLM scenarios, impractical on CPU):
+
 - Scenario 3, 4: Manufacturing VLM inspection
 - Scenario 7: Multi-modal stock assessment
 - Scenario 11: Obstacle VLM reasoning
@@ -1184,12 +1254,12 @@ Every scenario supports two modes:
 
 ### VRAM Requirements
 
-| VRAM | Compatible Scenarios |
-|------|---------------------|
-| **4GB** | 1, 5, 8, 10, 15 (detection + classification) |
-| **6GB** | 2, 6, 17, 18 (SAM segmentation) |
-| **8GB** | 3, 4, 7, 11, 12, 13, 14, 19, 20 (VLM) |
-| **12GB+** | 9, 16 (Mask2Former panoptic) |
+| VRAM      | Compatible Scenarios                         |
+| --------- | -------------------------------------------- |
+| **4GB**   | 1, 5, 8, 10, 15 (detection + classification) |
+| **6GB**   | 2, 6, 17, 18 (SAM segmentation)              |
+| **8GB**   | 3, 4, 7, 11, 12, 13, 14, 19, 20 (VLM)        |
+| **12GB+** | 9, 16 (Mask2Former panoptic)                 |
 
 ### Optimization Tips
 
@@ -1248,11 +1318,13 @@ Every scenario supports two modes:
 All scenarios are built from 22 reusable nodes. To create your own:
 
 1. **Identify your workflow**:
+
    ```
    Input → Task1 → Transform → Task2 → Output
    ```
 
 2. **Select appropriate nodes**:
+
    ```python
    from mata.core.graph.graph import Graph
    from mata.nodes.detect import Detect
@@ -1260,6 +1332,7 @@ All scenarios are built from 22 reusable nodes. To create your own:
    ```
 
 3. **Compose the graph**:
+
    ```python
    graph = (
        Graph("my_scenario")
@@ -1333,6 +1406,7 @@ pytest tests/ -v
 ## Version History
 
 **v1.6.1** (February 15, 2026):
+
 - ✅ 20 production scenarios across 6 industries
 - ✅ 12 new preset functions (manufacturing, retail, driving, surveillance, agriculture, general)
 - ✅ 88 comprehensive preset tests (all passing)
@@ -1341,6 +1415,7 @@ pytest tests/ -v
 - ✅ Zero-shot capabilities with GroundingDINO and CLIP
 
 **v1.6.0**:
+
 - Graph system with 22 nodes
 - 8 initial presets (VLM, detection+segmentation, full scene analysis)
 - 2185 tests passing (>80% coverage)
@@ -1353,6 +1428,7 @@ pytest tests/ -v
 **Model Licenses**: Vary by model (HuggingFace, Meta, OpenAI, etc. — see model cards)
 
 **Model Acknowledgments**:
+
 - GroundingDINO: IDEA-Research (Apache 2.0)
 - CLIP: OpenAI (MIT)
 - SAM: Meta AI (Apache 2.0)
@@ -1371,14 +1447,14 @@ pytest tests/ -v
 
 ## Appendix: All 20 Scenarios At A Glance
 
-| Industry | Count | Key Capabilities |
-|----------|-------|-----------------|
-| **Manufacturing** | 4 | Zero-shot defect detection, VLM assembly verification, per-component inspection |
-| **Retail** | 3 | Shelf monitoring, zero-shot product search, multi-modal stock assessment |
-| **Driving** | 4 | Distance estimation, 4-way scene analysis, real-time tracking, VLM hazard reasoning |
-| **Security** | 3 | Crowd tracking, suspicious object detection with VLM, situational awareness |
-| **Agriculture** | 3 | Disease classification, aerial segmentation + depth, pest mapping |
-| **Healthcare** | 3 | ROI segmentation, report generation, conditional triage workflow |
+| Industry          | Count | Key Capabilities                                                                    |
+| ----------------- | ----- | ----------------------------------------------------------------------------------- |
+| **Manufacturing** | 4     | Zero-shot defect detection, VLM assembly verification, per-component inspection     |
+| **Retail**        | 3     | Shelf monitoring, zero-shot product search, multi-modal stock assessment            |
+| **Driving**       | 4     | Distance estimation, 4-way scene analysis, real-time tracking, VLM hazard reasoning |
+| **Security**      | 3     | Crowd tracking, suspicious object detection with VLM, situational awareness         |
+| **Agriculture**   | 3     | Disease classification, aerial segmentation + depth, pest mapping                   |
+| **Healthcare**    | 3     | ROI segmentation, report generation, conditional triage workflow                    |
 
 **Total Presets**: 20 (8 existing + 12 new)  
 **Total Graph Nodes**: 22  

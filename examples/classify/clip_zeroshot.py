@@ -17,7 +17,7 @@ Models supported:
   - Any HuggingFace CLIP-compatible model
 
 Requirements:
-    pip install mata transformers pillow
+    pip install datamata transformers pillow
 
 Usage:
     python examples/classify/clip_zeroshot.py

@@ -27,8 +27,8 @@
 MATA supports [Valkey](https://valkey.io/) (the open-source Redis fork) and Redis via optional extras:
 
 ```bash
-pip install mata[valkey]   # valkey-py >= 6.0.0 (recommended)
-pip install mata[redis]    # redis-py >= 5.0.0  (alternative, wire-compatible)
+pip install datamata[valkey]   # valkey-py >= 6.0.0 (recommended)
+pip install datamata[redis]    # redis-py >= 5.0.0  (alternative, wire-compatible)
 ```
 
 Both clients are optional — `import mata` succeeds without either installed. An `ImportError` with an actionable message is raised only when a storage operation is actually executed.
@@ -660,13 +660,13 @@ async def async_export(result, url, key, ttl=None):
 
 ```
 ImportError: Valkey export requires 'valkey' or 'redis' package.
-Install with: pip install mata[valkey] or pip install mata[redis]
+Install with: pip install datamata[valkey] or pip install datamata[redis]
 ```
 
 **Solution:**
 
 ```bash
-pip install mata[valkey]   # or pip install mata[redis]
+pip install datamata[valkey]   # or pip install datamata[redis]
 ```
 
 This error only occurs when a storage operation is actually called — `import mata` succeeds without either package.
