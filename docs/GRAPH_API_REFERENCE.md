@@ -9,16 +9,17 @@
 1. [Public API](#public-api)
 2. [Artifacts](#artifacts)
 3. [Built-in Nodes](#built-in-nodes)
-4. [Graph Builder](#graph-builder)
-5. [Schedulers](#schedulers)
-6. [Execution Context](#execution-context)
-7. [Providers & Protocols](#providers--protocols)
-8. [Conditional Execution](#conditional-execution)
-9. [Temporal / Video](#temporal--video)
-10. [Observability](#observability)
-11. [DSL Helpers](#dsl-helpers)
-12. [Presets](#presets)
-13. [Converters & Utilities](#converters--utilities)
+4. [Storage Nodes](#storage-nodes)
+5. [Graph Builder](#graph-builder)
+6. [Schedulers](#schedulers)
+7. [Execution Context](#execution-context)
+8. [Providers & Protocols](#providers--protocols)
+9. [Conditional Execution](#conditional-execution)
+10. [Temporal / Video](#temporal--video)
+11. [Observability](#observability)
+12. [DSL Helpers](#dsl-helpers)
+13. [Presets](#presets)
+14. [Converters & Utilities](#converters--utilities)
 
 ---
 
@@ -857,6 +858,264 @@ NMS(
 | Output | `detections` | `Detections` |
 
 Uses `torchvision.ops.nms` internally.
+
+---
+
+## Storage Nodes
+
+Storage nodes connect graph pipelines to [Valkey](https://valkey.io/) (or wire-compatible Redis) for distributed result sharing, cross-pipeline caching, and event-driven architectures.
+
+```python
+from mata.nodes import ValkeyStore, ValkeyLoad
+```
+
+**Installation:**
+
+```bash
+pip install mata[valkey]   # valkey-py client
+pip install mata[redis]    # redis-py client (fallback)
+```
+
+Both nodes lazy-import the client library — `import mata` succeeds without either installed. An `ImportError` with an actionable message is raised only when a storage node actually executes.
+
+---
+
+### URI Scheme Format
+
+Storage nodes and `result.save()` accept Valkey/Redis URIs in the following formats:
+
+| Format         | Example                                 |
+| -------------- | --------------------------------------- |
+| Basic          | `valkey://localhost:6379/my_key`        |
+| With DB number | `valkey://localhost:6379/0/my_key`      |
+| With password  | `valkey://user:pass@host:6379/0/my_key` |
+| Redis fallback | `redis://localhost:6379/my_key`         |
+| TLS (Redis)    | `rediss://host:6379/my_key`             |
+
+The **key** is the last path segment (or everything after `db/` when a numeric DB is present). Passwords in URIs are passed through to the client and are **never logged**.
+
+**Direct save from result objects:**
+
+```python
+# Any MATA result type supports valkey:// URIs in save()
+result.save("valkey://localhost:6379/pipeline:detections:latest")
+result.save("valkey://localhost:6379/0/detections:frame_042")  # DB 0
+result.save("redis://localhost:6379/detections")               # redis-py
+```
+
+---
+
+### Key Template Syntax
+
+`ValkeyStore` accepts a `key` parameter that supports safe placeholder substitution:
+
+| Placeholder   | Resolved value               | Example output |
+| ------------- | ---------------------------- | -------------- |
+| `{node}`      | Node's `name` attribute      | `ValkeyStore`  |
+| `{timestamp}` | Unix epoch (integer seconds) | `1741478400`   |
+
+Placeholders are resolved with `str.format()` using only these two predefined variables — user-controlled input is **never** interpolated directly.
+
+```python
+ValkeyStore(
+    src="filtered",
+    url="valkey://localhost:6379",
+    key="pipeline:{node}:{timestamp}",  # → "pipeline:ValkeyStore:1741478400"
+    ttl=3600,
+)
+```
+
+---
+
+### `ValkeyStore`
+
+Sink node that writes an artifact to Valkey during graph execution. The artifact passes through unchanged, so downstream nodes can still consume it.
+
+```python
+ValkeyStore(
+    src: str,
+    url: str,
+    key: str,
+    ttl: int | None = None,
+    serializer: str = "json",
+    out: str | None = None,
+)
+```
+
+**Parameters:**
+
+| Parameter    | Type          | Default       | Description                                                    |
+| ------------ | ------------- | ------------- | -------------------------------------------------------------- |
+| `src`        | `str`         | _required_    | Name of the input artifact in the graph context                |
+| `url`        | `str`         | _required_    | Valkey/Redis connection URL (see URI formats above)            |
+| `key`        | `str`         | _required_    | Key name or template (`{node}`, `{timestamp}` supported)       |
+| `ttl`        | `int \| None` | `None`        | Key expiration in seconds; `None` = no expiry                  |
+| `serializer` | `str`         | `"json"`      | `"json"` (default) or `"msgpack"` (requires `msgpack` package) |
+| `out`        | `str \| None` | same as `src` | Output artifact name (pass-through)                            |
+
+**I/O:**
+
+| I/O    | Name       | Type                   |
+| ------ | ---------- | ---------------------- |
+| Input  | `artifact` | `Artifact` (any)       |
+| Output | `artifact` | `Artifact` (unchanged) |
+
+**Supported artifact types:** `Detections`, `Masks`, `Classifications`, `DepthMap`. Other `Artifact` subclasses are stored as-is (best-effort).
+
+**Example:**
+
+```python
+from mata.nodes import Detect, Filter, ValkeyStore
+from mata.core.graph import Graph
+
+graph = (
+    Graph()
+    .then(Detect(using="detr", out="dets"))
+    .then(Filter(src="dets", score_gt=0.5, out="filtered"))
+    .then(ValkeyStore(
+        src="filtered",
+        url="valkey://localhost:6379",
+        key="pipeline:detections:{timestamp}",
+        ttl=3600,
+    ))
+)
+
+result = mata.infer("frame.jpg", graph=graph, providers={"detr": detector})
+# result.filtered is still available — ValkeyStore is a pass-through sink
+```
+
+---
+
+### `ValkeyLoad`
+
+Source node that loads a previously stored result from Valkey and injects it into the graph as a typed artifact. Use this as an **entry node** to consume results produced by another pipeline.
+
+```python
+ValkeyLoad(
+    url: str,
+    key: str,
+    result_type: str = "auto",
+    out: str = "loaded",
+)
+```
+
+**Parameters:**
+
+| Parameter     | Type  | Default    | Description                                               |
+| ------------- | ----- | ---------- | --------------------------------------------------------- |
+| `url`         | `str` | _required_ | Valkey/Redis connection URL                               |
+| `key`         | `str` | _required_ | Key name to load from                                     |
+| `result_type` | `str` | `"auto"`   | `"auto"`, `"vision"`, `"classify"`, `"depth"`, or `"ocr"` |
+| `out`         | `str` | `"loaded"` | Output artifact name in the graph context                 |
+
+**I/O:**
+
+| I/O    | Name                   | Type       |
+| ------ | ---------------------- | ---------- |
+| Input  | _(none — source node)_ | —          |
+| Output | `artifact`             | `Artifact` |
+
+**Auto-detection logic** (`result_type="auto"`):
+
+| Key present in stored data | Detected type | Output artifact   |
+| -------------------------- | ------------- | ----------------- |
+| `instances`                | `vision`      | `Detections`      |
+| `predictions`              | `classify`    | `Classifications` |
+| `depth`                    | `depth`       | `DepthMap`        |
+| `regions`                  | `ocr`         | _(raw dict)_      |
+
+**Raises:**
+
+- `KeyError` — key does not exist in Valkey
+- `ValueError` — stored data cannot be auto-detected or `result_type` is unrecognized
+- `ImportError` — valkey/redis client not installed
+
+**Example:**
+
+```python
+from mata.nodes import ValkeyLoad, Filter, Fuse
+from mata.core.graph import Graph
+
+graph = (
+    Graph()
+    .then(ValkeyLoad(
+        url="valkey://localhost:6379",
+        key="upstream:detections:latest",
+        result_type="vision",
+        out="dets",
+    ))
+    .then(Filter(src="dets", score_gt=0.7, out="filtered"))
+    .then(Fuse(detections="filtered"))
+)
+
+result = mata.infer("frame.jpg", graph=graph, providers={})
+```
+
+---
+
+### Complete Store → Load Pipeline Example
+
+This pattern enables two independent pipelines to share detection results through Valkey:
+
+```python
+import mata
+from mata.nodes import Detect, Filter, ValkeyStore, ValkeyLoad, Fuse
+from mata.core.graph import Graph
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+
+# --- Pipeline A: run detection and persist to Valkey ---
+store_graph = (
+    Graph()
+    .then(Detect(using="detr", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(ValkeyStore(
+        src="filtered",
+        url="valkey://localhost:6379",
+        key="shared:detections:latest",
+        ttl=60,  # expires after 60 seconds
+    ))
+)
+
+mata.infer("frame_001.jpg", graph=store_graph, providers={"detr": detector})
+
+# --- Pipeline B: load persisted results and annotate ---
+load_graph = (
+    Graph()
+    .then(ValkeyLoad(
+        url="valkey://localhost:6379",
+        key="shared:detections:latest",
+        out="dets",
+    ))
+    .then(Fuse(detections="dets", out="annotated"))
+)
+
+annotated = mata.infer("frame_001.jpg", graph=load_graph, providers={})
+```
+
+**Named connections via YAML config:**
+
+```yaml
+# .mata/models.yaml
+storage:
+  valkey:
+    default:
+      url: "valkey://localhost:6379"
+      db: 0
+      ttl: 3600
+    production:
+      url: "valkey://prod-cluster:6379"
+      password_env: "VALKEY_PASSWORD" # read from env var, never stored in plaintext
+      db: 1
+      tls: true
+```
+
+```python
+from mata.core.model_registry import ModelRegistry
+
+registry = ModelRegistry()
+conn = registry.get_valkey_connection("production")  # resolves password from env
+```
 
 ---
 

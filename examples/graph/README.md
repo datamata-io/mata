@@ -12,17 +12,18 @@ pip install -e ".[dev]"
 python examples/graph/simple_pipeline.py
 ```
 
-## Core Examples (5)
+## Core Examples (6)
 
 These examples demonstrate the fundamental graph system capabilities:
 
-| Example                                     | Description                                  | Key Features                                     |
-| ------------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
-| ✅ [simple_pipeline.py](simple_pipeline.py) | Detection > Filter > Segmentation > Fuse     | `mata.infer()`, `Graph.then()`, basic pipeline   |
-| [parallel_tasks.py](parallel_tasks.py)      | Parallel detection + classification + depth  | `Graph.parallel()`, `ParallelScheduler`, speedup |
-| [video_tracking.py](video_tracking.py)      | Video processing with object tracking        | `VideoProcessor`, `Track`, frame policies        |
-| [vlm_workflows.py](vlm_workflows.py)        | VLM grounded detection & scene understanding | `VLMDetect`, `PromoteEntities`, VLM presets      |
-| [presets_demo.py](presets_demo.py)          | Using pre-built graph presets                | `grounding_dino_sam()`, `full_scene_analysis()`  |
+| Example                                           | Description                                  | Key Features                                                       |
+| ------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| ✅ [simple_pipeline.py](simple_pipeline.py)       | Detection > Filter > Segmentation > Fuse     | `mata.infer()`, `Graph.then()`, basic pipeline                     |
+| [parallel_tasks.py](parallel_tasks.py)            | Parallel detection + classification + depth  | `Graph.parallel()`, `ParallelScheduler`, speedup                   |
+| [video_tracking.py](video_tracking.py)            | Video processing with object tracking        | `VideoProcessor`, `Track`, frame policies                          |
+| [vlm_workflows.py](vlm_workflows.py)              | VLM grounded detection & scene understanding | `VLMDetect`, `PromoteEntities`, VLM presets                        |
+| [presets_demo.py](presets_demo.py)                | Using pre-built graph presets                | `grounding_dino_sam()`, `full_scene_analysis()`                    |
+| [valkey_pipeline.py](valkey_pipeline.py)          | Valkey/Redis result storage & Pub/Sub        | `ValkeyStore`, `ValkeyLoad`, `publish_valkey`, rolling stream keys |
 
 > **Advanced patterns** (custom nodes, conditional logic, provider integration) are documented with
 > full context in the [Graph Cookbook](../../docs/GRAPH_COOKBOOK.md).

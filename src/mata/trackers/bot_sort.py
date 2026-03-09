@@ -369,6 +369,7 @@ class BOTSORT(BYTETracker):
             return []
 
         tracks: list[BOTrack] = []
+        features = getattr(results, "features", None)
         for i in range(len(results)):
             xywh = results.xywh[i]  # [cx, cy, w, h]
             score = float(results.conf[i])
@@ -378,7 +379,8 @@ class BOTSORT(BYTETracker):
                 [xywh[0], xywh[1], xywh[2], xywh[3], 0.0, orig_idx],
                 dtype=np.float64,
             )
-            tracks.append(BOTrack(xywh_ext, score, cls))
+            feat = features[i] if (features is not None and i < len(features)) else None
+            tracks.append(BOTrack(xywh_ext, score, cls, feat=feat))
         return tracks
 
     def get_dists(self, tracks: list[BOTrack], detections: list[BOTrack]) -> np.ndarray:

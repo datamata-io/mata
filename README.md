@@ -27,8 +27,9 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 - **Vision-Language Models**: Image captioning, VQA, and visual understanding with Qwen3-VL and more
 - **Multi-Format Runtime**: PyTorch ✅ | ONNX Runtime ✅ | TorchScript ✅ | Torchvision ✅ | TensorRT (planned)
 - **Graph System** (v1.6): Multi-task workflows with `mata.infer()`, parallel execution, conditional branching, and video tracking
-- **Object Tracking** (v1.8): `mata.track()` — Video/stream tracking with vendored ByteTrack and BotSort, persistent track IDs, trajectory trails, and CSV/JSON export
+- **Object Tracking** (v1.8+): `mata.track()` — Video/stream tracking with vendored ByteTrack and BotSort, persistent track IDs, trajectory trails, CSV/JSON export, and appearance-based ReID (v1.9.2)
 - **OCR / Text Extraction** (v1.9): `mata.run("ocr", ...)` — extract printed and handwritten text using GOT-OCR2, TrOCR, EasyOCR, PaddleOCR, or Tesseract with per-region confidence and bounding boxes
+- **Valkey/Redis Result Storage** (v1.9): persist any result to Valkey/Redis with `result.save("valkey://host/key")` or via `ValkeyStore`/`ValkeyLoad` graph nodes — enables distributed pipelines and cross-process result sharing
 - **Validation & Evaluation**: `mata.val()` — mAP/accuracy/depth metrics against COCO, ImageNet, or custom datasets
 - **Export & Visualization**: Save as JSON/CSV/image overlays/crops with dual backends (PIL/matplotlib)
 - **Task-First API**: Specify what you want (detect, segment, classify, depth, ocr, vlm), not which model to use
@@ -98,6 +99,10 @@ pip install onnxruntime-gpu  # GPU
 
 # For publication-quality visualizations
 pip install matplotlib
+
+# For Valkey/Redis result storage
+pip install mata[valkey]   # valkey-py client (recommended)
+pip install mata[redis]    # redis-py client (alternative)
 ```
 
 ## 🚀 Quick Start
@@ -339,7 +344,7 @@ result = mata.infer(graph=graph, video="video.mp4", providers={...})
 | Speed         | Faster                    | Slightly slower                             |
 | Accuracy      | Good                      | Better (especially for panning cameras)     |
 | Default       | No                        | **Yes** (MATA default, matches Ultralytics) |
-| ReID          | ❌ v1.8                   | ❌ v1.8 (planned for v1.9)                  |
+| ReID          | ❌ No                     | ✅ v1.9.2 (`reid_model=` kwarg)             |
 
 **Configuration via YAML:**
 
@@ -358,6 +363,68 @@ models:
 
 ```python
 tracker = mata.load("track", "highway-cam")
+```
+
+#### Appearance-Based ReID (New in v1.9.2)
+
+Enable appearance re-identification with BotSort to recover track IDs after occlusion or re-entry:
+
+```python
+# Pass any HuggingFace image encoder (ViT, CLIP, OSNet, etc.) as a ReID model
+results = mata.track(
+    "video.mp4",
+    model="facebook/detr-resnet-50",
+    tracker="botsort",
+    reid_model="openai/clip-vit-base-patch32",   # appearance encoder
+    conf=0.3,
+    save=True,
+)
+```
+
+ONNX models are also supported for production deployment:
+
+```python
+# Use a local .onnx ReID model for low-latency inference
+results = mata.track(
+    "video.mp4",
+    model="facebook/detr-resnet-50",
+    reid_model="osnet_x1_0.onnx",      # local ONNX ReID model
+)
+```
+
+ReID can also be declared in a config alias:
+
+```yaml
+# .mata/models.yaml
+models:
+  track:
+    smart-cam:
+      source: "facebook/detr-resnet-50"
+      tracker: botsort
+      reid_model: "openai/clip-vit-base-patch32"
+      tracker_config:
+        track_high_thresh: 0.6
+        appearance_thresh: 0.25
+```
+
+```python
+tracker = mata.load("track", "smart-cam")  # ReID loaded automatically
+```
+
+**Cross-camera re-identification** via Valkey:
+
+```python
+from mata.trackers import ReIDBridge
+
+# Camera 1 — publish embeddings
+bridge = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+results = mata.track("rtsp://cam1/stream", model="detr",
+                     reid_model="openai/clip-vit-base-patch32",
+                     reid_bridge=bridge, stream=True)
+
+# Camera 2 — query nearest identity
+bridge2 = ReIDBridge("valkey://localhost:6379", camera_id="cam-2")
+# Embeddings from cam-1 are queryable cross-camera with cosine similarity
 ```
 
 See [Tracking Examples](examples/track/) | [Quick Reference](QUICK_REFERENCE.md#object-tracking)

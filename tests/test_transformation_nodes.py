@@ -651,8 +651,8 @@ class TestNodeTypeDeclarations:
 
     def test_filter_types(self):
         node = Filter()
-        assert node.inputs == {"detections": Detections}
-        assert node.outputs == {"detections": Detections}
+        assert node.inputs == {"dets": Detections}  # dynamic: default src="dets"
+        assert node.outputs == {"filtered": Detections}  # dynamic: default out="filtered"
 
     def test_topk_types(self):
         node = TopK(k=1)

@@ -219,16 +219,27 @@ class TrackingAdapter:
         detector: Any,
         tracker_config: TrackerConfig | str | dict | None = None,
         frame_rate: int = 30,
+        reid_encoder: Any | None = None,
+        reid_bridge: Any | None = None,
     ) -> None:
         self._detector = detector
         self._config: TrackerConfig = _resolve_config(tracker_config)
         self._frame_rate: int = int(frame_rate)
         self._tracker: Any = self._build_tracker()
+        self._reid_encoder: Any | None = reid_encoder
+        self._reid_bridge: Any | None = reid_bridge
+
+        # Wire ReID encoder into BOTSORT so get_dists() activates the
+        # appearance distance branch when encoder is not None.
+        if self._reid_encoder is not None and hasattr(self._tracker, "encoder"):
+            self._tracker.encoder = self._reid_encoder
 
         logger.debug(
-            "TrackingAdapter initialised: tracker_type=%s, frame_rate=%d",
+            "TrackingAdapter initialised: tracker_type=%s, frame_rate=%d, reid=%s, bridge=%s",
             self._config.tracker_type,
             self._frame_rate,
+            self._reid_encoder is not None,
+            self._reid_bridge is not None,
         )
 
     # ------------------------------------------------------------------ #
@@ -269,6 +280,39 @@ class TrackingAdapter:
         except Exception:  # pragma: no cover
             pass
         return None
+
+    @staticmethod
+    def _extract_crops(
+        image: np.ndarray,
+        instances: list,
+    ) -> list:
+        """Extract image crops from detection bounding boxes.
+
+        Args:
+            image: (H, W, 3) uint8 numpy array (RGB).
+            instances: List of Instance objects with bbox attribute.
+
+        Returns:
+            List of (crop_h, crop_w, 3) uint8 arrays, one per instance.
+            Instances without a valid bbox are skipped (empty crop placeholder).
+        """
+        h, w = image.shape[:2]
+        crops: list = []
+        for inst in instances:
+            if inst.bbox is None:
+                crops.append(np.empty((0, 0, 3), dtype=np.uint8))
+                continue
+            x1, y1, x2, y2 = inst.bbox
+            # Clip to image bounds
+            x1i = max(0, int(x1))
+            y1i = max(0, int(y1))
+            x2i = min(w, int(x2))
+            y2i = min(h, int(y2))
+            if x2i <= x1i or y2i <= y1i:
+                crops.append(np.empty((0, 0, 3), dtype=np.uint8))
+                continue
+            crops.append(image[y1i:y2i, x1i:x2i].copy())
+        return crops
 
     # ------------------------------------------------------------------ #
     # Public API                                                           #
@@ -332,15 +376,46 @@ class TrackingAdapter:
         # ---- 4. Convert to tracker input format ----------------------------
         det_results = DetectionResults.from_vision_result(vision_result)
 
-        # ---- 5. Optional numpy image for GMC (BotSort) ---------------------
+        # ---- 4b. ReID embedding extraction ---------------------------------
+        # Compute np_image once — used for both crop extraction and GMC.
         np_image = self._to_numpy_image(image)
+        if self._reid_encoder is not None and np_image is not None and len(det_results) > 0:
+            crops = self._extract_crops(np_image, vision_result.instances)
+            valid_crops = [c for c in crops if c.size > 0]
+            if valid_crops:
+                embeddings = self._reid_encoder.predict(valid_crops)
+                emb_idx = 0
+                for i, crop in enumerate(crops):
+                    if crop.size > 0 and emb_idx < len(embeddings):
+                        det_results.features[i] = embeddings[emb_idx]
+                        emb_idx += 1
 
-        # ---- 6. Run tracker ------------------------------------------------
+        # ---- 5. Run tracker ------------------------------------------------
         tracked: np.ndarray = self._tracker.update(det_results, img=np_image)
+
+        # ---- 6. Collect per-track embeddings from active stracks -----------
+        embeddings_by_id: dict[int, np.ndarray] | None = None
+        if self._reid_encoder is not None:
+            active = getattr(self._tracker, "tracked_stracks", [])
+            embeddings_by_id = {}
+            for st in active:
+                if getattr(st, "is_activated", False) and getattr(st, "smooth_feat", None) is not None:
+                    embeddings_by_id[st.track_id] = st.smooth_feat
 
         # ---- 7. Build output VisionResult ----------------------------------
         id2label = getattr(self._detector, "id2label", None)
-        result = self._convert_tracker_output(tracked, id2label)
+        result = self._convert_tracker_output(tracked, id2label, embeddings_by_id)
+
+        # ---- 8. Cross-camera ReID publish ----------------------------------
+        if self._reid_bridge is not None:
+            for inst in result.instances:
+                if inst.track_id is not None and inst.embedding is not None:
+                    self._reid_bridge.publish(
+                        track_id=inst.track_id,
+                        embedding=inst.embedding,
+                        bbox=inst.bbox,
+                        label=inst.label if inst.label is not None else 0,
+                    )
 
         return result
 
@@ -348,6 +423,7 @@ class TrackingAdapter:
         self,
         tracked: np.ndarray,
         id2label: dict[int, str] | None,
+        embeddings_by_id: dict[int, np.ndarray] | None = None,
     ) -> VisionResult:
         """Convert tracker output array to a :class:`VisionResult`.
 
@@ -357,10 +433,12 @@ class TrackingAdapter:
                 each row is ``[x1, y1, x2, y2, track_id, score, cls, idx]``.
             id2label: Optional ``{class_id: label_name}`` mapping sourced
                 from the wrapped detector.
+            embeddings_by_id: Optional ``{track_id: smooth_feat}`` mapping
+                produced from active tracked stracks when ReID is enabled.
 
         Returns:
             :class:`VisionResult` with one :class:`Instance` per tracked
-            object, each carrying ``track_id``.
+            object, each carrying ``track_id`` and optionally ``embedding``.
         """
         if tracked is None or len(tracked) == 0:
             return VisionResult(instances=[], meta={"source": "tracking_adapter"})
@@ -378,12 +456,18 @@ class TrackingAdapter:
             else:
                 label_name = f"class_{cls_id}"
 
+            # Resolve embedding from active stracks if ReID is enabled.
+            embedding: np.ndarray | None = None
+            if embeddings_by_id is not None:
+                embedding = embeddings_by_id.get(track_id)
+
             inst = Instance(
                 bbox=(x1, y1, x2, y2),
                 score=score,
                 label=cls_id,
                 label_name=label_name,
                 track_id=track_id,
+                embedding=embedding,
             )
             instances.append(inst)
 

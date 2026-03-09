@@ -12,6 +12,7 @@ from mata.core.exporters.csv_exporter import export_csv, export_ocr_csv, export_
 from mata.core.exporters.image_exporter import TrackTrailRenderer, export_image, export_ocr_image
 from mata.core.exporters.json_exporter import export_json, export_tracking_json
 from mata.core.exporters.text_exporter import export_text
+from mata.core.exporters.valkey_exporter import export_valkey, load_valkey, publish_valkey
 
 __all__ = [
     "export_json",
@@ -24,4 +25,7 @@ __all__ = [
     "export_crops",
     "export_text",
     "TrackTrailRenderer",
+    "export_valkey",
+    "load_valkey",
+    "publish_valkey",
 ]

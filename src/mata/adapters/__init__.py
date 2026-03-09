@@ -16,6 +16,7 @@ from .onnx_classify_adapter import ONNXClassifyAdapter
 from .pytorch_adapter import PyTorchDetectAdapter
 from .pytorch_base import PyTorchBaseAdapter
 from .pytorch_classify_adapter import PyTorchClassifyAdapter
+from .reid_adapter import HuggingFaceReIDAdapter, ONNXReIDAdapter, ReIDAdapter
 from .torchscript_adapter import TorchScriptDetectAdapter
 from .torchscript_classify_adapter import TorchScriptClassifyAdapter
 from .torchvision_detect_adapter import TorchvisionDetectAdapter
@@ -25,6 +26,9 @@ __all__ = [
     "BaseAdapter",
     "PyTorchBaseAdapter",
     "ONNXBaseAdapter",
+    "ReIDAdapter",
+    "HuggingFaceReIDAdapter",
+    "ONNXReIDAdapter",
     # Detection adapters
     "HuggingFaceDetectAdapter",
     "HuggingFaceDepthAdapter",

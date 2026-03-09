@@ -534,6 +534,15 @@ class VisionResult:
             >>> result = mata.run("detect", pil_img)
             >>> result.save("output.png", image="test.jpg")
         """
+        # Valkey/Redis URI scheme routing
+        output_str = str(output_path)
+        if output_str.startswith(("valkey://", "redis://")):
+            from mata.core.exporters.valkey_exporter import _parse_valkey_uri, export_valkey
+
+            url, key = _parse_valkey_uri(output_str)
+            export_valkey(self, url=url, key=key, **kwargs)
+            return
+
         from pathlib import Path
 
         from mata.core.exporters import export_crops, export_csv, export_image, export_json
@@ -648,6 +657,15 @@ class DepthResult:
 
         Format auto-detected from extension (.json, .png, .jpg, etc.).
         """
+        # Valkey/Redis URI scheme routing
+        output_str = str(output_path)
+        if output_str.startswith(("valkey://", "redis://")):
+            from mata.core.exporters.valkey_exporter import _parse_valkey_uri, export_valkey
+
+            url, key = _parse_valkey_uri(output_str)
+            export_valkey(self, url=url, key=key, **kwargs)
+            return
+
         from pathlib import Path
 
         from mata.core.exporters import export_image, export_json
@@ -784,6 +802,15 @@ class OCRResult:
             output_path: Destination file path.
             **kwargs: Forwarded to the underlying exporter.
         """
+        # Valkey/Redis URI scheme routing
+        output_str = str(output_path)
+        if output_str.startswith(("valkey://", "redis://")):
+            from mata.core.exporters.valkey_exporter import _parse_valkey_uri, export_valkey
+
+            url, key = _parse_valkey_uri(output_str)
+            export_valkey(self, url=url, key=key, **kwargs)
+            return
+
         from pathlib import Path
 
         suffix = Path(output_path).suffix.lower()
@@ -1062,6 +1089,15 @@ class DetectResult:
             format: Override format detection
             **kwargs: Additional exporter parameters
         """
+        # Valkey/Redis URI scheme routing
+        output_str = str(output_path)
+        if output_str.startswith(("valkey://", "redis://")):
+            from mata.core.exporters.valkey_exporter import _parse_valkey_uri, export_valkey
+
+            url, key = _parse_valkey_uri(output_str)
+            export_valkey(self, url=url, key=key, **kwargs)
+            return
+
         from pathlib import Path
 
         from mata.core.exporters import export_crops, export_csv, export_image, export_json
@@ -1390,6 +1426,15 @@ class SegmentResult:
             format: Override format detection
             **kwargs: Additional exporter parameters
         """
+        # Valkey/Redis URI scheme routing
+        output_str = str(output_path)
+        if output_str.startswith(("valkey://", "redis://")):
+            from mata.core.exporters.valkey_exporter import _parse_valkey_uri, export_valkey
+
+            url, key = _parse_valkey_uri(output_str)
+            export_valkey(self, url=url, key=key, **kwargs)
+            return
+
         from pathlib import Path
 
         from mata.core.exporters import export_csv, export_image, export_json
@@ -1550,6 +1595,15 @@ class ClassifyResult:
             format: Override format detection
             **kwargs: Additional exporter parameters (e.g., top_k for charts)
         """
+        # Valkey/Redis URI scheme routing
+        output_str = str(output_path)
+        if output_str.startswith(("valkey://", "redis://")):
+            from mata.core.exporters.valkey_exporter import _parse_valkey_uri, export_valkey
+
+            url, key = _parse_valkey_uri(output_str)
+            export_valkey(self, url=url, key=key, **kwargs)
+            return
+
         from pathlib import Path
 
         from mata.core.exporters import export_csv, export_image, export_json

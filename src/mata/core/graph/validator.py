@@ -561,6 +561,7 @@ class GraphValidator:
         Types are compatible if:
         - They are the same type
         - source_type is a subclass of target_type
+        - source_type is the base Artifact class (wildcard: runtime type unknown)
 
         Args:
             source_type: Type produced by source node
@@ -569,6 +570,10 @@ class GraphValidator:
         Returns:
             True if types are compatible
         """
+        # Base Artifact is a wildcard (e.g. ValkeyLoad can produce any subtype);
+        # defer the concrete type check to runtime.
+        if source_type is Artifact:
+            return True
         try:
             return issubclass(source_type, target_type)
         except TypeError:

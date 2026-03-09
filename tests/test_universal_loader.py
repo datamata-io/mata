@@ -477,7 +477,9 @@ class TestTrackingLoading:
         # Detect adapter created for the underlying model
         mock_detect_adapter.assert_called_once_with(model_id="facebook/detr-resnet-50")
         # TrackingAdapter wraps it with default botsort config
-        mock_tracking_adapter.assert_called_once_with(mock_detect_instance, "botsort", 30)
+        mock_tracking_adapter.assert_called_once_with(
+            mock_detect_instance, "botsort", 30, reid_encoder=None, reid_bridge=None
+        )
         assert result == mock_tracking_instance
 
     @patch("mata.adapters.tracking_adapter.TrackingAdapter")
@@ -538,7 +540,9 @@ class TestTrackingLoading:
             result = loader._load_from_file("track", filepath)
 
             mock_detect_adapter.assert_called_once_with(model_path=filepath)
-            mock_tracking_adapter.assert_called_once_with(mock_detect_instance, "botsort", 30)
+            mock_tracking_adapter.assert_called_once_with(
+                mock_detect_instance, "botsort", 30, reid_encoder=None, reid_bridge=None
+            )
             assert result == mock_tracking_instance
         finally:
             try:
@@ -731,7 +735,7 @@ class TestTrackRegistryConfig:
         """_resolve_tracker_kwargs with only tracker= string returns it unchanged."""
         loader = UniversalLoader()
         kwargs = {"tracker": "bytetrack", "frame_rate": 25, "device": "cuda"}
-        tracker_config, frame_rate = loader._resolve_tracker_kwargs(kwargs)
+        tracker_config, frame_rate, *_ = loader._resolve_tracker_kwargs(kwargs)
 
         assert tracker_config == "bytetrack"
         assert frame_rate == 25
@@ -746,7 +750,7 @@ class TestTrackRegistryConfig:
             "tracker_config": {"track_buffer": 60, "match_thresh": 0.7},
             "frame_rate": 30,
         }
-        tracker_config, frame_rate = loader._resolve_tracker_kwargs(kwargs)
+        tracker_config, frame_rate, *_ = loader._resolve_tracker_kwargs(kwargs)
 
         assert isinstance(tracker_config, dict)
         assert tracker_config["tracker_type"] == "botsort"
@@ -759,7 +763,7 @@ class TestTrackRegistryConfig:
         """_resolve_tracker_kwargs defaults: tracker=botsort, frame_rate=30."""
         loader = UniversalLoader()
         kwargs = {}
-        tracker_config, frame_rate = loader._resolve_tracker_kwargs(kwargs)
+        tracker_config, frame_rate, *_ = loader._resolve_tracker_kwargs(kwargs)
 
         assert tracker_config == "botsort"
         assert frame_rate == 30
@@ -772,7 +776,7 @@ class TestTrackRegistryConfig:
             "tracker": custom_dict,
             "tracker_config": {"track_buffer": 99},  # should be ignored
         }
-        tracker_config, frame_rate = loader._resolve_tracker_kwargs(kwargs)
+        tracker_config, frame_rate, *_ = loader._resolve_tracker_kwargs(kwargs)
 
         # Original dict returned unchanged (not merged with overrides)
         assert tracker_config is custom_dict

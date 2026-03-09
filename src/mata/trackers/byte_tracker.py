@@ -406,6 +406,9 @@ class DetectionResults:
         self._indices: np.ndarray = (
             np.arange(n, dtype=np.int64) if indices is None else np.asarray(indices, dtype=np.int64).ravel()
         )
+        # Optional per-detection appearance feature vectors (for ReID).
+        # Each entry is either None or a 1-D float32 array.
+        self.features: list = [None] * n
 
     # ------------------------------------------------------------------
     # Properties
@@ -446,13 +449,21 @@ class DetectionResults:
         :meth:`BYTETracker.init_track` can embed them in :class:`STrack` as
         ``idx``.
         """
-        return DetectionResults(
+        # Slice features using numpy object-array indexing so that both
+        # boolean masks and integer-index arrays work uniformly.
+        feats_arr = np.empty(len(self.features), dtype=object)
+        for _i, _f in enumerate(self.features):
+            feats_arr[_i] = _f
+        sliced_feats = list(feats_arr[idx])
+        sliced = DetectionResults(
             conf=self._conf[idx],
             xyxy=self._xyxy[idx],
             xywh=self._xywh[idx],
             cls=self._cls[idx],
             indices=self._indices[idx],
         )
+        sliced.features = sliced_feats
+        return sliced
 
     # ------------------------------------------------------------------
     # Factory helpers
