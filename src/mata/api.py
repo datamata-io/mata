@@ -208,6 +208,9 @@ def track(
     show_track_ids: bool = True,
     show_trails: bool = False,
     trail_length: int = 30,
+    reid_model: str | None = None,
+    with_reid: bool = False,
+    reid_bridge: Any | None = None,
     **kwargs: Any,
 ) -> list[VisionResult] | Generator[VisionResult, None, None]:
     """Run object detection + tracking on video, stream, or image sequence.
@@ -238,6 +241,15 @@ def track(
         show_track_ids: Draw track IDs on annotated frames.
         show_trails: Draw trajectory trails on annotated frames.
         trail_length: Number of frames to keep in trail history.
+        reid_model: HuggingFace model ID or local .onnx path for ReID encoder.
+            When provided, appearance embeddings are extracted from detection
+            crops and injected into the tracker for identity recovery.
+        with_reid: Convenience flag — must be paired with reid_model.
+            Raises ValueError if True but reid_model is None.
+        reid_bridge: Optional :class:`~mata.trackers.reid_bridge.ReIDBridge`
+            instance for cross-camera ReID publishing.  After each frame,
+            confirmed track embeddings are published to the shared Valkey
+            store so other camera instances can query them.
         **kwargs: Additional arguments passed to detection model.
 
     Returns:
@@ -267,7 +279,16 @@ def track(
     # Load adapter eagerly so it is ready before any generator is iterated.
     # This ensures load() runs immediately (not lazily) which is important for
     # stream=True callers who consume the generator outside any patch context.
-    adapter = load("track", model, tracker=tracker, frame_rate=frame_rate, **kwargs)
+    adapter = load(
+        "track",
+        model,
+        tracker=tracker,
+        frame_rate=frame_rate,
+        reid_model=reid_model,
+        with_reid=with_reid,
+        reid_bridge=reid_bridge,
+        **kwargs,
+    )
 
     # Build the generator and either collect or return it
     gen = _track_generator(

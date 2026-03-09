@@ -1129,3 +1129,124 @@ from mata.eval.metrics import COCO_IOU_THRESHOLDS
 6. **OCR recognition-only:** `OCRMetrics` computes recognition metrics only (CER, WER, exact-match accuracy). Text detection metrics (H-mean precision/recall/F1 on bounding-box matching) and end-to-end evaluation (combined detection + recognition) are not yet supported. Pass `mode="e2e"` is reserved for a future release.
 
 7. **OCR image-level comparison:** Ground-truth transcriptions for all text regions in an image are concatenated with spaces before CER/WER computation. This avoids the hard problem of pairing predicted regions to GT regions (which requires IoU matching), but means per-region error rates are not available.
+
+---
+
+## ReID Tracking Notes (v1.9.2)
+
+Appearance-Based Re-Identification (ReID) in MATA enhances BotSort's track-recovery capability after occlusion or target re-entry. This section covers how to enable ReID, inspect its outputs, and reason about tracking quality.
+
+### What ReID Adds
+
+Without ReID, BotSort associates detections to tracks using two cues:
+1. **IoU** — spatial overlap between predicted and detected bounding boxes
+2. **GMC** — global motion compensation (sparse optical flow) for camera motion
+
+With ReID enabled (`reid_model=...`), a third cue is added:
+3. **Cosine appearance distance** — L2-normalised embedding vectors extracted from detection crops are compared against cached track features (`smooth_feat`)
+
+This allows BotSort to re-associate tracks even when the predicted position drifts significantly due to occlusion gaps.
+
+### Enabling ReID
+
+```python
+import mata
+
+# Single-camera tracking with ReID
+results = mata.track(
+    "video.mp4",
+    model="facebook/detr-resnet-50",
+    tracker="botsort",
+    reid_model="openai/clip-vit-base-patch32",  # any HF image encoder
+    conf=0.3,
+)
+
+# Inspect per-instance embedding vectors
+for frame_result in results:
+    for inst in frame_result.instances:
+        print(f"Track #{inst.track_id} embedding shape: "
+              f"{inst.embedding.shape if inst.embedding is not None else 'N/A'}")
+```
+
+ONNX models are also supported:
+
+```python
+results = mata.track(
+    "video.mp4",
+    model="facebook/detr-resnet-50",
+    reid_model="osnet_x1_0.onnx",     # local ONNX ReID model
+)
+```
+
+### Inspecting Embedding Quality
+
+Each tracked instance with an active ReID encoder will have `Instance.embedding` populated with an L2-normalised float32 vector of shape `(D,)`:
+
+```python
+import numpy as np
+
+for result in results:
+    for inst in result.instances:
+        if inst.embedding is not None:
+            emb = inst.embedding
+            assert abs(np.linalg.norm(emb) - 1.0) < 1e-5, "Not unit norm"
+            print(f"Track #{inst.track_id}: {emb.shape}, norm={np.linalg.norm(emb):.4f}")
+```
+
+### Cross-Camera ReID with `ReIDBridge`
+
+`ReIDBridge` publishes confirmed-track embeddings to a shared Valkey store so independent tracker instances can resolve the same physical identity across feeds.
+
+```python
+from mata.trackers import ReIDBridge
+
+# Camera A
+bridge_a = ReIDBridge(
+    "valkey://localhost:6379",
+    camera_id="cam-a",
+    ttl=300,                  # embeddings expire after 5 min
+    similarity_thresh=0.25,   # cosine similarity cutoff
+)
+
+# mata.track() with reid_bridge: each confirmed track is published after update()
+for result in mata.track(
+    "rtsp://cam-a/stream",
+    model="facebook/detr-resnet-50",
+    reid_model="openai/clip-vit-base-patch32",
+    reid_bridge=bridge_a,
+    stream=True,
+):
+    active = [i for i in result.instances if i.track_id is not None]
+    print(f"Active tracks: {len(active)}")
+
+# Camera B — query nearest identity from cam-a
+bridge_b = ReIDBridge("valkey://localhost:6379", camera_id="cam-b")
+query_embedding = ...  # np.ndarray shape (D,), L2-normalised
+matches = bridge_b.query(query_embedding, exclude_camera="cam-b", top_k=1)
+if matches:
+    print(f"Best cross-camera match: {matches[0]}")
+    # {'track_id': 7, 'camera_id': 'cam-a', 'similarity': 0.83, ...}
+```
+
+### ReID Validation Tips
+
+| Scenario | Recommended Approach |
+| -------- | -------------------- |
+| Verify embeddings are populated | Check `inst.embedding is not None` after `update()` |
+| Measure track-recovery rate | Count frames where a lost track recovers its original ID |
+| Tune appearance threshold | Adjust `appearance_thresh` in `tracker_config` (BotSort default: 0.25) |
+| Reduce false re-associations | Increase `reid_model` → use a more discriminative encoder (e.g., OSNet vs CLIP) |
+| GPU inference for ReID | Pass `device="cuda"` at `mata.load("track", ..., device="cuda")` |
+| ONNX production deployment | Export your ReID model to ONNX and pass the `.onnx` path as `reid_model` |
+
+### Known Limitations (ReID)
+
+1. **BotSort only:** ReID is integrated into BotSort's `get_dists()` method. ByteTrack does not support appearance-distance matching — `reid_model` is silently ignored when `tracker="bytetrack"`.
+
+2. **No detection-level alignment:** ReID embeddings are computed for all detections that pass the confidence threshold, not only those that fail IoU association. For very dense scenes this may increase latency. Future work: skip ReID for IoU-matched detections (40–60% latency reduction).
+
+3. **Cross-camera ID namespace:** Each tracker process maintains an independent `STrack._count` — cross-camera track IDs are not globally unique. `ReIDBridge` resolves this at the application layer by storing `(camera_id, track_id)` pairs.
+
+4. **Embedding warm-up:** BotSort's `smooth_feat` is a running average that stabilises after ~5 frames. Track re-association quality may be lower for newly initialised tracks.
+
+5. **Valkey dependency for `ReIDBridge`:** `ReIDBridge` requires `pip install mata[valkey]` (or `mata[redis]`). If the server is unreachable, `publish()` / `query()` log a warning and return gracefully — tracking continues unaffected.

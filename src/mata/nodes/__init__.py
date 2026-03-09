@@ -39,6 +39,10 @@ from mata.nodes.topk import TopK
 # Tracking nodes (Task 5.5)
 from mata.nodes.track import Track
 
+# Storage nodes (v1.10.0)
+from mata.nodes.valkey_load import ValkeyLoad
+from mata.nodes.valkey_store import ValkeyStore
+
 # VLM nodes (Task 5.7)
 from mata.nodes.vlm_describe import VLMDescribe
 from mata.nodes.vlm_detect import VLMDetect
@@ -77,4 +81,7 @@ __all__ = [
     # Visualization & Analysis nodes
     "Annotate",
     "NMS",
+    # Storage nodes
+    "ValkeyStore",
+    "ValkeyLoad",
 ]

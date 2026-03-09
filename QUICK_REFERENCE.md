@@ -15,6 +15,7 @@
 | [Object Tracking](#-object-tracking-quick-reference-v18) | v1.8 |
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
 | [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
+| [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
 
 ---
 
@@ -1583,7 +1584,117 @@ metrics = mata.val(
 
 ---
 
-**Version:** 1.8.1
-**Date:** February 20, 2026
+## 🗄️ Valkey/Redis Storage Quick Reference (v1.9)
+
+### Installation
+
+```bash
+pip install mata[valkey]   # valkey-py (recommended)
+pip install mata[redis]    # redis-py (alternative)
+```
+
+### `result.save()` — URI scheme
+
+```python
+# Any result type supports valkey:// and redis:// URIs directly in save()
+result.save("valkey://localhost:6379/my_key")          # basic
+result.save("valkey://localhost:6379/0/my_key")        # with DB number
+result.save("redis://localhost:6379/my_key")           # redis-py fallback
+result.save("valkey://localhost:6379/my_key", ttl=300) # with TTL (seconds)
+```
+
+### Low-level exporter
+
+```python
+from mata.core.exporters import export_valkey, load_valkey, publish_valkey
+
+# Store
+export_valkey(result, url="valkey://localhost:6379", key="my_key", ttl=3600)
+
+# Load
+loaded = load_valkey(url="valkey://localhost:6379", key="my_key")
+
+# Load with explicit result type (skip auto-detection)
+loaded = load_valkey(url="valkey://localhost:6379", key="my_key",
+                     result_type="vision")  # or "classify", "depth", "ocr"
+
+# Pub/Sub publish (fire-and-forget)
+n_receivers = publish_valkey(result, url="valkey://localhost:6379",
+                              channel="detections:stream")
+```
+
+### URI formats
+
+| Format | Example |
+| ------ | ------- |
+| Basic | `valkey://localhost:6379/key` |
+| With DB | `valkey://localhost:6379/0/key` |
+| With auth | `valkey://user:pass@host:6379/0/key` |
+| Redis | `redis://localhost:6379/key` |
+| Redis TLS | `rediss://host:6379/key` |
+
+### Graph nodes: `ValkeyStore` / `ValkeyLoad`
+
+```python
+from mata.nodes import ValkeyStore, ValkeyLoad
+
+# Sink node — store artifact and pass it through unchanged
+ValkeyStore(
+    src="filtered",                       # artifact name in graph context
+    url="valkey://localhost:6379",
+    key="pipeline:{node}:{timestamp}",    # {node} and {timestamp} placeholders
+    ttl=3600,                             # optional TTL in seconds
+    serializer="json",                    # "json" (default) or "msgpack"
+    out="filtered",                       # optional override for output name
+)
+
+# Source node — load artifact as graph entry point
+ValkeyLoad(
+    url="valkey://localhost:6379",
+    key="upstream:detections:latest",
+    result_type="auto",                   # or "vision", "classify", "depth", "ocr"
+    out="dets",
+)
+```
+
+### Auto-detection of result type
+
+| Key in stored data | Detected type | Output artifact |
+| ------------------ | ------------- | --------------- |
+| `instances` | `vision` | `Detections` |
+| `predictions` | `classify` | `Classifications` |
+| `depth` | `depth` | `DepthMap` |
+| `regions` | `ocr` | _(raw dict)_ |
+
+### Named connections (YAML config)
+
+```yaml
+# .mata/models.yaml
+storage:
+  valkey:
+    default:
+      url: "valkey://localhost:6379"
+      db: 0
+      ttl: 3600
+    production:
+      url: "valkey://prod-cluster:6379"
+      password_env: "VALKEY_PASSWORD"  # read from env, never stored in plaintext
+      tls: true
+```
+
+```python
+from mata.core.model_registry import ModelRegistry
+
+registry = ModelRegistry()
+conn = registry.get_valkey_connection("production")
+# → {"url": "valkey://...", "password": "<from env>", "tls": True}
+```
+
+**Documentation:** [Graph API Reference — Storage Nodes](docs/GRAPH_API_REFERENCE.md#storage-nodes)
+
+---
+
+**Version:** 1.9.0
+**Date:** March 9, 2026
 **Status:** ✅ Production Ready
 ````

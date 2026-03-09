@@ -366,6 +366,75 @@ print(f"mAP@50-95: {metrics.box.map:.3f}")
 All four tasks are supported — detection, segmentation, classification, and depth.
 See the [Validation Guide](docs/VALIDATION_GUIDE.md) for dataset setup, full API reference, and metrics details.
 
+## Valkey / Redis Result Storage
+
+Persist any MATA result to [Valkey](https://valkey.io/) or Redis for distributed pipelines, cross-process sharing, or caching.
+
+### Install
+
+```bash
+pip install mata[valkey]   # valkey-py (recommended)
+pip install mata[redis]    # redis-py (alternative)
+```
+
+### Save and load a result
+
+```bash
+# Start a local Valkey server (or use an existing Redis server)
+docker run -d -p 6379:6379 valkey/valkey:latest
+```
+
+```python
+import mata
+
+# Run detection and save result to Valkey
+result = mata.run("detect", "image.jpg", model="PekingU/rtdetr_r18vd")
+result.save("valkey://localhost:6379/detections:frame_001")
+
+# Load it back later (in a different process or service)
+from mata.core.exporters import load_valkey
+loaded = load_valkey(url="valkey://localhost:6379", key="detections:frame_001")
+print(loaded)  # equivalent VisionResult
+```
+
+### Use in a graph pipeline with `ValkeyStore` / `ValkeyLoad`
+
+```python
+import mata
+from mata.nodes import Detect, Filter, ValkeyStore, ValkeyLoad, Fuse
+from mata.core.graph import Graph
+
+detector = mata.load("detect", "PekingU/rtdetr_r18vd")
+
+# Pipeline A — detect and persist
+store_graph = (
+    Graph()
+    .then(Detect(using="detr", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(ValkeyStore(
+        src="filtered",
+        url="valkey://localhost:6379",
+        key="pipeline:detections:{timestamp}",
+        ttl=60,  # expires after 60 s
+    ))
+)
+mata.infer("frame.jpg", graph=store_graph, providers={"detr": detector})
+
+# Pipeline B — load and annotate (in a separate service)
+load_graph = (
+    Graph()
+    .then(ValkeyLoad(
+        url="valkey://localhost:6379",
+        key="pipeline:detections:latest",
+        out="dets",
+    ))
+    .then(Fuse(detections="dets", out="annotated"))
+)
+result = mata.infer("frame.jpg", graph=load_graph, providers={})
+```
+
+See the [Graph API Reference](docs/GRAPH_API_REFERENCE.md#storage-nodes) for full parameter documentation.
+
 ## Next Steps
 
 1. **Read the full documentation**: [README.md](README.md)

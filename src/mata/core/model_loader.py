@@ -230,9 +230,11 @@ class UniversalLoader:
             UnsupportedModelError: If type/task combination not supported
         """
         if task == "track":
-            tracker_config, frame_rate = self._resolve_tracker_kwargs(kwargs)
+            tracker_config, frame_rate, reid_model, with_reid, reid_bridge = self._resolve_tracker_kwargs(kwargs)
             detect_adapter = self._load_with_explicit_type("detect", source, model_type, **kwargs)
-            return self._wrap_with_tracking(detect_adapter, tracker_config, frame_rate)
+            return self._wrap_with_tracking(
+                detect_adapter, tracker_config, frame_rate, reid_model, with_reid, reid_bridge
+            )
 
         if model_type == ModelType.HUGGINGFACE:
             if not source:
@@ -484,6 +486,17 @@ class UniversalLoader:
         """
         config = self.registry.get_config(task, alias)
 
+        # For tracking tasks, explicitly extract reid_model and with_reid so
+        # that (a) top-level config fields are honoured, (b) tracker_config
+        # .with_reid propagates to the top-level flag, and (c) runtime kwargs
+        # always take precedence over config values.
+        if task == "track":
+            tracker_cfg = config.get("tracker_config", {})
+            # with_reid: runtime kwarg > top-level config > tracker_config sub-key
+            config_with_reid = config.get("with_reid", tracker_cfg.get("with_reid", False))
+            kwargs["reid_model"] = kwargs.get("reid_model") or config.get("reid_model")
+            kwargs["with_reid"] = kwargs.get("with_reid") or config_with_reid
+
         # Merge config with kwargs (kwargs take precedence)
         merged_kwargs = {**config, **kwargs}
 
@@ -516,9 +529,11 @@ class UniversalLoader:
             HuggingFace adapter or pipeline instance for the task
         """
         if task == "track":
-            tracker_config, frame_rate = self._resolve_tracker_kwargs(kwargs)
+            tracker_config, frame_rate, reid_model, with_reid, reid_bridge = self._resolve_tracker_kwargs(kwargs)
             detect_adapter = self._load_from_huggingface("detect", model_id, **kwargs)
-            return self._wrap_with_tracking(detect_adapter, tracker_config, frame_rate)
+            return self._wrap_with_tracking(
+                detect_adapter, tracker_config, frame_rate, reid_model, with_reid, reid_bridge
+            )
 
         if task == "detect":
             # Check for zero-shot detection mode
@@ -721,9 +736,11 @@ class UniversalLoader:
             Appropriate adapter instance based on file extension
         """
         if task == "track":
-            tracker_config, frame_rate = self._resolve_tracker_kwargs(kwargs)
+            tracker_config, frame_rate, reid_model, with_reid, reid_bridge = self._resolve_tracker_kwargs(kwargs)
             detect_adapter = self._load_from_file("detect", file_path, **kwargs)
-            return self._wrap_with_tracking(detect_adapter, tracker_config, frame_rate)
+            return self._wrap_with_tracking(
+                detect_adapter, tracker_config, frame_rate, reid_model, with_reid, reid_bridge
+            )
 
         path = Path(file_path)
         extension = path.suffix.lower()
@@ -805,7 +822,7 @@ class UniversalLoader:
             )
 
     def _resolve_tracker_kwargs(self, kwargs: dict) -> tuple:
-        """Pop tracker-related kwargs and return ``(tracker_config, frame_rate)``.
+        """Pop tracker-related kwargs and return ``(tracker_config, frame_rate, reid_model, with_reid)``.
 
         Handles the case where the registry config supplies both a ``tracker``
         name (string) **and** a ``tracker_config`` override dict.  The two are
@@ -828,15 +845,19 @@ class UniversalLoader:
         dict, a YAML path, or a :class:`TrackerConfig` instance).
 
         Args:
-            kwargs: Mutable kwargs dict — ``tracker``, ``tracker_config``, and
-                ``frame_rate`` are **popped** in place.
+            kwargs: Mutable kwargs dict — ``tracker``, ``tracker_config``,
+                ``frame_rate``, ``reid_model``, and ``with_reid`` are
+                **popped** in place.
 
         Returns:
-            ``(resolved_tracker_config, frame_rate)`` tuple.
+            ``(resolved_tracker_config, frame_rate, reid_model, with_reid)`` tuple.
         """
         tracker = kwargs.pop("tracker", "botsort")
         tracker_config_overrides = kwargs.pop("tracker_config", None)
         frame_rate = kwargs.pop("frame_rate", 30)
+        reid_model = kwargs.pop("reid_model", None)
+        with_reid = kwargs.pop("with_reid", False)
+        reid_bridge = kwargs.pop("reid_bridge", None)
 
         if tracker_config_overrides is not None and isinstance(tracker_config_overrides, dict):
             if isinstance(tracker, str):
@@ -850,9 +871,17 @@ class UniversalLoader:
         else:
             resolved = tracker
 
-        return resolved, frame_rate
+        return resolved, frame_rate, reid_model, with_reid, reid_bridge
 
-    def _wrap_with_tracking(self, detect_adapter: Any, tracker_config: Any, frame_rate: int) -> Any:
+    def _wrap_with_tracking(
+        self,
+        detect_adapter: Any,
+        tracker_config: Any,
+        frame_rate: int,
+        reid_model: str | None = None,
+        with_reid: bool = False,
+        reid_bridge: Any | None = None,
+    ) -> Any:
         """Wrap a detection adapter with a :class:`TrackingAdapter`.
 
         This is a shared helper called by all source-type loaders when
@@ -865,14 +894,56 @@ class UniversalLoader:
                 instance, a plain dict of tracker parameters, or ``None`` for
                 the BotSort default.
             frame_rate: Video frame rate used to derive ``max_time_lost``.
+            reid_model: HuggingFace ID or local .onnx path for ReID encoder.
+                If None and with_reid is False, no ReID encoder is loaded.
+            with_reid: If True, reid_model must also be provided.
+            reid_bridge: Optional :class:`~mata.trackers.reid_bridge.ReIDBridge`
+                instance.  When provided, confirmed track embeddings are
+                published to Valkey after each frame.
 
         Returns:
             :class:`TrackingAdapter` composing *detect_adapter* with the
             configured tracker.
+
+        Raises:
+            ValueError: If with_reid=True but reid_model is None.
         """
         from mata.adapters.tracking_adapter import TrackingAdapter
 
-        return TrackingAdapter(detect_adapter, tracker_config, frame_rate)
+        reid_encoder = None
+        if with_reid and reid_model is None:
+            raise ValueError(
+                "with_reid=True requires reid_model to be specified. "
+                "Provide a HuggingFace model ID or local .onnx path, e.g.: "
+                'reid_model="person-reid/osnet-x1-0"'
+            )
+        if reid_model is not None or with_reid:
+            reid_encoder = self._load_reid_encoder(reid_model)
+
+        return TrackingAdapter(
+            detect_adapter, tracker_config, frame_rate, reid_encoder=reid_encoder, reid_bridge=reid_bridge
+        )
+
+    def _load_reid_encoder(self, reid_model: str) -> Any:
+        """Load a ReID encoder from a HuggingFace ID or local .onnx path.
+
+        Args:
+            reid_model: HuggingFace model ID (contains '/') or path to a
+                local .onnx file.
+
+        Returns:
+            :class:`HuggingFaceReIDAdapter` or :class:`ONNXReIDAdapter` instance.
+        """
+        if reid_model.endswith(".onnx") or (self._is_local_file(reid_model) and reid_model.lower().endswith(".onnx")):
+            from mata.adapters.reid_adapter import ONNXReIDAdapter
+
+            logger.info(f"Loading ONNX ReID encoder from: {reid_model}")
+            return ONNXReIDAdapter(reid_model)
+        else:
+            from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+            logger.info(f"Loading HuggingFace ReID encoder: {reid_model}")
+            return HuggingFaceReIDAdapter(reid_model)
 
     def _load_default(self, task: str, **kwargs) -> Any:
         """Load default model for task.

@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.0, it features a unified adapter system supporting multiple tasks and runtimes, plus a fully vendored ByteTrack/BotSort tracking system and an OCR evaluation pipeline.
+MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.2, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), and an OCR evaluation pipeline.
 
 **Universal Loading (v1.5.2+):**
 
@@ -12,9 +12,11 @@ mata.load("classify", "./model.onnx")           # Local ONNX file
 mata.load("segment", "fast-model")              # Config alias
 mata.load("depth", "depth-anything/Depth-Anything-V2-Small-hf")
 mata.load("track", "facebook/detr-resnet-50", tracker="botsort")  # 🆕 v1.8.0
+mata.load("track", "facebook/detr-resnet-50", tracker="botsort",
+          reid_model="openai/clip-vit-base-patch32")             # 🆕 v1.9.2 ReID
 ```
 
-**Object Tracking (v1.8.0):**
+**Object Tracking (v1.8.0+):**
 
 ```python
 # One-liner video/stream tracking
@@ -31,6 +33,18 @@ for result in mata.track("rtsp://cam/stream",
 # Persistent per-frame tracking
 tracker = mata.load("track", "facebook/detr-resnet-50", tracker="bytetrack")
 result = tracker.update(frame, persist=True)  # YOLO-like pattern
+
+# Appearance-based ReID (v1.9.2+) — BotSort only
+results = mata.track("video.mp4",
+    model="facebook/detr-resnet-50",
+    reid_model="openai/clip-vit-base-patch32")
+
+# Cross-camera ReID via Valkey (v1.9.2+)
+from mata.trackers import ReIDBridge
+bridge = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+results = mata.track("rtsp://cam/stream", model="...",
+                     reid_model="openai/clip-vit-base-patch32",
+                     reid_bridge=bridge, stream=True)
 ```
 
 **Zero-Shot Capabilities:**
@@ -56,18 +70,24 @@ Task Adapters (HuggingFace/ONNX/TorchScript/PyTorch)
 VisionResult (Unified result: bbox + mask + track_id + embedding)
     ↓
 Runtime (PyTorch/ONNX Runtime/TorchScript)
-    ↓           ↓              ↓
-Export System  Tracking Layer  Evaluation Layer (v1.8.1+)
-(JSON/CSV/     (v1.8.0)        ↓
-Image/Crops)   ↓               Validator (detect/segment/classify/depth/ocr)
-               TrackingAdapter ↓
-               ↓               Metrics (DetMetrics/SegMetrics/ClassifyMetrics/
-               Vendored Trackers         DepthMetrics/OCRMetrics)  ← v1.9.0
-               (BYTETracker/           ↓
-               BOTSORT)              Printer + DatasetLoader
-               ↓ (no external dep)   (COCO/COCO-Text JSON)
-               KalmanFilter + IoU
+    ↓           ↓                    ↓
+Export System  Tracking Layer         Evaluation Layer (v1.8.1+)
+(JSON/CSV/     (v1.8.0)               ↓
+Image/Crops)   ↓                      Validator (detect/segment/classify/depth/ocr)
+               TrackingAdapter        ↓
+               ↓                      Metrics (DetMetrics/SegMetrics/ClassifyMetrics/
+               Vendored Trackers                DepthMetrics/OCRMetrics)  ← v1.9.0
+               (BYTETracker/BOTSORT)           ↓
+               ↓ (no external dep)            Printer + DatasetLoader
+               KalmanFilter + IoU             (COCO/COCO-Text JSON)
                matching + GMC
+               ↓
+               ReID Layer (🆕 v1.9.2)
+               ↓           ↓
+               ReIDAdapter  ReIDBridge (cross-camera)
+               ↓           ↓
+               HuggingFace  Valkey embedding store
+               ONNX         (publish/query/TTL eviction)
 ```
 
 **Key Design Pattern:** Task contracts over model specifics - all adapters implement the same `predict()` interface returning task-specific results (VisionResult for detect/segment, ClassifyResult, DepthResult).
@@ -149,6 +169,11 @@ pytest tests/test_track_api.py -v          # mata.track() public API (62 tests)
 pytest tests/test_tracking_visualization.py -v # Visualization/export (103 tests)
 pytest tests/test_video_io.py -v           # Video I/O utilities (56 tests)
 pytest tests/test_track_node.py -v         # Track graph node (39 tests)
+
+# ReID test suites (v1.9.2)
+pytest tests/test_reid_adapter.py -v       # ReID adapter unit tests (40+ tests)
+pytest tests/test_tracking_reid.py -v      # TrackingAdapter + API integration (25+ tests)
+pytest tests/test_reid_bridge.py -v        # Cross-camera bridge (15+ tests)
 
 # VLM tool-calling test suites (v1.7.0)
 pytest tests/test_tool_schema.py -v        # Tool schema (33 tests)

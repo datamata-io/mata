@@ -56,8 +56,10 @@ class Filter(Node):
         ```
     """
 
-    inputs: dict[str, type[Artifact]] = {"detections": Detections}
-    outputs: dict[str, type[Artifact]] = {"detections": Detections}
+    # inputs/outputs are set dynamically in __init__ based on src so that
+    # the graph auto-wiring can match the actual artifact name in context.
+    inputs: dict[str, type[Artifact]]
+    outputs: dict[str, type[Artifact]]
 
     def __init__(
         self,
@@ -76,8 +78,11 @@ class Filter(Node):
         self.label_in = label_in
         self.label_not_in = label_not_in
         self.fuzzy = fuzzy
+        # Use src as the input key so graph auto-wiring matches by artifact name
+        self.inputs = {src: Detections}
+        self.outputs = {out: Detections}
 
-    def run(self, ctx: ExecutionContext, detections: Detections) -> dict[str, Artifact]:
+    def run(self, ctx: ExecutionContext, **inputs: Detections) -> dict[str, Artifact]:
         """Apply filtering criteria to detections.
 
         Filtering is applied sequentially:
@@ -87,12 +92,13 @@ class Filter(Node):
 
         Args:
             ctx: Execution context (unused by this node).
-            detections: Input detections to filter.
+            **inputs: The single input Detections artifact, keyed by src name.
 
         Returns:
             Dict with a single key (``self.out``) mapping to the filtered
             Detections artifact.
         """
+        detections: Detections = next(iter(inputs.values()))
         filtered = detections
 
         # 1. Filter by confidence score

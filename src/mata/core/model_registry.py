@@ -355,3 +355,46 @@ class ModelRegistry:
             yaml.dump(merged, f, default_flow_style=False, sort_keys=True)
 
         logger.info(f"Saved model registry to: {file_path}")
+
+    def get_valkey_connection(self, name: str = "default") -> dict[str, Any]:
+        """Get named Valkey connection config from the YAML ``storage`` section.
+
+        Args:
+            name: Connection profile name defined under ``storage.valkey`` in
+                the YAML config (e.g., "default", "production").
+
+        Returns:
+            Dict with connection parameters (url, db, ttl, tls, password, …).
+            ``password_env`` is resolved from the environment and replaced by
+            ``password``; the env-var name is never returned.
+
+        Raises:
+            ModelNotFoundError: If the named connection is not present in the
+                config.  Missing ``storage`` section is treated as an empty
+                config (not an error).
+
+        Examples:
+            >>> registry = ModelRegistry()
+            >>> conn = registry.get_valkey_connection("default")
+            >>> # {"url": "valkey://localhost:6379", "db": 0, "ttl": 3600}
+        """
+        self._ensure_loaded()
+
+        storage = self._configs.get("storage", {}).get("valkey", {})
+        if name not in storage:
+            raise ModelNotFoundError(
+                f"Valkey connection '{name}' not found in config. " f"Available: {list(storage.keys())}"
+            )
+
+        conn = dict(storage[name])
+
+        # Resolve password from environment variable — never expose plaintext
+        if "password_env" in conn:
+            import os
+
+            env_var = conn.pop("password_env")
+            password = os.environ.get(env_var)
+            if password:
+                conn["password"] = password
+
+        return conn

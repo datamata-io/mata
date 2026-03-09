@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mata"
-version = "1.9.0"
+version = "1.9.2b1"
 description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -103,13 +103,24 @@ ocr-all = [
     "pytesseract>=0.3.10",
 ]
 
+# Valkey/Redis result storage
+valkey = [
+    "valkey>=6.0.0",
+    "msgpack>=1.0.0",
+]
+
+# Redis fallback (wire-compatible with Valkey)
+redis = [
+    "redis>=5.0.0",
+]
+
 # Full installation (all optional features except GPU ONNX)
 all = [
     "mata[onnx,classification,eval,viz,segmentation,ocr]",
 ]
 
 dev = [
-    "mata[all]",
+    "mata[all,valkey,redis]",
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "black>=23.0.0",
