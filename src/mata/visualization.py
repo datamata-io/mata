@@ -52,7 +52,7 @@ except ImportError:
     MATPLOTLIB_AVAILABLE = False
     warnings.warn(
         "matplotlib is not installed — matplotlib-based visualization unavailable. "
-        "Install with: pip install mata[viz]",
+        "Install with: pip install datamata[viz]",
         ImportWarning,
         stacklevel=2,
     )

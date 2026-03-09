@@ -33,7 +33,7 @@ def _ensure_tesseract() -> Any:
             raise ImportError(
                 "pytesseract is required for TesseractAdapter.\n"
                 "Install Python package: pip install pytesseract\n"
-                "or: pip install mata[ocr-tesseract]\n"
+                "or: pip install datamata[ocr-tesseract]\n"
                 "Also install the Tesseract binary:\n"
                 "  Ubuntu/Debian: sudo apt-get install tesseract-ocr\n"
                 "  macOS: brew install tesseract\n"

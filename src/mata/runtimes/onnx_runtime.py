@@ -30,7 +30,7 @@ class ONNXRuntime:
         if not ONNX_AVAILABLE:
             raise ImportError(
                 "ONNX Runtime is not installed. "
-                "Install with: pip install mata[onnx]  (CPU)  or  pip install mata[onnx-gpu]  (CUDA)"
+                "Install with: pip install datamata[onnx]  (CPU)  or  pip install datamata[onnx-gpu]  (CUDA)"
             )
 
         self.device = device

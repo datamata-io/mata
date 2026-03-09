@@ -89,7 +89,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
 
     Mask Format:
     - By default, returns RLE-encoded masks (compact, JSON-serializable)
-    - Requires pycocotools: pip install mata[segmentation]
+    - Requires pycocotools: pip install datamata[segmentation]
     - Falls back to binary numpy arrays if pycocotools not available
 
     Segmentation Modes:
@@ -221,7 +221,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                 if not mask_utils:
                     warnings.warn(
                         "pycocotools not available. Falling back to binary masks. "
-                        "Install with: pip install mata[segmentation] or pip install pycocotools",
+                        "Install with: pip install datamata[segmentation] or pip install pycocotools",
                         UserWarning,
                         stacklevel=2,
                     )

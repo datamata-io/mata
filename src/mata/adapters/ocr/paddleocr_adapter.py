@@ -291,7 +291,7 @@ def _ensure_paddleocr() -> Any:
             raise ImportError(
                 "paddleocr is required for PaddleOCRAdapter. "
                 "Install with: pip install paddleocr paddlepaddle\n"
-                "or: pip install mata[ocr-paddle]\n"
+                "or: pip install datamata[ocr-paddle]\n"
                 "Note: paddlepaddle GPU wheel is ~500 MB. Use paddlepaddle-gpu for GPU support."
             ) from exc
     return _paddleocr_module
