@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mata"
+name = "datamata"
 version = "1.9.2b1"
 description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
@@ -116,11 +116,11 @@ redis = [
 
 # Full installation (all optional features except GPU ONNX)
 all = [
-    "mata[onnx,classification,eval,viz,segmentation,ocr]",
+    "datamata[onnx,classification,eval,viz,segmentation,ocr]",
 ]
 
 dev = [
-    "mata[all,valkey,redis]",
+    "datamata[all,valkey,redis]",
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "black>=23.0.0",
