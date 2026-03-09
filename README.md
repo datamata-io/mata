@@ -1239,14 +1239,14 @@ export MATA_CONFIG=/path/to/config.json
 
 > **For a full history of completed features, see [CHANGELOG.md](CHANGELOG.md).**
 
-### 🔄 In Progress
-
 #### **1. Tracking ReID** — Re-identification for cross-camera / occlusion recovery
 
 - ⏳ **ReID model integration**: Feature embeddings via HuggingFace ReID models
 - ⏳ **Cross-camera tracking**: Match track IDs across camera feeds
 - ⏳ **BotSort ReID mode**: Enable `with_reid=true` in botsort config
-- **Status**: Planned for v1.9.x
+- **Status**: Beta Release v1.9.2b1
+
+### 🔄 In Progress
 
 #### **2. KACA Integration** - MIT-licensed CNN detection with PyTorch and ONNX support
 
