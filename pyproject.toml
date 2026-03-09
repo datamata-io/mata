@@ -106,6 +106,7 @@ ocr-all = [
 # Valkey/Redis result storage
 valkey = [
     "valkey>=6.0.0",
+    "msgpack>=1.0.0",
 ]
 
 # Redis fallback (wire-compatible with Valkey)
