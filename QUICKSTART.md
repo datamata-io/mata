@@ -373,8 +373,8 @@ Persist any MATA result to [Valkey](https://valkey.io/) or Redis for distributed
 ### Install
 
 ```bash
-pip install mata[valkey]   # valkey-py (recommended)
-pip install mata[redis]    # redis-py (alternative)
+pip install datamata[valkey]   # valkey-py (recommended)
+pip install datamata[redis]    # redis-py (alternative)
 ```
 
 ### Save and load a result

@@ -36,7 +36,7 @@ def _ensure_easyocr() -> Any:
             raise ImportError(
                 "easyocr is required for EasyOCRAdapter. "
                 "Install with: pip install easyocr\n"
-                "or: pip install mata[ocr]"
+                "or: pip install datamata[ocr]"
             ) from exc
     return _easyocr
 

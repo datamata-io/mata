@@ -8,7 +8,7 @@ Pipeline Flow:
     Text Prompts > GroundingDINO (bboxes) > SAM (masks) > VisionResult
 
 Run: python examples/segment/grounding_sam_pipeline.py
-Requirements: pip install mata transformers pillow numpy
+Requirements: pip install datamata transformers pillow numpy
 """
 
 import sys

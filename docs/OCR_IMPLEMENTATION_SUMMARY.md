@@ -63,7 +63,7 @@ pip install transformers accelerate
 
 # EasyOCR
 pip install easyocr
-# or: pip install mata[ocr]
+# or: pip install datamata[ocr]
 
 # PaddleOCR — IMPORTANT: paddleocr and paddlepaddle MAJOR versions must match.
 # paddleocr 3.x requires paddlepaddle 3.x (mismatched installs cause native crashes).
@@ -75,11 +75,11 @@ pip install paddlepaddle-gpu==3.0.0 -i https://www.paddlepaddle.org.cn/packages/
 pip install paddlepaddle-gpu==3.0.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu123/  # CUDA 12.3
 pip install paddlepaddle-gpu==3.0.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/  # CUDA 12.6 (recommended)
 # Wheel is ~1–1.5 GB.  See https://www.paddlepaddle.org.cn/install/quick for all options.
-# or: pip install mata[ocr-paddle]  (installs CPU wheel only)
+# or: pip install datamata[ocr-paddle]  (installs CPU wheel only)
 
 # Tesseract
 pip install pytesseract
-# or: pip install mata[ocr-tesseract]
+# or: pip install datamata[ocr-tesseract]
 # + system binary:
 #   Ubuntu/Debian: sudo apt-get install tesseract-ocr
 #   macOS:         brew install tesseract

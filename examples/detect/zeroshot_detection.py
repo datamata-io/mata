@@ -10,7 +10,7 @@ Models supported:
 - OWL-ViT v2 (Google): Best speed/accuracy tradeoff
 
 Requirements:
-    pip install mata transformers pillow
+    pip install datamata transformers pillow
 
 Usage:
     python examples/detect/zeroshot_detection.py

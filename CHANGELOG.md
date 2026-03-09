@@ -13,6 +13,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [1.9.2] Beta Release - 2026-03-09
 
+### Changed
+
+**PyPI Distribution Rename**
+
+- PyPI distribution name changed from `mata` to `datamata`; users now run `pip install datamata` to install
+- `import mata` is unchanged — all existing code continues to work without modification
+- Follows the PIL/Pillow precedent: distribution name and import name differ intentionally
+
 ### Added
 
 **Valkey / Redis Graph Pipeline Storage**
@@ -26,7 +34,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `valkey://` and `redis://` URI scheme dispatch added to all six `result.save()` methods (`VisionResult`, `DetectResult`, `SegmentResult`, `ClassifyResult`, `DepthResult`, `OCRResult`) — existing file-based paths are fully unaffected
 - `ModelRegistry.get_valkey_connection(name="default")` — reads named Valkey connection profiles from the `storage.valkey` section of `.mata/models.yaml` or `~/.mata/models.yaml`; resolves `password_env` from environment variables; raises `ModelNotFoundError` for unknown connection names
 - YAML `storage.valkey.<name>` config schema with `url`, `db`, `ttl`, `password_env`, and `tls` fields
-- Optional dependency groups: `pip install mata[valkey]` → `valkey>=6.0.0`; `pip install mata[redis]` → `redis>=5.0.0`; both added to the `dev` extras group
+- Optional dependency groups: `pip install datamata[valkey]` → `valkey>=6.0.0`; `pip install datamata[redis]` → `redis>=5.0.0`; both added to the `dev` extras group
 - `export_valkey`, `load_valkey`, and `publish_valkey` exported from `mata.core.exporters`
 - `ValkeyStore` and `ValkeyLoad` exported from `mata.nodes`
 - 89 new tests: 42 exporter tests (`test_valkey_exporter.py`), 33 graph node tests (`test_valkey_nodes.py`), 14 config and pub/sub tests (`test_valkey_config.py`)

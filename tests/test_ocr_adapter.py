@@ -849,7 +849,9 @@ class TestEasyOCRAdapter:
     @patch("mata.adapters.ocr.easyocr_adapter._ensure_easyocr")
     def test_missing_easyocr_raises_import_error(self, mock_ensure_easyocr):
         mock_ensure_easyocr.side_effect = ImportError(
-            "easyocr is required for EasyOCRAdapter. " "Install with: pip install easyocr\n" "or: pip install mata[ocr]"
+            "easyocr is required for EasyOCRAdapter. "
+            "Install with: pip install easyocr\n"
+            "or: pip install datamata[ocr]"
         )
         from mata.adapters.ocr import easyocr_adapter
 
@@ -1028,7 +1030,7 @@ class TestPaddleOCRAdapter:
         mock_ensure_paddle.side_effect = ImportError(
             "paddleocr is required for PaddleOCRAdapter. "
             "Install with: pip install paddleocr paddlepaddle\n"
-            "or: pip install mata[ocr-paddle]\n"
+            "or: pip install datamata[ocr-paddle]\n"
             "Note: paddlepaddle GPU wheel is ~500 MB."
         )
 
@@ -1359,7 +1361,7 @@ class TestTesseractAdapter:
         mock_ensure_tesseract.side_effect = ImportError(
             "pytesseract is required for TesseractAdapter.\n"
             "Install Python package: pip install pytesseract\n"
-            "or: pip install mata[ocr-tesseract]\n"
+            "or: pip install datamata[ocr-tesseract]\n"
             "Also install the Tesseract binary:\n"
             "  Ubuntu/Debian: sudo apt-get install tesseract-ocr\n"
             "  macOS: brew install tesseract\n"

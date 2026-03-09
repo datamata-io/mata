@@ -84,7 +84,7 @@ def _get_valkey_client(url: str, **kwargs: Any):
         except ImportError:
             raise ImportError(
                 "Valkey export requires 'valkey' or 'redis' package. "
-                "Install with: pip install mata[valkey] or pip install mata[redis]"
+                "Install with: pip install datamata[valkey] or pip install datamata[redis]"
             )
 
 

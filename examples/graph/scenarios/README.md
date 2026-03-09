@@ -217,11 +217,11 @@ scenarios/
 
 ```bash
 # Install MATA with all dependencies
-pip install mata[all]
+pip install datamata[all]
 
 # Or install specific model types
-pip install mata[transformers]  # HuggingFace models
-pip install mata[torchvision]   # Torchvision models
+pip install datamata[transformers]  # HuggingFace models
+pip install datamata[torchvision]   # Torchvision models
 ```
 
 ## Support

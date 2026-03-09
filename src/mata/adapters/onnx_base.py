@@ -43,7 +43,7 @@ def _ensure_onnxruntime():
             ONNX_AVAILABLE = False
             raise ImportError(
                 "ONNX Runtime is required for ONNX models. "
-                "Install with: pip install mata[onnx]  (CPU)  or  pip install mata[onnx-gpu]  (CUDA)"
+                "Install with: pip install datamata[onnx]  (CPU)  or  pip install datamata[onnx-gpu]  (CUDA)"
             )
     return _ort
 

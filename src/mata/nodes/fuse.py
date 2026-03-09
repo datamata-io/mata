@@ -163,7 +163,7 @@ class Fuse(Node):
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "node_type": "Fuse",
             "node_name": self.name,
-            "framework_version": f"mata-{importlib.metadata.version('mata')}",
+            "framework_version": f"mata-{importlib.metadata.version('datamata')}",
         }
 
         # Add model information if available from context

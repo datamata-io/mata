@@ -872,8 +872,8 @@ from mata.nodes import ValkeyStore, ValkeyLoad
 **Installation:**
 
 ```bash
-pip install mata[valkey]   # valkey-py client
-pip install mata[redis]    # redis-py client (fallback)
+pip install datamata[valkey]   # valkey-py client
+pip install datamata[redis]    # redis-py client (fallback)
 ```
 
 Both nodes lazy-import the client library — `import mata` succeeds without either installed. An `ImportError` with an actionable message is raised only when a storage node actually executes.

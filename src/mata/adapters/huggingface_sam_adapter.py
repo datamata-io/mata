@@ -254,7 +254,7 @@ class HuggingFaceSAMAdapter(PyTorchBaseAdapter):
                 if not mask_utils:
                     warnings.warn(
                         "pycocotools not available. Falling back to binary masks. "
-                        "Install with: pip install mata[segmentation] or pip install pycocotools",
+                        "Install with: pip install datamata[segmentation] or pip install pycocotools",
                         UserWarning,
                         stacklevel=2,
                     )

@@ -37,7 +37,7 @@ print(result.predictions[0].label_name)  # "cat"
 ## Installation
 
 ```bash
-pip install mata transformers torch
+pip install datamata transformers torch
 ```
 
 **Requirements:**
