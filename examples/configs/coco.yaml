@@ -11,22 +11,24 @@
 #   - 2017 Val images  (1 GB)
 #   - 2017 Train/Val annotations (241 MB)
 
-path: /home/mtp/code/MATA/data/coco          # dataset root (absolute path)
-val: val2017                                  # images subdirectory for validation
-annotations: annotations_trainval2017/annotations/instances_val2017.json
+path: data\coco # dataset root (absolute path)
+train: train2017 # Images directory for training
+val: val2017 # Images directory for validation
+train_annotations: annotations/instances_train2017.json
+val_annotations: annotations/instances_val2017.json
 
 # COCO 80-class names (0-indexed)
 names:
-  0:  person
-  1:  bicycle
-  2:  car
-  3:  motorcycle
-  4:  airplane
-  5:  bus
-  6:  train
-  7:  truck
-  8:  boat
-  9:  traffic light
+  0: person
+  1: bicycle
+  2: car
+  3: motorcycle
+  4: airplane
+  5: bus
+  6: train
+  7: truck
+  8: boat
+  9: traffic light
   10: fire hydrant
   11: stop sign
   12: parking meter

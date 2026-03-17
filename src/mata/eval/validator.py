@@ -109,6 +109,7 @@ class Validator:
         plots: bool = False,
         save_dir: str = "",
         split: str = "val",
+        batch_size: int = 16,
         **kwargs: Any,
     ) -> None:
         task = task.lower()
@@ -127,6 +128,7 @@ class Validator:
         self.plots = plots
         self.save_dir = save_dir
         self.split = split
+        self.batch_size = batch_size
         self.kwargs = kwargs
 
         # Resolved at run-time

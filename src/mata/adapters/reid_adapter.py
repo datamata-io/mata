@@ -210,10 +210,14 @@ class ONNXReIDAdapter(ReIDAdapter):
             1-D float32 embedding vector (unnormalised).
         """
         h, w = self._get_spatial_dims()
-        tensor = self._preprocess(crop, h, w)
+        tensor = self._preprocess(crop, h, w)  # (1, C, H, W) or (1, H, W, C)
+        # Handle models exported with a fixed batch size > 1 (e.g. BoxMOT exports batch=16)
+        expected_batch = self._input_shape[0]
+        if isinstance(expected_batch, int) and expected_batch > 1:
+            tensor = np.repeat(tensor, expected_batch, axis=0)
         outputs = self._session.run(None, {self._input_name: tensor})
-        # First output is typically (1, D); flatten to (D,)
-        return outputs[0].flatten().astype(np.float32)
+        # First output is (B, D); take first item and flatten to (D,)
+        return outputs[0][0].flatten().astype(np.float32)
 
     def info(self) -> dict[str, Any]:
         return {

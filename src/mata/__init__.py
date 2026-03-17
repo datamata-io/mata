@@ -24,9 +24,9 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "1.9.2b1"
+__version__ = "2.0.0b1"
 
-from .api import get_model_info, infer, list_models, load, register_model, run, track, val, verbose
+from .api import finetune, get_model_info, infer, list_models, load, register_model, run, track, train, val, verbose
 from .core import (
     ClassifyResult,
     DepthResult,
@@ -76,6 +76,8 @@ __all__ = [
     "track",
     "infer",
     "val",
+    "train",
+    "finetune",
     "list_models",
     "get_model_info",
     "register_model",

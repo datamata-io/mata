@@ -11,6 +11,103 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.0-beta] - 2026-03-17
+
+### Added
+
+**Training API**
+
+- `mata.train(task, model, data, **kwargs)` — train or fine-tune detection, classification, and segmentation models from scratch or from a pretrained checkpoint
+- `mata.finetune(task, model, data, **kwargs)` — fine-tuning shortcut with sensible defaults (`lr=1e-5`, `epochs=5`, `freeze_backbone=True`, `batch_size=16`)
+- `from mata import train, finetune` — both exported at package level; lazy import keeps startup time unchanged
+- `TrainingConfig` dataclass — centralised hyperparameter container with `validate()` and `from_yaml()` support; covers task, model, data paths, optimiser, scheduler, AMP, augmentation, checkpoint, and early-stopping settings
+- `TrainingResult` dataclass — returned by all training calls; exposes `best_checkpoint`, `last_checkpoint`, `epochs_completed`, `history` (dict of metric lists), and `plot_loss()` helper
+- `TrainingError` exception class added to `mata.core.exceptions` hierarchy
+
+**Dataset Support**
+
+- `COCODetectionDataset` — loads COCO-format JSON (train or val split); xyxy box conversion; crowd exclusion; YAML data-config support (`train:` split key)
+- `COCOSegmentationDataset` — COCO instance masks as `(N, H, W)` binary tensors alongside detection targets
+- `VOCDetectionDataset` — VOC 2007/2012 XML annotations; auto-discovers class names; optional `skip_difficult` flag
+- `ImageFolderDataset` — classifies images from subdirectory structure; alphabetically sorted class names; hidden file/dir skip
+- `detection_collate_fn` / `classification_collate_fn` — batch collators for the PyTorch DataLoader
+- `DatasetFactory.build()` — auto-detects dataset format (COCO YAML, ImageFolder directory, or pass-through PyTorch `Dataset`) and returns the correct `(dataset, collate_fn)` pair
+
+**Data Augmentation**
+
+- `BasicDetectionAugmentation` — random horizontal flip with bbox mirroring, resize, colour jitter; torchvision-only (no extra dependencies)
+- `BasicClassificationAugmentation` — train/val modes (random crop vs centre crop), ImageNet normalisation
+- `BasicSegmentationAugmentation` — paired image + mask transforms; binary mask value preservation guaranteed
+- `AlbumentationsWrapper` — wraps any albumentations pipeline with automatic xyxy ↔ pascal_voc bbox conversion; graceful `ImportError` when albumentations is not installed
+- `AugmentationFactory.build()` — returns the correct augmentation for a task; routes custom dicts to the albumentations wrapper
+
+**HuggingFace Training Engine**
+
+- `HFTrainingEngine` — wraps HuggingFace `Trainer` for detection, classification, and segmentation tasks
+- `_load_model_for_training()` — loads model in train mode with gradients enabled; no `.eval()` called
+- `_build_training_args()` — maps `TrainingConfig` fields directly to `TrainingArguments`
+- `_freeze_backbone()` / `_freeze_layers()` — selective parameter freezing by named-module prefix
+- `_HistoryCallback` — HF `TrainerCallback` that captures per-epoch `train_loss` and validation metrics into `TrainingResult.history`
+
+**Torchvision Training Engine**
+
+- `TorchTrainingEngine` — custom training loop for `torchvision/` detection models (Faster R-CNN, RetinaNet, FCOS, SSD)
+- `_modify_head()` — replaces the classification head for the target `num_classes`; supports FPN, anchor-free, and SSD architectures
+- `_freeze_backbone()` — freezes backbone parameters, keeps the detection head trainable
+- `_build_optimizer()` — AdamW (default), SGD, Adam selection
+- `_build_scheduler()` — cosine, linear, step, or none schedulers
+- AMP (`torch.cuda.amp`) enabled automatically on CUDA; disabled on CPU
+
+**Checkpoint Manager**
+
+- `CheckpointManager.save()` — writes `model_state.pth`, `optimizer_state.pth`, `training_state.json`, and `config.json` to a numbered epoch directory
+- `CheckpointManager.load()` — restores all states with `weights_only=True` (security); raises `TrainingError` on corrupt or missing files
+- `CheckpointManager.export_for_inference()` — HF models: calls `save_pretrained()`; torchvision models: writes `model.pth` + `metadata.json`; output directory is immediately loadable via `mata.load()`
+- `CheckpointManager.list_checkpoints()` — returns sorted list of valid checkpoint directories
+
+**Training Callbacks**
+
+- `ValidationCallback` — fires `mata.val()` at configurable `val_every` intervals; restores model to `.train()` mode even on failure; returns `dict[str, float]` metrics
+- `LoggingCallback` — prints a YOLO-style formatted table to console when `verbose=True`; writes to `{save_dir}/training.log` when `save_dir` is set; header printed once per run
+- `EarlyStoppingCallback` — `mode="max"` (mAP, accuracy) or `mode="min"` (loss); `patience=0` disables; returns `True` to stop training
+
+**UniversalLoader Checkpoint Support (`mata.load()` extension)**
+
+- `_is_checkpoint_dir()` — detects a MATA training checkpoint directory by presence of `config.json` + `model_state.pth` / `model.safetensors`
+- `_detect_source_type()` extended — new `"trained_checkpoint"` source type inserted after `"local_file"` check and before file-extension check (highest-priority local detection)
+- `_load_from_checkpoint()` — reads `engine` field from `config.json`; routes HF checkpoints to `_load_from_huggingface(checkpoint_dir)` (uses `from_pretrained()`); routes torchvision checkpoints to `_load_from_torchvision()` + `torch.load(weights_only=True)` state-dict restore
+
+**Optional Dependency Group**
+
+- `pip install datamata[training]` — installs `albumentations>=1.3.0` and `tqdm>=4.65.0`; added to `all` and `dev` extras in `pyproject.toml`
+
+**Documentation**
+
+- `docs/TRAINING_GUIDE.md` — comprehensive guide: quickstart, dataset formats, data augmentation, full API reference, fine-tuning guide (backbone freezing, head replacement), checkpoint management, evaluation integration, HuggingFace vs Torchvision engine comparison, reload-and-deploy example, troubleshooting/FAQ
+- `examples/train/finetune_detection.py` — fine-tune DETR on COCO dataset → evaluate → export → reload → predict
+- `examples/train/finetune_classification.py` — fine-tune ResNet-50 on ImageFolder → evaluate → export → classify
+- `examples/train/finetune_segmentation.py` — fine-tune Mask2Former on COCO segmentation → evaluate → export
+- `examples/train/torchvision_finetune.py` — Faster R-CNN custom loop → train → export → reload → predict
+- `examples/configs/training_detect.yaml` — annotated detection training config with all hyperparameters
+- `examples/configs/training_classify.yaml` — annotated classification training config with all hyperparameters
+- `QUICK_REFERENCE.md` — new "Training & Fine-Tuning (v2.0)" section added: quick-start snippets, supported/unsupported task table, key parameters table, fine-tuning defaults, checkpoint management one-liner, and supported model references
+- README.md — Training & Fine-Tuning quick-start section added; Roadmap updated to reflect v2.0 completion; test count updated to 4,500+; Documentation section updated
+
+### Changed
+
+- `src/mata/api.py` — `train()` and `finetune()` appended after `val()`; lazy import of `mata.training` preserves startup time
+- `src/mata/__init__.py` — `train` and `finetune` added to import line and `__all__`
+- `src/mata/core/model_loader.py` — `_detect_source_type()` extended with checkpoint directory detection; `load()` dispatch chain updated
+- `pyproject.toml` — `[training]` optional dependency group added; `all` and `dev` extras updated
+
+### Tests
+
+- 557 new tests across 10 test files: `test_training_config.py` (77), `test_training_datasets.py` (54), `test_training_augmentations.py` (32), `test_training_checkpoint.py` (52), `test_hf_trainer.py` (69+), `test_torch_trainer.py` (59+), `test_train_api.py` (55), `test_training_callbacks.py` (31), `test_training_integration.py` (19 slow-marked), `test_training_result.py` (new, 100% coverage for `result.py`)
+- 414 tests from initial training implementation; 15 added in QA (unsupported-task error paths, Task B1); 128 added in QA (coverage gap tests for `result.py`, `trainer.py`, `hf_trainer.py`, `torch_trainer.py`, Task B3)
+- All 4,307 pre-existing tests continue to pass with zero regressions; full fast suite: 4,950 passed
+
+---
+
 ## [1.9.2] Beta Release - 2026-03-09
 
 ### Changed

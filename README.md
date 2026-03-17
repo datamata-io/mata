@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.0-green?style=flat-square" alt="v1.9.0" />
-  <img src="https://img.shields.io/badge/tests-4%2C307%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-2.0.0--beta-green?style=flat-square" alt="v2.0.0-beta" />
+  <img src="https://img.shields.io/badge/tests-4%2C500%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -30,6 +30,7 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 - **Object Tracking** (v1.8+): `mata.track()` — Video/stream tracking with vendored ByteTrack and BotSort, persistent track IDs, trajectory trails, CSV/JSON export, and appearance-based ReID (v1.9.2)
 - **OCR / Text Extraction** (v1.9): `mata.run("ocr", ...)` — extract printed and handwritten text using GOT-OCR2, TrOCR, EasyOCR, PaddleOCR, or Tesseract with per-region confidence and bounding boxes
 - **Valkey/Redis Result Storage** (v1.9): persist any result to Valkey/Redis with `result.save("valkey://host/key")` or via `ValkeyStore`/`ValkeyLoad` graph nodes — enables distributed pipelines and cross-process result sharing
+- **Training & Fine-Tuning** (v2.0): `mata.train()` / `mata.finetune()` — fine-tune detection, classification, and segmentation models with HuggingFace Trainer or a custom Torchvision loop; COCO, VOC, and ImageFolder datasets; checkpoint save/resume/export
 - **Validation & Evaluation**: `mata.val()` — mAP/accuracy/depth metrics against COCO, ImageNet, or custom datasets
 - **Export & Visualization**: Save as JSON/CSV/image overlays/crops with dual backends (PIL/matplotlib)
 - **Task-First API**: Specify what you want (detect, segment, classify, depth, ocr, vlm), not which model to use
@@ -931,7 +932,7 @@ result.save("output.png")  # ✅ Auto-uses stored input path
 ## 🧪 Testing
 
 ```bash
-# Run all tests (4047+ total)
+# Run all tests (4500+ total)
 pytest tests/ -v
 
 # Run with coverage (target: >80%)
@@ -951,6 +952,16 @@ pytest tests/test_tracking_adapter.py -v            # TrackingAdapter (73 tests)
 pytest tests/test_track_api.py -v                   # mata.track() public API (62 tests)
 pytest tests/test_tracking_visualization.py -v      # Visualization & export (103 tests)
 pytest tests/test_video_io.py -v                    # Video I/O utilities (56 tests)
+
+# Training test suites (v2.0)
+pytest tests/test_training_config.py -v             # TrainingConfig (77 tests)
+pytest tests/test_training_datasets.py -v           # Datasets — COCO/VOC/ImageFolder (54 tests)
+pytest tests/test_training_augmentations.py -v      # Augmentations (32 tests)
+pytest tests/test_training_checkpoint.py -v         # Checkpoint manager (52 tests)
+pytest tests/test_hf_trainer.py -v                  # HuggingFace engine (69 tests)
+pytest tests/test_torch_trainer.py -v               # Torchvision engine (59 tests)
+pytest tests/test_train_api.py -v                   # Public API — train/finetune (40 tests)
+pytest tests/test_training_callbacks.py -v          # Callbacks (31 tests)
 ```
 
 **Test Coverage by Task:**
@@ -963,6 +974,7 @@ pytest tests/test_video_io.py -v                    # Video I/O utilities (56 te
 - Graph System: 1000+ tests (nodes, scheduler, conditionals, presets, infer API, backward compat)
 - Universal Loader: 17 tests (5-strategy detection chain)
 - **Object Tracking: 687 tests** (vendored trackers, adapter, API, visualization, video I/O)
+- **Training (v2.0): 414 tests** (config, datasets, augmentations, checkpoint, HF engine, Torchvision engine, API, callbacks, integration)
 
 ## 🧪 Validation & Evaluation
 
@@ -1189,6 +1201,95 @@ metrics = mata.val(
 
 See [`examples/validation.py`](examples/validation.py) for complete, runnable examples of all four tasks plus the standalone workflow.
 
+## 🏋️ Training & Fine-Tuning (New in v2.0)
+
+Fine-tune detection, classification, and segmentation models on your own data using `mata.train()` or `mata.finetune()`.
+
+### Quick-Start: Fine-Tune for Detection
+
+```python
+import mata
+
+# Fine-tune DETR on a COCO-format dataset
+result = mata.finetune(
+    "detect",
+    model="facebook/detr-resnet-50",
+    data="examples/configs/coco.yaml",   # or a local directory
+    epochs=10,
+    lr=1e-5,
+    batch_size=4,
+    save_dir="runs/train/detect",
+    verbose=True,
+)
+print(f"Best checkpoint: {result.best_checkpoint}")
+print(f"Final mAP50: {result.history['val_map50'][-1]:.3f}")
+```
+
+### Quick-Start: Fine-Tune for Classification
+
+```python
+# Fine-tune ResNet-50 on an ImageFolder directory
+result = mata.finetune(
+    "classify",
+    model="microsoft/resnet-50",
+    data="/data/my_flowers/",   # subdirs = class names
+    epochs=5,
+    freeze_backbone=True,      # only train the head
+    save_dir="runs/train/classify",
+)
+
+# Reload and predict
+model = mata.load("classify", result.best_checkpoint)
+prediction = model.predict("rose.jpg")
+print(prediction.top1.label_name)
+```
+
+### Quick-Start: Torchvision Models
+
+```python
+# Fine-tune Faster R-CNN with SGD
+result = mata.train(
+    "detect",
+    model="torchvision/fasterrcnn_resnet50_fpn",
+    data="examples/configs/coco.yaml",
+    epochs=20,
+    lr=0.005,
+    optimizer="sgd",
+    scheduler="cosine",
+    num_classes=91,
+    save_dir="runs/train/fasterrcnn",
+)
+```
+
+### Resume from Checkpoint
+
+```python
+# Resume an interrupted training run
+result = mata.train(
+    "detect",
+    model="facebook/detr-resnet-50",
+    data="examples/configs/coco.yaml",
+    resume="runs/train/detect/epoch_10",
+    epochs=20,
+)
+```
+
+### Reload and Deploy
+
+```python
+# Load the best checkpoint for inference — works like any other mata.load() call
+model = mata.load("detect", "runs/train/detect/best")
+result = model.predict("image.jpg")
+for det in result.instances:
+    print(f"{det.label_name}: {det.score:.2f} @ {det.bbox}")
+```
+
+**Supported tasks**: `detect`, `classify`, `segment`  
+**Supported engines**: HuggingFace Trainer (all HF models), Torchvision custom loop (`torchvision/` prefix)  
+**Supported datasets**: COCO JSON/YAML, VOC XML, ImageFolder, any PyTorch `Dataset`
+
+See [Training Guide](docs/TRAINING_GUIDE.md) | [Examples](examples/train/) | [YAML Config](examples/configs/training_detect.yaml)
+
 ## 📊 Result Format
 
 All detection results follow a consistent format:
@@ -1246,7 +1347,7 @@ export MATA_CONFIG=/path/to/config.json
 - ⏳ **ReID model integration**: Feature embeddings via HuggingFace ReID models
 - ⏳ **Cross-camera tracking**: Match track IDs across camera feeds
 - ⏳ **BotSort ReID mode**: Enable `with_reid=true` in botsort config
-- **Status**: Planned for v1.9.x
+- **Status**: Already Implemented — still in beta test (version 1.9.2b1)
 
 #### **2. KACA Integration** - MIT-licensed CNN detection with PyTorch and ONNX support
 
@@ -1264,9 +1365,12 @@ export MATA_CONFIG=/path/to/config.json
 - 🔄 **Enhanced Search**: Filter by task, license, performance metrics
 - **Status**: Planned for v2.x
 
-### ⏳ Planned (v2.0 - Q2 2026)
+### ✅ Completed (v2.0)
 
-- 🔲 **Training Module**: Fine-tuning support for detection and classification
+- ✅ **Training Module**: `mata.train()` / `mata.finetune()` — fine-tune detection, classification, and segmentation models; COCO/VOC/ImageFolder datasets; HuggingFace Trainer + Torchvision custom loop; checkpoint save, resume, export; backbone freezing; data augmentation pipeline; `mata.val()` integration during training
+
+### ⏳ Planned (v2.1+)
+
 - 🔲 **TensorRT Production**: Optimized inference for NVIDIA GPUs (10-50x speedup)
 - 🔲 **Mobile Deployment**: ONNX quantization and mobile runtime support (TFLite, CoreML)
 - 🔲 **Model Zoo**: Pre-trained weights for common tasks and datasets
@@ -1333,6 +1437,7 @@ Contributions welcome! Please ensure:
 
 - [Architecture Document](docs/MATA_MultiTask_Vision_Architecture.md) - System architecture and design
 - [Zero-Shot Detection Guide](docs/ZEROSHOT_DETECTION_GUIDE.md) - SAM, GroundingDINO, CLIP zero-shot guide
+- [Training Guide](docs/TRAINING_GUIDE.md) - Fine-tuning detection, classification, and segmentation models
 - [Quick Start Guide](QUICKSTART.md) - Getting started with MATA
 - [Installation Guide](INSTALLATION.md) - Detailed installation instructions
 - [Config Template](examples/tools/models.yaml) - Model configuration examples
@@ -1344,6 +1449,15 @@ Contributions welcome! Please ensure:
 - [Graph API Reference](docs/GRAPH_API_REFERENCE.md) - Full API documentation for all nodes, artifacts, and schedulers
 - [Graph Cookbook](docs/GRAPH_COOKBOOK.md) - Recipes and patterns for common workflows
 - [Graph Examples](examples/graph/) - 5 runnable examples (pipelines, parallel, VLM, presets, and more)
+
+**Training (v2.0):**
+
+- [Fine-Tune Detection](examples/train/finetune_detection.py) - Fine-tune DETR on COCO-format dataset
+- [Fine-Tune Classification](examples/train/finetune_classification.py) - Fine-tune ResNet-50 on ImageFolder
+- [Fine-Tune Segmentation](examples/train/finetune_segmentation.py) - Fine-tune Mask2Former on COCO
+- [Torchvision Fine-Tune](examples/train/torchvision_finetune.py) - Faster R-CNN with custom training loop
+- [Detection Config YAML](examples/configs/training_detect.yaml) - Annotated hyperparameter reference
+- [Classification Config YAML](examples/configs/training_classify.yaml) - Annotated hyperparameter reference
 
 **Object Tracking (v1.8):**
 

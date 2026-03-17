@@ -1,4 +1,4 @@
-# MATA Quick Reference — v1.5 to v1.9
+# MATA Quick Reference — v1.5 to v2.0
 
 ## 📋 Table of Contents
 
@@ -16,6 +16,7 @@
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
 | [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
 | [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
+| [Training & Fine-Tuning](#-training--fine-tuning-v20) | v2.0 |
 
 ---
 
@@ -1694,7 +1695,122 @@ conn = registry.get_valkey_connection("production")
 
 ---
 
-**Version:** 1.9.0
-**Date:** March 9, 2026
+## 🏋️ Training & Fine-Tuning (v2.0)
+
+### Quick Start
+
+```python
+import mata
+
+# Train from scratch
+result = mata.train("detect", model="facebook/detr-resnet-50",
+                    data="coco.yaml", epochs=10, lr=1e-4)
+print(result.best_checkpoint)  # → "runs/train/detect/detect/best"
+
+# Fine-tune a pre-trained model (lower LR, frozen backbone by default)
+result = mata.finetune("classify", model="microsoft/resnet-50",
+                       data="/data/flowers/", epochs=5)
+print(f"Top-1: {result.best_metrics.top1:.1%}")
+```
+
+### Supported Tasks
+
+| Task | `mata.train()` | `mata.finetune()` | Notes |
+|------|:---:|:---:|-------|
+| `detect` | ✅ | ✅ | HuggingFace + Torchvision |
+| `classify` | ✅ | ✅ | HuggingFace + Torchvision |
+| `segment` | ✅ | ✅ | HuggingFace only |
+| `depth` | ❌ | ❌ | Inference-only in v2.0 |
+| `ocr` | ❌ | ❌ | Inference-only in v2.0 |
+| `vlm` | ❌ | ❌ | Inference-only in v2.0 |
+| `track` | ❌ | ❌ | Inference-only in v2.0 |
+| `pose` | ❌ | ❌ | Inference-only in v2.0 |
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `task` | `str` | — | `"detect"`, `"classify"`, or `"segment"` |
+| `model` | `str` | — | HuggingFace ID, `torchvision/*`, config alias, or local path |
+| `data` | `str` | — | YAML config path, image directory, or COCO JSON path |
+| `val_data` | `str \| None` | `None` | Validation data (same formats as `data`) |
+| `epochs` | `int` | `10` | Number of training epochs |
+| `batch_size` | `int` | `8` | Batch size per step |
+| `lr` | `float` | `1e-4` | Learning rate (finetune default: `1e-5`) |
+| `optimizer` | `str` | `"adamw"` | `"adamw"`, `"adam"`, or `"sgd"` |
+| `scheduler` | `str` | `"cosine"` | `"cosine"`, `"linear"`, `"step"`, `"none"` |
+| `device` | `str` | `"auto"` | `"auto"`, `"cuda"`, or `"cpu"` |
+| `amp` | `bool` | `True` | Automatic mixed precision |
+| `patience` | `int` | `0` | Early stopping patience (`0` = disabled) |
+| `freeze_backbone` | `bool` | `False` | Freeze backbone weights (finetune default: `True`) |
+| `augment` | `bool` | `True` | Enable data augmentation |
+| `resume` | `str \| None` | `None` | Resume from checkpoint directory |
+| `save_dir` | `str` | `"runs/train"` | Root directory for checkpoints |
+
+### Fine-Tuning Defaults
+
+`mata.finetune()` wraps `mata.train()` with transfer-learning defaults:
+
+| Parameter | `train()` default | `finetune()` default |
+|-----------|:-----------------:|:--------------------:|
+| `lr` | `1e-4` | `1e-5` |
+| `epochs` | `10` | `5` |
+| `batch_size` | `8` | `16` |
+| `freeze_backbone` | `False` | `True` |
+
+### Checkpoint Management
+
+```python
+# 1. Train — checkpoints saved automatically to runs/train/<exp>/
+result = mata.train("detect", model="facebook/detr-resnet-50",
+                    data="coco.yaml", epochs=10)
+
+# 2. Export — package best checkpoint for inference
+from mata.training import CheckpointManager
+CheckpointManager(result.best_checkpoint).export_for_inference(
+    "runs/my_model/export")
+
+# 3. Load — reload the exported checkpoint for prediction
+detector = mata.load("detect", "runs/my_model/export")
+pred = detector.predict("image.jpg")
+```
+
+### Supported Models
+
+**HuggingFace** (Transformers engine):
+
+```python
+# Detection
+mata.train("detect", model="facebook/detr-resnet-50", ...)
+mata.train("detect", model="PekingU/rtdetr_v2_r50vd", ...)
+
+# Classification
+mata.train("classify", model="microsoft/resnet-50", ...)
+mata.train("classify", model="google/vit-base-patch16-224", ...)
+
+# Segmentation
+mata.train("segment", model="facebook/mask2former-swin-tiny-coco-instance", ...)
+```
+
+**Torchvision** (PyTorch engine):
+
+```python
+# Detection
+mata.train("detect", model="torchvision/fasterrcnn_resnet50_fpn", ...)
+mata.train("detect", model="torchvision/retinanet_resnet50_fpn", ...)
+
+# Classification
+mata.train("classify", model="torchvision/resnet50", ...)
+mata.train("classify", model="torchvision/efficientnet_b0", ...)
+```
+
+**Test suites:** `tests/test_train_api.py` · `tests/test_hf_trainer.py` · `tests/test_torch_trainer.py` · `tests/test_training_integration.py` (slow) — **414 training tests**
+
+**Documentation:** [docs/TRAINING_GUIDE.md](docs/TRAINING_GUIDE.md) · [examples/train/](examples/train/)
+
+---
+
+**Version:** 2.0.0b1
+**Date:** March 17, 2026
 **Status:** ✅ Production Ready
 ````

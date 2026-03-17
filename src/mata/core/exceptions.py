@@ -110,3 +110,17 @@ class UnsupportedModelError(MATAError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class TrainingError(MATAError):
+    """Raised when a training or fine-tuning operation fails.
+
+    This occurs when:
+    - Training loop encounters unrecoverable error
+    - Checkpoint save/load fails
+    - Dataset loading fails during training
+    - Invalid training configuration at runtime
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
