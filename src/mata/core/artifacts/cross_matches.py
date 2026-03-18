@@ -38,15 +38,10 @@ class CrossMatch:
     def __post_init__(self) -> None:
         """Validate CrossMatch data."""
         if not (0.0 <= self.similarity <= 1.0):
-            raise ValueError(
-                f"similarity must be in [0.0, 1.0], got {self.similarity}"
-            )
+            raise ValueError(f"similarity must be in [0.0, 1.0], got {self.similarity}")
         if self.remote_bbox is not None:
             if len(self.remote_bbox) != 4:
-                raise ValueError(
-                    f"remote_bbox must have 4 values (x1, y1, x2, y2), "
-                    f"got {len(self.remote_bbox)}"
-                )
+                raise ValueError(f"remote_bbox must have 4 values (x1, y1, x2, y2), " f"got {len(self.remote_bbox)}")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
@@ -61,11 +56,7 @@ class CrossMatch:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CrossMatch:
         """Create from dictionary representation."""
-        bbox = (
-            tuple(data["remote_bbox"])  # type: ignore[arg-type]
-            if data.get("remote_bbox")
-            else None
-        )
+        bbox = tuple(data["remote_bbox"]) if data.get("remote_bbox") else None  # type: ignore[arg-type]
         return cls(
             local_track_id=data["local_track_id"],
             remote_camera_id=data["remote_camera_id"],

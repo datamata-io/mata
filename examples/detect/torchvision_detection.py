@@ -9,6 +9,10 @@ Models supported:
 - Faster R-CNN (torchvision/fasterrcnn_resnet50_fpn): Classic two-stage detector
 - Faster R-CNN v2 (torchvision/fasterrcnn_resnet50_fpn_v2): Improved variant
 
+Download the test image (COCO 000000039769.jpg) if not already present:
+    wget -P examples/images http://images.cocodataset.org/val2017/000000039769.jpg (linux/macOS)
+    curl -o examples/images/000000039769.jpg http://images.cocodataset.org/val2017/000000039769.jpg (Windows)
+
 Usage:
     python examples/detect/torchvision_detection.py
 """
@@ -20,20 +24,22 @@ import mata
 
 def main():
     # === Example 1: Quick detection with default model ===
-    print("=== Example 1: RetinaNet Detection ===")
+    print("=== Example 1: Faster R-CNN v2 Detection ===")
     result = mata.run(
         "detect",
         "examples/images/000000039769.jpg",
-        model="torchvision/retinanet_resnet50_fpn",
-        threshold=0.4,
+        model="torchvision/fasterrcnn_resnet50_fpn_v2",
+        threshold=0.3,
     )
     print(f"Detected {len(result.instances)} objects")
     for inst in result.instances:
         print(f"  - {inst.label_name}: {inst.score:.2f}")
+    result.save("output/detections_fasterrcnn_resnet50_fpn_v2.json")
+    result.save("output/visualized_fasterrcnn_resnet50_fpn_v2.jpg")
 
     # === Example 2: Load once, predict many ===
     print("\n=== Example 2: Batch Inference ===")
-    detector = mata.load("detect", "torchvision/fasterrcnn_resnet50_fpn")
+    detector = mata.load("detect", "torchvision/fasterrcnn_resnet50_fpn_v2")
 
     images = list(Path("examples/images").glob("*.jpg"))
     for img_path in images:

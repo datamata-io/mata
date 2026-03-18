@@ -399,9 +399,7 @@ class TestCrossMatchesOutput:
     def test_no_matches_with_no_bbox_in_query_result(self):
         """Query results without bbox → remote_bbox is None in CrossMatch."""
         node = ReID(using="bridge")
-        query_response = [
-            {"camera_id": "cam-2", "track_id": 4, "similarity": 0.75}
-        ]
+        query_response = [{"camera_id": "cam-2", "track_id": 4, "similarity": 0.75}]
         bridge = _make_bridge(query_returns=query_response)
         ctx = _make_ctx(bridge)
 

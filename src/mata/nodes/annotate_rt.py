@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from mata.core.artifacts.base import Artifact
-from mata.core.artifacts.detections import Detections
 from mata.core.artifacts.image import Image
 from mata.core.artifacts.tracks import Tracks
 from mata.core.graph.node import Node
@@ -218,9 +217,7 @@ class AnnotateRT(Node):
                 trail_candidates: list[Any] = tracks_art.get_active_tracks().tracks
             else:
                 # Fall back to instances that carry a track_id
-                trail_candidates = [
-                    t for t in instances if getattr(t, "track_id", None) is not None
-                ]
+                trail_candidates = [t for t in instances if getattr(t, "track_id", None) is not None]
 
             for t in trail_candidates:
                 tid: int | None = getattr(t, "track_id", None)

@@ -278,6 +278,9 @@ class ROIs(Artifact):
         Raises:
             ValueError: If validation fails
         """
+        if len(self.roi_images) == 0:
+            raise ValueError("ROIs must contain at least one ROI")
+
         if len(self.roi_images) != len(self.source_boxes):
             raise ValueError("roi_images and source_boxes must have same length")
 
