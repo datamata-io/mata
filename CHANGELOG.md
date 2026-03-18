@@ -11,7 +11,51 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.9.2] Beta Release - 2026-03-09
+## [1.9.2] Beta Release 2 - 2026-03-18
+
+### Added
+
+**Feature Embedding — `embed` task (first-class public task)**
+
+- `Embeddings` artifact — frozen dataclass `(N, D)` float32 embedding vectors for graph pipelines; auto-generates `instance_ids`, reshapes 1-D input to `(1, D)`, validates dimensionality; importable from `mata.core.artifacts`
+- `EmbedAdapter` — public embedding adapter conforming to the `Embedder` protocol; wraps any `ReIDAdapter` subclass; accepts `Image` or `ROIs` artifacts and returns `np.ndarray`; `isinstance(adapter, Embedder)` returns `True`
+- `mata.load("embed", "model-id")` — first-class task registration in `UniversalLoader`; HuggingFace model IDs create `HuggingFaceReIDAdapter` wrapped in `EmbedAdapter`; local `.onnx` files create `ONNXReIDAdapter` wrapped in `EmbedAdapter`; config alias support via `.mata/models.yaml`
+- `mata.run("embed", image, model="model-id")` — one-liner embedding extraction; returns `np.ndarray` directly; accepts file paths, PIL Images, and numpy arrays
+- `Embed` graph node — consumes `ROIs` artifact, produces `Embeddings` artifact; `normalize=True` by default; propagates `instance_ids` from source ROIs; records `num_embeddings` and `embedding_dim` metrics; handles empty ROIs gracefully
+- `EmbedAdapter` exported from `mata.adapters`
+- `Embeddings` exported from `mata.core.artifacts`
+- `Embed` exported from `mata.nodes`
+- 96 new tests: `test_embeddings_artifact.py` (25), `test_embed_adapter.py` (22), `test_embed_api.py` (25), `test_embed_node.py` (24)
+- `examples/inference/embedding.py` — whole-image and graph pipeline embedding examples
+
+**Graph Video Pipeline — `Graph.run()` callback, ReID node, AnnotateRT node**
+
+- `VideoProcessor.process_video()` now accepts optional `callback(result, frame_num, frame_bgr)` parameter — fires after each frame's graph execution with the raw BGR frame; `None` default preserves existing behavior
+- `Graph.run()` forwards `callback` to `process_video()` for video file sources — previously only supported for stream/webcam
+- `CrossMatch` + `CrossMatches` artifact — frozen dataclass carrying cross-camera re-identification results through the graph; `to_dict()` / `from_dict()` round-trip; similarity validation in `[0.0, 1.0]`; importable from `mata.core.artifacts`
+- `ReID` graph node — publishes tracked embeddings to Valkey via `ReIDBridge` and queries for cross-camera matches; inputs: `Tracks` + `Embeddings`, output: `CrossMatches`; empty inputs yield empty artifact gracefully; records `num_tracks_published` and `num_cross_matches` metrics
+- `AnnotateRT` graph node — stateful real-time OpenCV annotation; draws boxes, labels, scores, track IDs, trajectory trails, camera labels, and cross-camera highlights (yellow double border); persists trail history across frames; `reset()` clears state
+- `visualization_cv2` module — `track_color()`, `draw_boxes()`, `draw_trails()`, `draw_camera_label()` helper functions; lazy `cv2` import; duck-typed for any object with `bbox`/`score`/`label` attributes
+- `_build_capability_map()` — added `"Embed": "embed"` and `"ReID": "reid"` entries; `_infer_capability()` updated with `"reid"` and `"embed"` heuristics
+- `ReID` and `AnnotateRT` exported from `mata.nodes`
+- `CrossMatch` and `CrossMatches` exported from `mata.core.artifacts`
+- `bm_test/camera_agent.py` migrated from manual 60-line while-loop to `Graph.run()` with callback, ReID node, and AnnotateRT node
+- 166 new tests: `test_cross_matches.py` (29), `test_reid_node.py` (43), `test_annotate_rt.py` (50), `test_graph_video_pipeline_integration.py` (32), callback tests in `test_temporal.py` (+8) and `test_graph_run_video.py` (+4)
+
+**Documentation**
+
+- `docs/GRAPH_COOKBOOK.md` — 4 new recipes: single-camera tracking + annotation (Recipe 26), cross-camera ReID pipeline (Recipe 27), camera agent pipeline (Recipe 28), custom callback patterns (Recipe 29)
+- `docs/GRAPH_API_REFERENCE.md` — new sections for `ReID` node, `AnnotateRT` node, `CrossMatches` artifact; updated `Graph.run()` callback documentation
+
+### Changed
+
+- `Graph.run()` callback signature for video files is now `(result, frame_num, frame_bgr)` — adds raw BGR frame as third argument; stream/webcam callbacks retain existing `(result, frame_num)` signature
+- `_build_capability_map()` extended with `"Embed"` and `"ReID"` entries
+- `bm_test/camera_agent.py` refactored to use `Graph.run()` pipeline — removed manual `_reid_step()`, `_annotate_frame()`, `_track_color()` helpers
+
+---
+
+## [1.9.2] Beta Release 1 - 2026-03-09
 
 ### Changed
 

@@ -239,9 +239,11 @@ class TestGraphRunErrors:
 
     def test_run_invalid_image_type_raises(self, mock_detector):
         """Invalid image type should raise ValueError."""
+        # integers are treated as webcam indices by _classify_run_source;
+        # use a float, which routes to infer() as an "image" and is rejected there.
         graph = Graph("err").then(Detect(using="detector", out="dets"))
-        with pytest.raises(ValueError, match="Unsupported image type"):
-            graph.run(12345, providers={"detector": mock_detector})
+        with pytest.raises((ValueError, TypeError)):
+            graph.run(42.0, providers={"detector": mock_detector})
 
     def test_run_empty_graph_raises(self, pil_image, mock_detector):
         """Empty graph should raise during compilation."""

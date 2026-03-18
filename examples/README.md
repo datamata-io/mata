@@ -62,8 +62,14 @@ See [`detect/basic_detection.py`](detect/basic_detection.py) for the full progre
 
 ## Pipelines & Graphs ([`graph/`](graph/))
 
-5 core examples + 20 industry scenarios.  
+6 core examples + 20 industry scenarios.  
 See [graph/README.md](graph/README.md) for the full guide.
+
+Notable graph example:
+
+| File                                                           | What it shows                                      |
+| -------------------------------------------------------------- | -------------------------------------------------- |
+| [`graph/graph_reid_pipeline.py`](graph/graph_reid_pipeline.py) | Detect → Track → Embed → ReID (cross-camera graph) |
 
 ## Tools & Utilities ([`tools/`](tools/))
 

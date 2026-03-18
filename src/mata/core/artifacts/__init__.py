@@ -30,8 +30,10 @@ from mata.core.artifacts.converters import (
     vision_result_to_detections,
     vision_result_to_masks,
 )
+from mata.core.artifacts.cross_matches import CrossMatch, CrossMatches
 from mata.core.artifacts.depth_map import DepthMap
 from mata.core.artifacts.detections import Detections
+from mata.core.artifacts.embeddings import Embeddings
 from mata.core.artifacts.image import Image
 from mata.core.artifacts.keypoints import Keypoints
 from mata.core.artifacts.masks import Masks
@@ -47,7 +49,10 @@ __all__ = [
     "Detections",
     "Masks",
     "Classifications",
+    "CrossMatch",
+    "CrossMatches",
     "DepthMap",
+    "Embeddings",
     "OCRText",
     "TextBlock",
     "Keypoints",

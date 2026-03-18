@@ -1,6 +1,6 @@
 # MATA Graph System — API Reference
 
-> **Version**: 1.6.0 | **Last Updated**: February 12, 2026
+> **Version**: 1.9.2 | **Last Updated**: March 19, 2026
 
 ---
 
@@ -299,6 +299,89 @@ from mata.core.artifacts import Tracks, Track
 | `get_lost_tracks()`         | `list[Track]`   | Lost tracks        |
 | `get_terminated_tracks()`   | `list[Track]`   | Terminated tracks  |
 | `get_track_by_id(track_id)` | `Track \| None` | Find by ID         |
+
+---
+
+### `CrossMatches`
+
+Cross-camera re-identification results produced by the `ReID` node.
+
+```python
+from mata.core.artifacts import CrossMatches, CrossMatch
+```
+
+#### `CrossMatch`
+
+Frozen dataclass representing a single cross-camera match.
+
+| Attribute          | Type                                        | Description                                                 |
+| ------------------ | ------------------------------------------- | ----------------------------------------------------------- |
+| `local_track_id`   | `int`                                       | Track ID in the current camera                              |
+| `remote_camera_id` | `str`                                       | Camera ID where the match was found                         |
+| `remote_track_id`  | `int`                                       | Track ID in the remote camera                               |
+| `similarity`       | `float`                                     | Cosine similarity score — must be in [0.0, 1.0]             |
+| `remote_bbox`      | `tuple[float, float, float, float] \| None` | Bounding box location in the remote camera (xyxy), optional |
+
+**Methods:**
+
+| Method            | Returns      | Description               |
+| ----------------- | ------------ | ------------------------- |
+| `to_dict()`       | `dict`       | Serialize to dictionary   |
+| `from_dict(data)` | `CrossMatch` | Construct from dictionary |
+
+#### `CrossMatches`
+
+Artifact container for all cross-camera matches in a single frame.
+
+| Attribute   | Type               | Description                     |
+| ----------- | ------------------ | ------------------------------- |
+| `matches`   | `list[CrossMatch]` | All matches found in this frame |
+| `camera_id` | `str`              | ID of the originating camera    |
+| `meta`      | `dict`             | Optional metadata               |
+
+**Properties:**
+
+| Property            | Type       | Description                                           |
+| ------------------- | ---------- | ----------------------------------------------------- |
+| `matched_track_ids` | `set[int]` | Set of local track IDs that have a cross-camera match |
+
+**Methods:**
+
+| Method                             | Returns              | Description                                       |
+| ---------------------------------- | -------------------- | ------------------------------------------------- |
+| `__len__()`                        | `int`                | Number of matches in this artifact                |
+| `get_match(local_track_id)`        | `CrossMatch \| None` | First match for the given local track ID, or None |
+| `has_cross_camera(local_track_id)` | `bool`               | True if any match exists for the given track ID   |
+| `to_dict()`                        | `dict`               | Serialize to dictionary                           |
+| `from_dict(data)`                  | `CrossMatches`       | Construct from dictionary                         |
+
+**Validation:** `CrossMatch` raises `ValueError` if `similarity` is outside `[0.0, 1.0]` or if `remote_bbox` does not have exactly 4 values.
+
+**Example:**
+
+```python
+from mata.core.artifacts import CrossMatches, CrossMatch
+
+cm = CrossMatches(
+    matches=[
+        CrossMatch(
+            local_track_id=3,
+            remote_camera_id="cam-2",
+            remote_track_id=7,
+            similarity=0.92,
+            remote_bbox=(120.0, 80.0, 160.0, 200.0),
+        )
+    ],
+    camera_id="cam-1",
+)
+
+print(len(cm))                  # 1
+print(cm.has_cross_camera(3))   # True
+print(cm.matched_track_ids)     # {3}
+match = cm.get_match(3)
+print(match.remote_camera_id)   # "cam-2"
+print(cm.to_dict())             # {"matches": [...], "camera_id": "cam-1", ...}
+```
 
 ---
 
@@ -661,6 +744,84 @@ Provider capability: `Tracker.update()`. Supports BYTETrack or built-in IoU-base
 
 ---
 
+### ReID Node
+
+#### `ReID`
+
+Cross-camera re-identification node. For each active track with a corresponding embedding, publishes the feature vector to Valkey via a `ReIDBridge` provider, then queries for matches from other cameras.
+
+```python
+ReID(
+    using: str,
+    tracks_src: str = "tracks",
+    embeddings_src: str = "embeddings",
+    out: str = "cross_matches",
+    top_k: int = 1,
+    name: str = None,
+)
+```
+
+| Parameter        | Type          | Default           | Description                                                  |
+| ---------------- | ------------- | ----------------- | ------------------------------------------------------------ |
+| `using`          | `str`         | _required_        | Provider name resolved to a `ReIDBridge` instance at runtime |
+| `tracks_src`     | `str`         | `"tracks"`        | Input artifact key for the `Tracks` artifact                 |
+| `embeddings_src` | `str`         | `"embeddings"`    | Input artifact key for the `Embeddings` artifact             |
+| `out`            | `str`         | `"cross_matches"` | Output artifact key for the `CrossMatches` artifact          |
+| `top_k`          | `int`         | `1`               | Maximum cross-camera matches to return per track             |
+| `name`           | `str \| None` | `None`            | Optional human-readable node name                            |
+
+**I/O:**
+
+| I/O    | Name            | Type           | Notes                                 |
+| ------ | --------------- | -------------- | ------------------------------------- |
+| Input  | `tracks`        | `Tracks`       | Key configurable via `tracks_src`     |
+| Input  | `embeddings`    | `Embeddings`   | Key configurable via `embeddings_src` |
+| Output | `cross_matches` | `CrossMatches` | Key configurable via `out`            |
+
+**Provider capability:** `reid` — expects a `ReIDBridge` instance (from `mata.trackers`). Pass it in the flat providers dict; `_normalize_providers()` maps it to the `"reid"` capability automatically.
+
+**Behaviour:**
+
+- Only processes **active** tracks (state `"active"`).
+- Iterates up to `min(num_active_tracks, num_embeddings)` — handles mismatched counts gracefully.
+- Empty tracks or empty embeddings → returns an empty `CrossMatches` artifact.
+- Records `num_tracks_published` and `num_cross_matches` metrics.
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import Detect, Filter, Track, ExtractROIs, Embed, ReID, Fuse
+from mata.nodes.embed import Embed
+from mata.trackers import ReIDBridge
+from mata.core.graph import Graph
+
+detector  = mata.load("detect", "facebook/detr-resnet-50")
+tracker   = mata.load("track",  "facebook/detr-resnet-50", tracker="botsort")
+encoder   = mata.load("embed",  "openai/clip-vit-base-patch32")
+bridge    = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+
+graph = (
+    Graph("reid_pipeline")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.3, out="filtered"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
+    .then(ExtractROIs(src_dets="filtered", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(ReID(using="bridge", out="cross_matches"))
+    .then(Fuse(tracks="tracks", cross_matches="cross_matches"))
+)
+
+result = mata.infer(
+    "frame.jpg", graph=graph,
+    providers={"detector": detector, "tracker": tracker,
+               "encoder": encoder, "bridge": bridge},
+)
+print(result.cross_matches)  # CrossMatches artifact
+```
+
+---
+
 ### Fusion Nodes
 
 #### `Fuse`
@@ -858,6 +1019,127 @@ NMS(
 | Output | `detections` | `Detections` |
 
 Uses `torchvision.ops.nms` internally.
+
+---
+
+#### `AnnotateRT`
+
+Real-time OpenCV annotation node. Stateful — accumulates per-track centre-point history across `run()` calls to render smooth trajectory trails. No provider is required.
+
+```python
+AnnotateRT(
+    show_boxes: bool = True,
+    show_labels: bool = True,
+    show_scores: bool = True,
+    show_track_ids: bool = True,
+    show_trails: bool = False,
+    trail_length: int = 30,
+    camera_label: str = None,
+    camera_color: tuple[int, int, int] = None,
+    line_width: int = 2,
+    out: str = "annotated",
+    image_src: str = "image",
+    detections_src: str = "detections",
+    tracks_src: str = None,
+    cross_matches_src: str = None,
+    name: str = None,
+)
+```
+
+**Constructor parameters:**
+
+| Parameter           | Type                         | Default        | Description                                                                               |
+| ------------------- | ---------------------------- | -------------- | ----------------------------------------------------------------------------------------- |
+| `show_boxes`        | `bool`                       | `True`         | Draw bounding box rectangles                                                              |
+| `show_labels`       | `bool`                       | `True`         | Include class label in overlay text                                                       |
+| `show_scores`       | `bool`                       | `True`         | Include confidence score in overlay text                                                  |
+| `show_track_ids`    | `bool`                       | `True`         | Prepend `#<id>` to the overlay text                                                       |
+| `show_trails`       | `bool`                       | `False`        | Draw trajectory polylines from accumulated trail history                                  |
+| `trail_length`      | `int`                        | `30`           | Maximum centre-points retained per track                                                  |
+| `camera_label`      | `str \| None`                | `None`         | Text for the coloured label bar in the top-left corner. `None` disables the bar.          |
+| `camera_color`      | `tuple[int,int,int] \| None` | `None`         | BGR colour for the camera label bar. Falls back to orange `(255, 100, 60)` when `None`.   |
+| `line_width`        | `int`                        | `2`            | Bounding box border thickness in pixels                                                   |
+| `out`               | `str`                        | `"annotated"`  | Output artifact key                                                                       |
+| `image_src`         | `str`                        | `"image"`      | Input image artifact key                                                                  |
+| `detections_src`    | `str`                        | `"detections"` | Input detections (or tracks) artifact key — duck-typed; accepts `Detections` and `Tracks` |
+| `tracks_src`        | `str \| None`                | `None`         | Optional key for an additional `Tracks` artifact used for trail accumulation              |
+| `cross_matches_src` | `str \| None`                | `None`         | Optional key for `CrossMatches` artifact — matched tracks receive a yellow double-border  |
+| `name`              | `str \| None`                | `None`         | Optional human-readable node name                                                         |
+
+**I/O:**
+
+| I/O    | Name            | Type           | Optional | Notes                                                         |
+| ------ | --------------- | -------------- | -------- | ------------------------------------------------------------- |
+| Input  | `image`         | `Image`        | No       | Key configurable via `image_src`                              |
+| Input  | `detections`    | `Detections`   | No       | Key configurable via `detections_src`; also accepts `Tracks`  |
+| Input  | `tracks`        | `Tracks`       | Yes      | Added to `inputs` only when `tracks_src` is not `None`        |
+| Input  | `cross_matches` | `CrossMatches` | Yes      | Added to `inputs` only when `cross_matches_src` is not `None` |
+| Output | `annotated`     | `Image`        | —        | BGR colour space; preserves `frame_id` and `timestamp_ms`     |
+
+The `inputs` dict is built dynamically in `__init__` — optional keys are only present when their corresponding `*_src` parameter is set.
+
+**State management:**
+
+| Method    | Description                                                                      |
+| --------- | -------------------------------------------------------------------------------- |
+| `reset()` | Clear accumulated trail history. Call between video clips or when IDs are reset. |
+
+**Behaviour notes:**
+
+- Input image is converted from RGB → BGR automatically when `color_space == "RGB"`.
+- Output `Image` always has `color_space="BGR"` and inherits `frame_id`/`timestamp_ms` from the input.
+- Missing optional inputs are handled gracefully — no trails when `tracks_src` is unset, no highlights when `cross_matches_src` is unset.
+- Records `num_instances` metric per frame.
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import Detect, Filter, Track, ReID, AnnotateRT, Fuse
+from mata.nodes.embed import Embed
+from mata.trackers import ReIDBridge
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN
+import cv2
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker  = mata.load("track",  "facebook/detr-resnet-50", tracker="botsort")
+encoder  = mata.load("embed",  "openai/clip-vit-base-patch32")
+bridge   = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+
+graph = (
+    Graph("live_pipeline")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.3, out="filtered"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
+    .add(ExtractROIs(src_dets="filtered", out="rois"), inputs={"image": "image", "detections": "filtered"})
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(ReID(using="bridge", out="cross_matches"))
+    .then(AnnotateRT(
+        show_track_ids=True,
+        show_trails=True,
+        trail_length=40,
+        camera_label="CAM-1",
+        tracks_src="tracks",
+        cross_matches_src="cross_matches",
+        out="annotated",
+    ))
+)
+
+def on_frame(result, frame_num, frame_bgr):
+    annotated = result.channels.get("annotated")
+    if annotated is not None:
+        cv2.imshow("MATA", annotated.to_numpy())
+    cv2.waitKey(1)
+
+graph.run(
+    "video.mp4",
+    providers={"detector": detector, "tracker": tracker,
+               "encoder": encoder, "bridge": bridge},
+    frame_policy=FramePolicyEveryN(n=2),
+    callback=on_frame,
+)
+```
 
 ---
 
@@ -1135,72 +1417,144 @@ Graph(name: str = None)
 
 #### Methods
 
-| Method                                                    | Returns         | Description                                          |
-| --------------------------------------------------------- | --------------- | ---------------------------------------------------- |
-| `then(node)`                                              | `Graph`         | Add node sequentially with auto-wiring               |
-| `add(node, inputs=None)`                                  | `Graph`         | Add node with optional explicit wiring               |
-| `parallel(nodes)`                                         | `Graph`         | Add nodes for parallel execution                     |
-| `conditional(predicate, then_branch, else_branch=None)`   | `Graph`         | Add conditional branch                               |
-| `compile(providers)`                                      | `CompiledGraph` | Validate and compile to executable DAG               |
-| `run(image, providers, *, scheduler=None, device="auto")` | `MultiResult`   | Execute graph on image (delegates to `mata.infer()`) |
-| `visualize(output_path)`                                  | `None`          | Generate graph visualization (DOT/PNG/PDF)           |
+| Method                                                  | Returns                                                 | Description                                         |
+| ------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------- |
+| `then(node)`                                            | `Graph`                                                 | Add node sequentially with auto-wiring              |
+| `add(node, inputs=None)`                                | `Graph`                                                 | Add node with optional explicit wiring              |
+| `parallel(nodes)`                                       | `Graph`                                                 | Add nodes for parallel execution                    |
+| `conditional(predicate, then_branch, else_branch=None)` | `Graph`                                                 | Add conditional branch                              |
+| `compile(providers)`                                    | `CompiledGraph`                                         | Validate and compile to executable DAG              |
+| `run(source, providers, *, ...)`                        | `MultiResult \| list[MultiResult] \| Generator \| None` | Execute on image, video file, or stream (see below) |
+| `visualize(output_path)`                                | `None`                                                  | Generate graph visualization (DOT/PNG/PDF)          |
 
 #### `run()`
 
-Convenience method that delegates to `mata.infer()`. Allows fluent build-and-execute in a single expression.
+Unified execution entry point. Accepts single images, video files, RTSP/RTMP streams, and webcam indices. For image sources it delegates to `mata.infer()`. For temporal sources it internally constructs a `VideoProcessor`.
 
 ```python
 def run(
-    image: Union[str, Path, PIL.Image.Image, np.ndarray],
+    image: Union[str, Path, int, PIL.Image.Image, np.ndarray],
     providers: Dict[str, Any],
     *,
     scheduler: Optional[Scheduler] = None,
     device: str = "auto",
+    frame_policy: Optional[FramePolicy] = None,
+    max_frames: Optional[int] = None,
+    callback: Optional[Callable[[MultiResult, int], None]] = None,
+    stop_event: Optional[threading.Event] = None,
+    output_path: Optional[str] = None,
     **kwargs,
-) -> MultiResult
+) -> Union[MultiResult, list[MultiResult], Generator[MultiResult, None, None], None]
 ```
 
 **Parameters:**
 
-| Parameter   | Type                                     | Default           | Description                                       |
-| ----------- | ---------------------------------------- | ----------------- | ------------------------------------------------- |
-| `image`     | `str \| Path \| PIL.Image \| np.ndarray` | _required_        | Input image                                       |
-| `providers` | `dict[str, Any]`                         | _required_        | Provider instances keyed by name (flat or nested) |
-| `scheduler` | `Scheduler \| None`                      | `SyncScheduler()` | Execution strategy                                |
-| `device`    | `str`                                    | `"auto"`          | Device placement                                  |
+| Parameter      | Type                                                     | Default           | Description                                                                                                                                                                             |
+| -------------- | -------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `image`        | `str \| Path \| int \| PIL.Image \| np.ndarray`          | _required_        | Image path, video file path, stream URL, webcam index, or in-memory image                                                                                                               |
+| `providers`    | `dict[str, Any]`                                         | _required_        | Provider instances keyed by name (flat or nested)                                                                                                                                       |
+| `scheduler`    | `Scheduler \| None`                                      | `SyncScheduler()` | Execution strategy per frame                                                                                                                                                            |
+| `device`       | `str`                                                    | `"auto"`          | Device placement (`"auto"`, `"cuda"`, `"cpu"`) — image sources only                                                                                                                     |
+| `frame_policy` | `FramePolicy \| None`                                    | `None`            | **Required** for video/stream/webcam. Controls which frames are processed.                                                                                                              |
+| `max_frames`   | `int \| None`                                            | `None`            | Stop after this many total frames (including skipped). `None` = no limit.                                                                                                               |
+| `callback`     | `Callable[[MultiResult, int, np.ndarray], None] \| None` | `None`            | Per-frame callback receiving `(result, frame_num, frame_bgr)`. Works for **video files** (called per processed frame, full list still returned) and **streams/webcam** (blocking mode). |
 
-**Example — Fluent chained execution:**
+| `stop_event` | `threading.Event \| None` | `None` | Stop a stream/webcam callback loop gracefully. |
+| `output_path` | `str \| None` | `None` | Reserved for annotated video output (future release). |
+
+**Return value by source type:**
+
+| Source type                    | Return type                                                     |
+| ------------------------------ | --------------------------------------------------------------- |
+| Image (file, PIL, numpy)       | `MultiResult`                                                   |
+| Video file, no callback        | `list[MultiResult]`                                             |
+| Video file, with callback      | `list[MultiResult]` (callback also invoked per processed frame) |
+| Stream / webcam, no callback   | `Generator[MultiResult]`                                        |
+| Stream / webcam, with callback | `None` (blocking)                                               |
+
+**Example — Single image (unchanged):**
 
 ```python
 result = (Graph("top5")
     .then(Detect(using="detector", out="dets"))
     .then(Filter(src="dets", score_gt=0.3, out="filtered"))
-    .then(TopK(k=5, src="filtered", out="top5"))
-    .then(Fuse(dets="top5", out="final"))
+    .then(Fuse(dets="filtered", out="final"))
     .run("photo.jpg", providers={"detector": detector})
 )
 print(result.final)
 ```
 
-**Example — Separate build and run:**
+**Example — Video file:**
 
 ```python
-graph = (Graph("pipeline")
-    .then(Detect(using="detector", out="dets"))
-    .then(Filter(src="dets", score_gt=0.5, out="filtered"))
-    .then(Fuse(dets="filtered", out="final"))
+from mata.core.graph.temporal import FramePolicyEveryN
+
+results = graph.run(
+    "dashcam.mp4",
+    providers={"detector": detector},
+    frame_policy=FramePolicyEveryN(n=3),
+    max_frames=300,
 )
-result = graph.run("photo.jpg", providers={"detector": detector})
+for r in results:
+    print(len(r.final.instances), "objects")
 ```
 
-**Example — With parallel scheduler:**
+**Example — RTSP stream (generator mode):**
 
 ```python
-result = graph.run(
-    "scene.jpg",
-    providers={"detector": detector, "depth": depth_model},
-    scheduler=ParallelScheduler(),
+from mata.core.graph.temporal import FramePolicyLatest
+
+for result in graph.run(
+    "rtsp://192.168.1.100/stream",
+    providers={"detector": detector},
+    frame_policy=FramePolicyLatest(),
+):
+    process(result)
+```
+
+**Example — Video file with per-frame callback:**
+
+```python
+from mata.core.graph.temporal import FramePolicyEveryN
+
+callback_frames = []
+
+def on_frame(result, frame_num, frame_bgr):
+    # frame_bgr is np.ndarray in BGR colour space
+    n = len(result.tracks.tracks) if result.has_channel("tracks") else 0
+    print(f"Frame {frame_num}: {n} tracks")
+    callback_frames.append(frame_num)
+
+results = graph.run(
+    "dashcam.mp4",
+    providers={"detector": detector, "tracker": tracker},
+    frame_policy=FramePolicyEveryN(n=3),
+    callback=on_frame,
 )
+# results is still list[MultiResult]; callback was invoked for each processed frame
+```
+
+**Example — Stream with callback (blocking):**
+
+```python
+import threading
+
+stop = threading.Event()
+graph.run(
+    "rtsp://cam/stream",
+    providers={"detector": detector},
+    frame_policy=FramePolicyLatest(),
+    callback=lambda result, frame_num, frame_bgr: print(f"Frame {frame_num}"),
+    stop_event=stop,
+)
+```
+
+**Example — Webcam:**
+
+```python
+for result in graph.run(0, providers={"detector": detector},
+                        frame_policy=FramePolicyLatest()):
+    show(result)
 ```
 
 ---

@@ -1,6 +1,6 @@
 # MATA Graph Cookbook
 
-> **Version**: 1.6.0 | **Last Updated**: February 12, 2026
+> **Version**: 1.9.2 | **Last Updated**: March 19, 2026
 
 Practical recipes and patterns for common computer vision workflows using the MATA graph system.
 
@@ -15,6 +15,10 @@ Practical recipes and patterns for common computer vision workflows using the MA
 5. [Multi-Task Parallel Pipelines](#multi-task-parallel-pipelines)
 6. [Conditional Execution](#conditional-execution)
 7. [Video & Tracking](#video--tracking)
+   - [Recipe 26: Video Processing with Per-Frame Callback](#recipe-26-video-processing-with-per-frame-callback)
+   - [Recipe 27: Cross-Camera ReID Pipeline](#recipe-27-cross-camera-reid-pipeline)
+   - [Recipe 28: Real-Time Annotated Video](#recipe-28-real-time-annotated-video)
+   - [Recipe 29: Multi-Camera Dashboard](#recipe-29-multi-camera-dashboard)
 8. [VLM Workflows](#vlm-workflows)
 9. [Custom Nodes & Providers](#custom-nodes--providers)
 10. [Performance Optimization](#performance-optimization)
@@ -558,29 +562,49 @@ Track objects across video frames using BYTETrack.
 
 ```python
 from mata.presets import detect_and_track
-from mata.core.graph.temporal import VideoProcessor, FramePolicyEveryN
+from mata.core.graph.temporal import FramePolicyEveryN
 
 detector = mata.load("detect", "facebook/detr-resnet-50")
-# BYTETrack or IoU-based tracker (built-in)
 tracker = ...  # Your tracker instance
 
 graph = detect_and_track(detection_threshold=0.5, track_buffer=30)
-compiled = graph.compile(providers={
-    "detect": {"detector": detector},
-    "track": {"tracker": tracker},
-})
 
-processor = VideoProcessor(
-    graph=compiled,
-    providers={"detect": {"detector": detector}, "track": {"tracker": tracker}},
+results = graph.run(
+    "input.mp4",
+    providers={"detector": detector, "tracker": tracker},
     frame_policy=FramePolicyEveryN(n=3),  # Process every 3rd frame
+    output_path="tracked.mp4",
 )
-
-results = processor.process_video("input.mp4", output_path="tracked.mp4")
 
 for frame_result in results:
     tracks = frame_result.tracks
     print(f"Frame: {len(tracks.get_active_tracks())} active tracks")
+```
+
+> **Advanced:** For fine-grained control (runtime graph swaps, custom frame producers) use
+> `VideoProcessor` directly — see [Recipe 23b](#recipe-23b-videoprocessor-direct-usage).
+
+### Recipe 23b: VideoProcessor Direct Usage
+
+Use `VideoProcessor` directly when you need full control over compilation and the frame loop.
+
+```python
+from mata.presets import detect_and_track
+from mata.core.graph.temporal import VideoProcessor, FramePolicyEveryN
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker = ...
+
+graph = detect_and_track(detection_threshold=0.5, track_buffer=30)
+providers = {"detector": detector, "tracker": tracker}
+compiled = graph.compile(providers=providers)
+
+processor = VideoProcessor(
+    graph=compiled,
+    providers=providers,
+    frame_policy=FramePolicyEveryN(n=3),
+)
+results = processor.process_video("input.mp4", output_path="tracked.mp4")
 ```
 
 ### Recipe 24: Real-Time Stream Processing
@@ -588,24 +612,32 @@ for frame_result in results:
 Process live camera or RTSP feed.
 
 ```python
-from mata.core.graph.temporal import VideoProcessor, FramePolicyLatest
+from mata.core.graph.temporal import FramePolicyLatest
 
-def handle_result(result):
-    """Callback for each processed frame."""
+# Generator mode — constant memory, iterate lazily
+for result in graph.run(
+    "rtsp://192.168.1.100/stream",
+    providers=providers,
+    frame_policy=FramePolicyLatest(),  # Drop stale frames
+):
     dets = result.dets
     print(f"Detected {len(dets.instances)} objects")
 
-processor = VideoProcessor(
-    graph=compiled,
+# Callback mode — blocking, useful for background threads
+import threading
+
+stop = threading.Event()
+graph.run(
+    "rtsp://192.168.1.100/stream",
     providers=providers,
-    frame_policy=FramePolicyLatest(),  # Drop stale frames
+    frame_policy=FramePolicyLatest(),
+    callback=lambda result, frame_num: print(f"Frame {frame_num}: {result}"),
+    stop_event=stop,
 )
 
-# RTSP camera stream
-processor.process_stream("rtsp://192.168.1.100/stream", callback=handle_result)
-
-# Or local webcam
-processor.process_stream("0", callback=handle_result)
+# Or local webcam (integer index)
+for result in graph.run(0, providers=providers, frame_policy=FramePolicyLatest()):
+    process(result)
 ```
 
 ### Recipe 25: Frame Skipping for Performance
@@ -615,18 +647,279 @@ Process only every N-th frame to hit target FPS.
 ```python
 from mata.core.graph.temporal import FramePolicyEveryN
 
-# Process every 5th frame → 6 FPS from 30 FPS video
-policy = FramePolicyEveryN(n=5)
+# At 30 FPS source video:
+# n=1  → process all frames (30 FPS output, GPU-intensive)
+# n=3  → process every 3rd frame (10 processed FPS)
+# n=5  → process every 5th frame (6 processed FPS, fast)
+# n=10 → process every 10th frame (3 processed FPS, surveillance mode)
 
-processor = VideoProcessor(
-    graph=compiled,
+results = graph.run(
+    "input.mp4",
     providers=providers,
-    frame_policy=policy,
+    frame_policy=FramePolicyEveryN(n=5),
 )
-
-results = processor.process_video("input.mp4")
 print(f"Processed {len(results)} frames")
 ```
+
+### Recipe 26: Video Processing with Per-Frame Callback
+
+Process a video file frame-by-frame while displaying or saving each annotated frame in real time. The `callback` receives `(result, frame_num, frame_bgr)` for every processed frame; results are still returned as a list for post-processing.
+
+```python
+import threading
+import cv2
+import mata
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN
+from mata.nodes import Detect, Filter, Track, Fuse
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker = mata.load("track", "facebook/detr-resnet-50", tracker="bytetrack")
+
+graph = (
+    Graph("video_callback")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(Track(using="tracker", src="filtered", out="tracks"))
+    .then(Fuse(tracks="tracks", out="final"))
+)
+
+stop = threading.Event()
+
+def on_frame(result, frame_num, frame_bgr):
+    tracks = result.channels.get("tracks")
+    n_active = len(tracks.get_active_tracks()) if tracks else 0
+    print(f"\rFrame {frame_num:5d} | active tracks: {n_active}", end="", flush=True)
+
+    # Optionally display with OpenCV
+    cv2.imshow("Preview", frame_bgr)
+    if cv2.waitKey(1) & 0xFF == ord("q"):
+        stop.set()
+
+results = graph.run(
+    "input.mp4",
+    providers={"detector": detector, "tracker": tracker},
+    frame_policy=FramePolicyEveryN(n=2),
+    max_frames=300,
+    callback=on_frame,
+    stop_event=stop,
+)
+print(f"\nProcessed {len(results)} frames in total")
+cv2.destroyAllWindows()
+```
+
+> **Tip:** `callback` works for video files (returns `list`) and streams (returns `None`, blocking). For streams the callback signature is `(result, frame_num)` — the raw BGR frame is only provided for video files.
+
+---
+
+### Recipe 27: Cross-Camera ReID Pipeline
+
+Detect → Track → extract ROIs → embed → publish/query Valkey for cross-camera identity matching. Requires a running Valkey (or Redis) instance and the `mata.trackers.ReIDBridge`.
+
+```python
+import mata
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN
+from mata.nodes import Detect, Filter, Track, ExtractROIs, Embed, ReID, Fuse
+from mata.trackers import ReIDBridge
+
+# Load models
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker = mata.load("track", "facebook/detr-resnet-50", tracker="botsort")
+encoder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+# Cross-camera bridge (unique camera_id per process)
+bridge = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+
+graph = (
+    Graph("cross_camera_reid")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(Track(using="tracker", src="filtered", out="tracks"))
+    .then(ExtractROIs(src_dets="tracks", src_image="image", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(ReID(using="bridge", tracks_src="tracks",
+               embeddings_src="embeddings", out="cross_matches"))
+    .then(Fuse(tracks="tracks", cross_matches="cross_matches", out="final"))
+)
+
+results = graph.run(
+    "rtsp://192.168.1.100/stream",
+    providers={"detector": detector, "tracker": tracker,
+               "encoder": encoder, "bridge": bridge},
+    frame_policy=FramePolicyEveryN(n=3),
+)
+
+for result in results:
+    cm = result.channels.get("cross_matches")
+    if cm and cm.has_cross_camera:
+        for match in cm.matches:
+            print(f"Local track #{match.local_track_id} "
+                  f"→ {match.remote_camera_id}#{match.remote_track_id} "
+                  f"(similarity={match.similarity:.2f})")
+```
+
+> **Multi-camera:** Run a second process with the same `valkey://` URL and `camera_id="cam-2"`. Both processes share Valkey; `ReIDBridge` handles TTL eviction and per-camera exclusion automatically.
+
+---
+
+### Recipe 28: Real-Time Annotated Video
+
+Full pipeline with `AnnotateRT` — draws bounding boxes, track IDs, trajectory trails, and cross-camera highlights directly onto each frame using OpenCV.
+
+```python
+import mata
+import cv2
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN
+from mata.nodes import Detect, Filter, Track, ExtractROIs, Embed, ReID, AnnotateRT, Fuse
+from mata.trackers import ReIDBridge
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker = mata.load("track", "facebook/detr-resnet-50", tracker="botsort")
+encoder = mata.load("embed", "openai/clip-vit-base-patch32")
+bridge = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+
+annotator = AnnotateRT(
+    show_track_ids=True,
+    show_trails=True,
+    trail_length=40,
+    camera_label="CAM-1",
+    camera_color=(255, 100, 60),  # BGR orange
+    out="annotated",
+    detections_src="tracks",
+    tracks_src="tracks",
+    cross_matches_src="cross_matches",
+)
+
+graph = (
+    Graph("annotated_video")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(Track(using="tracker", src="filtered", out="tracks"))
+    .then(ExtractROIs(src_dets="tracks", src_image="image", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(ReID(using="bridge", tracks_src="tracks",
+               embeddings_src="embeddings", out="cross_matches"))
+    .then(annotator)
+)
+
+# Set up video writer
+cap_probe = cv2.VideoCapture("input.mp4")
+fps = cap_probe.get(cv2.CAP_PROP_FPS)
+cap_probe.release()
+writer = cv2.VideoWriter("output_annotated.mp4",
+                         cv2.VideoWriter_fourcc(*"mp4v"),
+                         fps / 2,  # matches FramePolicyEveryN(n=2)
+                         (1280, 720))
+
+def on_frame(result, frame_num, frame_bgr):
+    annotated = result.channels.get("annotated")
+    frame_out = annotated.to_numpy() if annotated is not None else frame_bgr
+    writer.write(cv2.resize(frame_out, (1280, 720)))
+
+graph.run(
+    "input.mp4",
+    providers={"detector": detector, "tracker": tracker,
+               "encoder": encoder, "bridge": bridge},
+    frame_policy=FramePolicyEveryN(n=2),
+    callback=on_frame,
+)
+writer.release()
+print("Saved output_annotated.mp4")
+```
+
+> **Stateful trails:** `AnnotateRT` maintains per-track centre-point history across frames. Call `annotator.reset()` between clips to clear trail state when switching videos.
+
+---
+
+### Recipe 29: Multi-Camera Dashboard
+
+Run two independent `graph.run()` instances in separate threads sharing a single Valkey backend. Each camera contributes to the cross-camera identity pool.
+
+```python
+import threading
+import mata
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN
+from mata.nodes import Detect, Filter, Track, ExtractROIs, Embed, ReID, AnnotateRT
+from mata.trackers import ReIDBridge
+
+def make_graph(cam_id: str) -> tuple[Graph, AnnotateRT]:
+    annotator = AnnotateRT(
+        show_track_ids=True,
+        show_trails=True,
+        camera_label=cam_id.upper(),
+        out="annotated",
+        detections_src="tracks",
+        tracks_src="tracks",
+        cross_matches_src="cross_matches",
+    )
+    g = (
+        Graph(f"pipeline_{cam_id}")
+        .then(Detect(using="detector", out="dets"))
+        .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+        .then(Track(using="tracker", src="filtered", out="tracks"))
+        .then(ExtractROIs(src_dets="tracks", src_image="image", out="rois"))
+        .then(Embed(using="encoder", src="rois", out="embeddings"))
+        .then(ReID(using="bridge", tracks_src="tracks",
+                   embeddings_src="embeddings", out="cross_matches"))
+        .then(annotator)
+    )
+    return g, annotator
+
+# Shared models (thread-safe read-only inference)
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker1 = mata.load("track", "facebook/detr-resnet-50", tracker="botsort")
+tracker2 = mata.load("track", "facebook/detr-resnet-50", tracker="botsort")
+encoder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+VALKEY_URL = "valkey://localhost:6379"
+bridge1 = ReIDBridge(VALKEY_URL, camera_id="cam-1")
+bridge2 = ReIDBridge(VALKEY_URL, camera_id="cam-2")
+
+graph1, annotator1 = make_graph("cam-1")
+graph2, annotator2 = make_graph("cam-2")
+
+stop = threading.Event()
+
+def run_camera(graph, providers, source, stop_event):
+    graph.run(
+        source,
+        providers=providers,
+        frame_policy=FramePolicyEveryN(n=3),
+        stop_event=stop_event,
+    )
+
+t1 = threading.Thread(target=run_camera, args=(
+    graph1,
+    {"detector": detector, "tracker": tracker1,
+     "encoder": encoder, "bridge": bridge1},
+    "rtsp://192.168.1.101/stream",
+    stop,
+))
+t2 = threading.Thread(target=run_camera, args=(
+    graph2,
+    {"detector": detector, "tracker": tracker2,
+     "encoder": encoder, "bridge": bridge2},
+    "rtsp://192.168.1.102/stream",
+    stop,
+))
+
+t1.start()
+t2.start()
+
+try:
+    t1.join()
+    t2.join()
+except KeyboardInterrupt:
+    stop.set()  # Signal both cameras to stop
+    t1.join()
+    t2.join()
+    print("Dashboard stopped.")
+```
+
+> **Scaling:** Each `ReIDBridge` instance needs a unique `camera_id`. The Valkey backend handles concurrent writes safely. For production deployments, use a Valkey cluster and set `ttl_seconds` on the bridge to control how long embeddings persist.
 
 ---
 
@@ -951,7 +1244,7 @@ graph_fast = (Graph()
 Balance quality vs speed for video processing.
 
 ```python
-from mata.core.graph.temporal import VideoProcessor, FramePolicyEveryN
+from mata.core.graph.temporal import FramePolicyEveryN
 
 # At 30 FPS source video:
 # n=1  → process all frames (30 FPS output, GPU-intensive)
@@ -959,8 +1252,8 @@ from mata.core.graph.temporal import VideoProcessor, FramePolicyEveryN
 # n=5  → process every 5th frame (6 processed FPS, fast)
 # n=10 → process every 10th frame (3 processed FPS, surveillance mode)
 
-processor = VideoProcessor(
-    graph=compiled,
+results = graph.run(
+    "input.mp4",
     providers=providers,
     frame_policy=FramePolicyEveryN(n=5),
 )

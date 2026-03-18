@@ -26,6 +26,76 @@ except ImportError:
     HAS_NETWORKX = False
     nx = None
 
+# ---------------------------------------------------------------------------
+# Source-type helpers for Graph.run()
+# ---------------------------------------------------------------------------
+
+_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".m4v", ".mpeg", ".mpg", ".ts", ".flv"}
+_STREAM_PREFIXES = ("rtsp://", "rtsps://", "rtmp://", "http://", "https://")
+
+
+def _classify_run_source(source: Any) -> str:
+    """Return ``"video_file"``, ``"stream"``, ``"webcam"``, or ``"image"``."""
+    import os
+
+    if isinstance(source, int):
+        return "webcam"
+    # numpy array or PIL Image-like → single image
+    if hasattr(source, "shape") or (hasattr(source, "save") and hasattr(source, "tobytes")):
+        return "image"
+    s = str(source)
+    if any(s.lower().startswith(p) for p in _STREAM_PREFIXES):
+        return "stream"
+    # Check file extension
+    _, ext = os.path.splitext(s)
+    if ext.lower() in _VIDEO_SUFFIXES:
+        return "video_file"
+    return "image"
+
+
+def _stream_generator(processor: Any, source: Any, max_frames: int | None):
+    """Yield MultiResult items from a stream/webcam source.
+
+    Wraps ``VideoProcessor.process_stream`` in a generator so callers
+    can iterate lazily with constant memory usage.
+    """
+    import threading
+
+    results: list = []
+    exc_holder: list = []
+    stop_event = threading.Event()
+
+    def _cb(result: Any, _frame_num: int) -> None:
+        results.append(result)
+
+    def _run() -> None:
+        try:
+            processor.process_stream(
+                source,
+                callback=_cb,
+                stop_event=stop_event,
+                max_frames=max_frames,
+            )
+        except Exception as exc:  # noqa: BLE001
+            exc_holder.append(exc)
+        finally:
+            stop_event.set()
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    try:
+        while thread.is_alive() or results:
+            if results:
+                yield results.pop(0)
+            else:
+                thread.join(timeout=0.01)
+        if exc_holder:
+            raise exc_holder[0]
+    finally:
+        stop_event.set()
+        thread.join()
+
 
 class Graph:
     """Fluent graph builder with validation and compilation.
@@ -409,71 +479,199 @@ class Graph:
         *,
         scheduler: Any | None = None,
         device: str = "auto",
+        frame_policy: Any | None = None,
+        max_frames: int | None = None,
+        callback: Any | None = None,
+        stop_event: Any | None = None,
+        output_path: str | None = None,
         **kwargs: Any,
     ) -> Any:
-        """Execute this graph on an image (convenience wrapper).
+        """Execute this graph on an image, video file, or real-time stream.
 
-        Thin delegation layer over ``mata.infer()``. Allows fluent execution
-        directly from the graph builder without importing the top-level API.
+        For **image** sources (file path, PIL Image, numpy array) this
+        delegates to ``mata.infer()`` and returns a single ``MultiResult``,
+        exactly as before.
+
+        For **temporal** sources (video file, RTSP/RTMP URL, webcam integer)
+        the graph is compiled once, then a :class:`~mata.core.graph.temporal.VideoProcessor`
+        is constructed and the appropriate loop is started:
+
+        - **Video file** (``".mp4"``, ``".avi"``, etc.) → returns ``list[MultiResult]``
+          with one item per processed frame.
+        - **Stream** (``"rtsp://…"``, ``"rtmp://…"``, ``"http://…"``) or **webcam**
+          (integer) without *callback* → returns a **generator** of ``MultiResult``
+          (constant memory, lazy iteration).
+        - **Stream / webcam** *with callback* → runs a blocking loop, calling
+          ``callback(result, frame_num)`` for each frame, returns ``None``.
 
         Args:
-            image: Input image. Accepts:
-                - ``str`` or ``Path``: file path to an image on disk
-                - ``PIL.Image.Image``: a Pillow image object
-                - ``np.ndarray``: a numpy array (HWC, uint8, RGB or BGR)
-            providers: Provider instances keyed by name.
-                Keys must match the ``using`` parameter of nodes in the graph.
-                Values are loaded adapters (e.g. from ``mata.load()``).
-                Accepts flat ``{"name": adapter}`` or nested
+            image: Input source.  Accepts:
+                - ``str`` or ``Path``: image file, video file path, or stream URL
+                - ``int``: webcam device index
+                - ``PIL.Image.Image`` or ``np.ndarray``: in-memory image (single frame)
+            providers: Provider instances keyed by name.  Same format as
+                ``mata.infer()`` — flat ``{"name": adapter}`` or nested
                 ``{"capability": {"name": adapter}}``.
-            scheduler: Optional scheduler instance for execution strategy.
-                Defaults to ``SyncScheduler`` (sequential execution).
-                Pass ``ParallelScheduler()`` for concurrent independent stages.
-            device: Device placement. One of ``"auto"``, ``"cuda"``, ``"cpu"``.
-            **kwargs: Additional keyword arguments forwarded to ``mata.infer()``.
+            scheduler: Scheduler for graph execution per frame.
+                Defaults to ``SyncScheduler``.
+            device: Device placement: ``"auto"``, ``"cuda"``, or ``"cpu"``.
+            frame_policy: :class:`~mata.core.graph.temporal.FramePolicy` instance
+                controlling which frames are processed.  **Required** for
+                video/stream/webcam sources; ignored for single images.
+                Examples: ``FramePolicyEveryN(n=3)``, ``FramePolicyLatest()``.
+            max_frames: Stop after reading this many total frames (including
+                skipped ones).  ``None`` = no limit.
+            callback: Callable invoked for each processed frame.
+                - **Video files**: ``(result: MultiResult, frame_num: int, frame_bgr: np.ndarray) -> None``
+                  — called after each frame is processed; raw BGR frame is the
+                  third argument.  Results are still returned as a list.
+                - **Streams/webcam**: ``(result: MultiResult, frame_num: int) -> None``
+                  — when provided, ``run()`` blocks until the stream ends or
+                  *stop_event* is set.
+            stop_event: :class:`threading.Event` to stop a stream/webcam loop
+                gracefully.  Only used when *callback* is provided.
+            output_path: Reserved.  Will be used for annotated video output in a
+                future release.
+            **kwargs: Additional keyword arguments forwarded to ``mata.infer()``
+                for single-image sources (ignored for temporal sources).
 
         Returns:
-            MultiResult with all task outputs accessible as attributes.
+            - ``MultiResult`` — for single-image sources.
+            - ``list[MultiResult]`` — for video files.
+            - Generator of ``MultiResult`` — for streams/webcam without callback.
+            - ``None`` — for streams/webcam with callback (blocking mode).
 
         Raises:
-            ValueError: If image type is unsupported or graph is empty.
+            ValueError: If a temporal source is provided without ``frame_policy``,
+                or if the image type is unsupported.
+            FileNotFoundError: If a video file path does not exist.
+            RuntimeError: If the video/stream cannot be opened.
+            ImportError: If OpenCV (``cv2``) is not installed for video sources.
             ValidationError: If graph compilation fails.
-            RuntimeError: If graph execution fails.
 
         Examples:
-            Fluent chained execution::
+            Single image (unchanged)::
 
-                result = (Graph("top5")
-                    .then(Detect(using="detector", out="dets"))
-                    .then(Filter(src="dets", score_gt=0.3, out="filtered"))
-                    .then(TopK(k=5, src="filtered", out="top5"))
-                    .then(Fuse(dets="top5", out="final"))
-                    .run("photo.jpg", providers={"detector": detector})
-                )
-
-            Separate build and run::
-
-                graph = Graph("pipeline").then(...).then(...)
                 result = graph.run("photo.jpg", providers={"detector": detector})
 
-            With parallel scheduler::
+            Video file — every 3rd frame::
 
-                result = graph.run(
-                    "scene.jpg",
-                    providers={...},
-                    scheduler=ParallelScheduler(),
+                from mata.core.graph.temporal import FramePolicyEveryN
+
+                results = graph.run(
+                    "dashcam.mp4",
+                    providers={"detector": detector},
+                    frame_policy=FramePolicyEveryN(n=3),
+                    max_frames=300,
                 )
-        """
-        from mata.api import infer
+                for r in results:
+                    print(len(r.final.instances), "objects in frame", r.meta["frame_num"])
 
-        return infer(
-            image=image,
-            graph=self,
-            providers=providers,
+            RTSP stream — generator mode (constant memory)::
+
+                from mata.core.graph.temporal import FramePolicyLatest
+
+                for result in graph.run(
+                    "rtsp://192.168.1.100/stream",
+                    providers={"detector": detector},
+                    frame_policy=FramePolicyLatest(),
+                ):
+                    process(result)
+
+            Video file with callback::
+
+                results = graph.run(
+                    "dashcam.mp4",
+                    providers={"detector": detector},
+                    frame_policy=FramePolicyEveryN(n=1),
+                    callback=lambda result, frame_num, frame_bgr: display(frame_bgr),
+                )
+
+            Stream — callback mode (blocking)::
+
+                import threading
+
+                stop = threading.Event()
+                graph.run(
+                    "rtsp://cam/stream",
+                    providers={"detector": detector},
+                    frame_policy=FramePolicyLatest(),
+                    callback=lambda result, frame_num: print(f"Frame {frame_num}"),
+                    stop_event=stop,
+                )
+
+            Webcam::
+
+                for result in graph.run(0, providers={"detector": detector},
+                                        frame_policy=FramePolicyLatest()):
+                    show(result)
+        """
+        # ------------------------------------------------------------------ #
+        # Detect whether the source is temporal (video / stream / webcam)     #
+        # ------------------------------------------------------------------ #
+        source_type = _classify_run_source(image)
+
+        if source_type == "image":
+            # Original single-image path — backward compatible
+            from mata.api import infer
+
+            return infer(
+                image=image,
+                graph=self,
+                providers=providers,
+                scheduler=scheduler,
+                device=device,
+                **kwargs,
+            )
+
+        # ------------------------------------------------------------------ #
+        # Temporal path                                                        #
+        # ------------------------------------------------------------------ #
+        if frame_policy is None:
+            raise ValueError(
+                "frame_policy is required for video/stream/webcam sources. "
+                "Example: frame_policy=FramePolicyEveryN(n=1)"
+            )
+
+        from mata.api import _normalize_providers
+        from mata.core.graph.temporal import VideoProcessor
+
+        # Compile the graph once using the same provider normalisation that
+        # mata.infer() uses, so validation is consistent.
+        flat_providers, nested_providers = _normalize_providers(providers, self)
+        compiled = self.compile(flat_providers)
+
+        processor = VideoProcessor(
+            graph=compiled,
+            providers=nested_providers,
+            frame_policy=frame_policy,
             scheduler=scheduler,
-            device=device,
-            **kwargs,
         )
+
+        if source_type == "video_file":
+            return processor.process_video(
+                str(image),
+                output_path=output_path,
+                max_frames=max_frames,
+                callback=callback,
+            )
+
+        # Stream or webcam
+        if callback is not None:
+            # Blocking callback mode
+            import threading as _threading
+
+            _stop = stop_event if stop_event is not None else _threading.Event()
+            processor.process_stream(
+                image,
+                callback=callback,
+                stop_event=_stop,
+                max_frames=max_frames,
+            )
+            return None
+
+        # Generator mode — constant memory, lazy
+        return _stream_generator(processor, image, max_frames)
 
     def __repr__(self) -> str:
         """String representation of graph."""

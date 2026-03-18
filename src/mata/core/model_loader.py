@@ -657,10 +657,17 @@ class UniversalLoader:
 
             return HuggingFaceOCRAdapter(model_id=model_id, **kwargs)
 
+        elif task == "embed":
+            from mata.adapters.embed_adapter import EmbedAdapter
+            from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+            encoder = HuggingFaceReIDAdapter(model_id, **kwargs)
+            return EmbedAdapter(encoder=encoder)
+
         else:
             raise UnsupportedModelError(
                 f"HuggingFace adapter not yet implemented for task '{task}'. "
-                f"Currently supported: detect, segment, classify, depth, vlm, track, ocr"
+                f"Currently supported: detect, segment, classify, depth, vlm, track, ocr, embed"
             )
 
     def _load_from_external_engine(self, task: str, engine_name: str, **kwargs) -> Any:
@@ -760,6 +767,12 @@ class UniversalLoader:
                     "Use a HuggingFace model ID (e.g., 'microsoft/trocr-base-handwritten') "
                     "or an external engine ('easyocr', 'paddleocr', 'tesseract')."
                 )
+            elif task == "embed":
+                from mata.adapters.embed_adapter import EmbedAdapter
+                from mata.adapters.reid_adapter import ONNXReIDAdapter
+
+                encoder = ONNXReIDAdapter(file_path, **kwargs)
+                return EmbedAdapter(encoder=encoder)
             else:
                 raise UnsupportedModelError(f"ONNX adapter not yet implemented for task '{task}'")
 

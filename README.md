@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.0-green?style=flat-square" alt="v1.9.0" />
-  <img src="https://img.shields.io/badge/tests-4%2C307%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-1.9.2b2-green?style=flat-square" alt="v1.9.2 Beta Release 2" />
+  <img src="https://img.shields.io/badge/tests-4%2C403%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -22,17 +22,18 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 ## 🎯 Key Features
 
 - **Universal Model Loading**: llama.cpp-style loading - use any model by HuggingFace ID, file path, or alias
-- **Multi-Task Support**: Detection, classification, segmentation, depth estimation, OCR (text extraction), vision-language models, and multi-modal pipelines
+- **Multi-Task Support**: Detection, classification, segmentation, depth estimation, OCR (text extraction), feature embedding, vision-language models, and multi-modal pipelines
 - **Zero-Shot Capabilities**: CLIP (classify), GroundingDINO/OWL-ViT (detect), SAM/SAM3 (segment) - no training required
 - **Vision-Language Models**: Image captioning, VQA, and visual understanding with Qwen3-VL and more
 - **Multi-Format Runtime**: PyTorch ✅ | ONNX Runtime ✅ | TorchScript ✅ | Torchvision ✅ | TensorRT (planned)
 - **Graph System** (v1.6): Multi-task workflows with `mata.infer()`, parallel execution, conditional branching, and video tracking
 - **Object Tracking** (v1.8+): `mata.track()` — Video/stream tracking with vendored ByteTrack and BotSort, persistent track IDs, trajectory trails, CSV/JSON export, and appearance-based ReID (v1.9.2)
 - **OCR / Text Extraction** (v1.9): `mata.run("ocr", ...)` — extract printed and handwritten text using GOT-OCR2, TrOCR, EasyOCR, PaddleOCR, or Tesseract with per-region confidence and bounding boxes
+- **Feature Embedding** (v1.9.2 Beta Release 2): `mata.run("embed", ...)` — extract L2-normalised appearance embeddings with CLIP, DINOv2, OSNet, or any ViT model; `Embed` graph node for `Detect → ExtractROIs → Embed` pipelines
 - **Valkey/Redis Result Storage** (v1.9): persist any result to Valkey/Redis with `result.save("valkey://host/key")` or via `ValkeyStore`/`ValkeyLoad` graph nodes — enables distributed pipelines and cross-process result sharing
 - **Validation & Evaluation**: `mata.val()` — mAP/accuracy/depth metrics against COCO, ImageNet, or custom datasets
 - **Export & Visualization**: Save as JSON/CSV/image overlays/crops with dual backends (PIL/matplotlib)
-- **Task-First API**: Specify what you want (detect, segment, classify, depth, ocr, vlm), not which model to use
+- **Task-First API**: Specify what you want (detect, segment, classify, depth, ocr, embed, vlm), not which model to use
 - **Model-Agnostic**: Swap models without changing code - all models implement the same task contracts
 - **Config Aliases**: Define shortcuts for commonly used models in YAML config files
 - **License-Safe**: Apache 2.0 licensed with clear separation of components
@@ -489,6 +490,49 @@ result = mata.infer(graph, image="street.jpg", providers={
 ```
 
 See [OCR Architecture Summary](docs/OCR_IMPLEMENTATION_SUMMARY.md)
+
+### Feature Embedding (New in v1.9.2 Beta Release 2)
+
+Extract L2-normalised appearance embeddings for similarity search, clustering, cross-camera ReID, or any graph pipeline that needs feature vectors:
+
+```python
+import mata
+
+# Whole-image embedding — returns (1, D) np.ndarray
+emb = mata.run("embed", "photo.jpg",
+    model="openai/clip-vit-base-patch32")
+print(emb.shape)   # (1, 512)
+
+# ONNX ReID model (e.g. OSNet)
+emb = mata.run("embed", "person.jpg",
+    model="./osnet_x0_25.onnx")
+print(emb.shape)   # (1, 256)
+
+# Pre-loaded adapter
+adapter = mata.load("embed", "openai/clip-vit-base-patch32")
+emb = adapter.embed(image_artifact)   # Image or ROIs → np.ndarray
+```
+
+**Graph pipeline: Detect → ExtractROIs → Embed:**
+
+```python
+from mata.nodes import Detect, Filter, ExtractROIs, Embed
+
+graph = (
+    Detect(using="detector", out="dets")
+    >> Filter(src="dets", score_gt=0.5, out="filtered")
+    >> ExtractROIs(src_dets="filtered", out="rois")
+    >> Embed(using="encoder", src="rois", out="embeddings")
+)
+
+result = mata.infer(graph, image="photo.jpg", providers={
+    "detector": mata.load("detect", "facebook/detr-resnet-50"),
+    "encoder":  mata.load("embed", "openai/clip-vit-base-patch32"),
+})
+# result["embeddings"].vectors — (N, D) float32
+```
+
+See [Embedding Example](examples/inference/embedding.py)
 
 ### Vision-Language Understanding
 

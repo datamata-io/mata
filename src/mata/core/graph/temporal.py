@@ -242,6 +242,7 @@ class VideoProcessor:
         video_path: str,
         output_path: str | None = None,
         max_frames: int | None = None,
+        callback: Callable[[MultiResult, int, np.ndarray], None] | None = None,
     ) -> list[MultiResult]:
         """Process a video file frame-by-frame.
 
@@ -253,6 +254,11 @@ class VideoProcessor:
             output_path: (Reserved) Optional path for annotated output video.
             max_frames: Stop after this many *total* frames (including skipped).
                         ``None`` means read until EOF.
+            callback: Optional callable invoked after each processed frame as
+                      ``callback(result, frame_num, frame_bgr)``.  Receives the
+                      :class:`MultiResult`, the 0-based frame index, and the raw
+                      BGR :class:`numpy.ndarray`.  When ``None`` (default),
+                      behavior is identical to the previous implementation.
 
         Returns:
             List of :class:`MultiResult` objects, one per processed frame.
@@ -308,6 +314,8 @@ class VideoProcessor:
                         {"input.image": image},
                     )
                     results.append(result)
+                    if callback is not None:
+                        callback(result, frame_num, frame)
                     processed_count += 1
 
                     # Notify queue policy if applicable

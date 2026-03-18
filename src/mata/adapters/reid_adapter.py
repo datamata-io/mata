@@ -127,7 +127,14 @@ class ONNXReIDAdapter(ReIDAdapter):
         self._input_shape: list = inp.shape  # e.g. [1, 3, 256, 128]
 
         self._layout: str = self._detect_layout(self._input_shape)
-        logger.info(f"Loaded ONNX ReID model: {self.model_id} " f"(input={self._input_shape}, layout={self._layout})")
+        # Detect fixed batch size — some exported models (e.g. OSNet) hard-code
+        # a batch dimension > 1.  Store it so _extract_single can pad correctly.
+        batch_dim = self._input_shape[0] if self._input_shape else 1
+        self._fixed_batch: int = int(batch_dim) if isinstance(batch_dim, int) and batch_dim > 1 else 1
+        logger.info(
+            f"Loaded ONNX ReID model: {self.model_id} "
+            f"(input={self._input_shape}, layout={self._layout}, fixed_batch={self._fixed_batch})"
+        )
 
     @staticmethod
     def _detect_layout(shape: list) -> str:
@@ -203,6 +210,10 @@ class ONNXReIDAdapter(ReIDAdapter):
     def _extract_single(self, crop: np.ndarray) -> np.ndarray:
         """Run a single crop through the ONNX session and return raw embedding.
 
+        Handles models exported with a fixed batch size > 1 (e.g. OSNet with
+        batch=16) by tiling the single crop to fill the required batch, running
+        inference, and returning only the first row of the output.
+
         Args:
             crop: ``(H, W, 3)`` uint8 RGB numpy array.
 
@@ -210,10 +221,14 @@ class ONNXReIDAdapter(ReIDAdapter):
             1-D float32 embedding vector (unnormalised).
         """
         h, w = self._get_spatial_dims()
-        tensor = self._preprocess(crop, h, w)
+        tensor = self._preprocess(crop, h, w)  # (1, C, H, W)
+        fixed = getattr(self, "_fixed_batch", 1)
+        if fixed > 1:
+            # Tile to match the model's fixed batch dimension
+            tensor = np.repeat(tensor, fixed, axis=0)  # (fixed, C, H, W)
         outputs = self._session.run(None, {self._input_name: tensor})
-        # First output is typically (1, D); flatten to (D,)
-        return outputs[0].flatten().astype(np.float32)
+        # First output is typically (B, D); take the first row and flatten
+        return outputs[0][0].flatten().astype(np.float32)
 
     def info(self) -> dict[str, Any]:
         return {

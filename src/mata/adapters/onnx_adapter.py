@@ -14,7 +14,7 @@ from PIL import Image
 from mata.adapters.onnx_base import ONNXBaseAdapter
 from mata.core.exceptions import ModelLoadError
 from mata.core.logging import get_logger
-from mata.core.types import Detection, DetectResult
+from mata.core.types import Detection, Instance, VisionResult
 
 logger = get_logger(__name__)
 
@@ -98,8 +98,79 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
                 f"Outputs: {len(self.output_names)}"
             )
 
+            # Detect YOLO ONNX format: single output, input named 'images'
+            # YOLO v5/v7 old: [1, anchors, 5+cls]  (last dim >= 5, 3D)
+            # YOLO v8/v10+  new: [1, 4+cls, anchors] (3D, 2nd dim > 4th dim)
+            self._is_yolo = self._detect_yolo_format()
+            if self._is_yolo:
+                self._maybe_set_yolo_labels()
+
         except Exception as e:
             raise ModelLoadError(str(self.model_path), f"Failed to load ONNX model: {type(e).__name__}: {str(e)}")
+
+    def _detect_yolo_format(self) -> bool:
+        """Heuristically detect whether the loaded ONNX model uses YOLO output format.
+
+        YOLO ONNX models (v5, v7, v8, v10, v11, v12) share these traits:
+        - Single output tensor
+        - Input named 'images'
+        - Output is 3-dimensional: [batch, ?, ?]
+
+        Returns:
+            True if the model appears to be a YOLO-family ONNX model.
+        """
+        if len(self.output_names) != 1:
+            return False
+        if self.input_name != "images":
+            return False
+        out_shape = self.session.get_outputs()[0].shape
+        if len(out_shape) != 3:
+            return False
+        return True
+
+    def _maybe_set_yolo_labels(self) -> None:
+        """Auto-populate id2label when the caller did not supply a custom label map.
+
+        Three YOLO ONNX export layouts are handled:
+
+          end-to-end (NMS baked in): output shape [1, N, 6]
+            Class IDs are embedded in column 5; COCO 80-class map applied by default.
+
+          new layout (YOLO v8/v10+): output shape [1, 4+nc, anchors]
+            num_classes = second_dim - 4
+
+          old layout (YOLO v5/v7): output shape [1, anchors, 5+nc]
+            num_classes = third_dim - 5
+
+        Callers who need a different label set should pass id2label= to mata.load().
+        """
+        if self.id2label:
+            return  # caller-supplied map wins
+
+        out_shape = self.session.get_outputs()[0].shape  # [batch, A, B]
+        # Guard against symbolic/dynamic dimensions
+        try:
+            a, b = int(out_shape[1]), int(out_shape[2])
+        except (TypeError, ValueError):
+            self.id2label = self._get_coco_labels()
+            logger.info("Auto-applied COCO 80-class label map to YOLO model (dynamic shape)")
+            return
+
+        # End-to-end (post-NMS) export: [batch, max_dets, 6]
+        if b == 6:
+            self.id2label = self._get_coco_labels()
+            logger.info("Auto-applied COCO 80-class label map to end-to-end YOLO model")
+            return
+
+        # Anchor-based layouts
+        num_classes = (a - 4) if a < b else (b - 5)
+        if num_classes == 80:
+            self.id2label = self._get_coco_labels()
+            logger.info("Auto-applied COCO 80-class label map to YOLO model")
+        else:
+            logger.info(
+                f"YOLO model has {num_classes} classes; " "pass id2label= to mata.load() for custom class names"
+            )
 
     def info(self) -> dict[str, Any]:
         """Get adapter information.
@@ -117,8 +188,20 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             "backend": "onnxruntime",
         }
 
+    def _get_input_size(self) -> tuple[int, int]:
+        """Return (target_h, target_w) from model input shape, defaulting to 640x640."""
+        if len(self.input_shape) == 4:
+            _, _, target_h, target_w = self.input_shape
+            if isinstance(target_h, str) or target_h <= 0:
+                target_h = 640
+            if isinstance(target_w, str) or target_w <= 0:
+                target_w = 640
+        else:
+            target_h, target_w = 640, 640
+        return int(target_h), int(target_w)
+
     def _preprocess(self, image: Image.Image) -> np.ndarray:
-        """Preprocess image for ONNX model.
+        """Preprocess image for ONNX model (DETR-family: /255 + ImageNet norm).
 
         Args:
             image: PIL Image in RGB
@@ -126,41 +209,234 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         Returns:
             Preprocessed numpy array ready for inference
         """
-        # Get target size from model input shape
-        # Shape is typically [batch, channels, height, width]
-        if len(self.input_shape) == 4:
-            _, _, target_h, target_w = self.input_shape
-            # Handle dynamic shapes
-            if isinstance(target_h, str) or target_h <= 0:
-                target_h = 640
-            if isinstance(target_w, str) or target_w <= 0:
-                target_w = 640
-        else:
-            # Default to 640x640 if shape is unclear
-            target_h, target_w = 640, 640
+        target_h, target_w = self._get_input_size()
 
         # Resize image
         resized = image.resize((target_w, target_h), Image.BILINEAR)
 
-        # Convert to numpy array and normalize
-        img_array = np.array(resized, dtype=np.float32)
-
         # Normalize to [0, 1]
-        img_array = img_array / 255.0
+        img_array = np.array(resized, dtype=np.float32) / 255.0
 
-        # Apply ImageNet normalization (required for most detection models)
-        # Mean and std values from ImageNet
+        # Apply ImageNet normalization (required for DETR-family models)
         mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
         std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, 3)
         img_array = (img_array - mean) / std
 
-        # Transpose to CHW format
-        img_array = np.transpose(img_array, (2, 0, 1))
+        # Transpose to CHW and add batch dimension
+        return np.expand_dims(np.transpose(img_array, (2, 0, 1)), axis=0)
 
-        # Add batch dimension
-        img_array = np.expand_dims(img_array, axis=0)
+    def _preprocess_yolo(self, image: Image.Image) -> np.ndarray:
+        """Preprocess image for YOLO ONNX models (divide-by-255 only, no ImageNet norm).
 
-        return img_array
+        YOLO models are trained with pixel values scaled to [0, 1] without
+        channel-wise mean/std subtraction.  This follows the normalization
+        described in the original YOLO papers (Redmon et al., 2016 onward)
+        and the ONNX export specification used by YOLO-family architectures.
+
+        Args:
+            image: PIL Image in RGB
+
+        Returns:
+            Preprocessed float32 array of shape [1, 3, H, W]
+        """
+        target_h, target_w = self._get_input_size()
+        resized = image.resize((target_w, target_h), Image.BILINEAR)
+        img_array = np.array(resized, dtype=np.float32) / 255.0
+        return np.expand_dims(np.transpose(img_array, (2, 0, 1)), axis=0)
+
+    @staticmethod
+    def _nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float = 0.45) -> np.ndarray:
+        """Vectorised Non-Maximum Suppression.
+
+        Standard greedy NMS as described in Neubeck & Van Gool (2006),
+        "Efficient Non-Maximum Suppression", ICPR 2006.
+        No third-party library required.
+
+        Args:
+            boxes: [N, 4] float array in xyxy format.
+            scores: [N] float array of confidence scores.
+            iou_threshold: IoU overlap threshold for suppression.
+
+        Returns:
+            Integer indices of kept boxes, sorted by descending score.
+        """
+        x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+        areas = np.maximum(0.0, x2 - x1) * np.maximum(0.0, y2 - y1)
+        order = scores.argsort()[::-1]
+        keep = []
+        while order.size > 0:
+            i = order[0]
+            keep.append(i)
+            if order.size == 1:
+                break
+            rest = order[1:]
+            ix1 = np.maximum(x1[i], x1[rest])
+            iy1 = np.maximum(y1[i], y1[rest])
+            ix2 = np.minimum(x2[i], x2[rest])
+            iy2 = np.minimum(y2[i], y2[rest])
+            inter = np.maximum(0.0, ix2 - ix1) * np.maximum(0.0, iy2 - iy1)
+            iou = inter / (areas[i] + areas[rest] - inter + 1e-9)
+            order = rest[iou <= iou_threshold]
+        return np.array(keep, dtype=np.int64)
+
+    def _postprocess_yolo(
+        self,
+        outputs: list[np.ndarray],
+        orig_width: int,
+        orig_height: int,
+        threshold: float,
+        iou_threshold: float = 0.45,
+    ) -> list[Detection]:
+        """Postprocess YOLO ONNX model outputs.
+
+        Dispatches to the appropriate sub-method based on the output tensor shape:
+
+        - End-to-end / post-NMS (YOLO v8 export with ``--nms``):
+            output shape [1, max_dets, 6]
+            Cols 0-3: x1, y1, x2, y2 in model-input pixel space
+            Col  4:   confidence score [0, 1]
+            Col  5:   class ID (integer encoded as float)
+            NMS is already applied inside the ONNX graph.
+
+        - New layout (YOLO v8 / v10 / v11 / v12, raw anchors):
+            output shape [1, 4+num_classes, num_anchors]
+            Rows 0-3: cx, cy, w, h (normalised to input size)
+            Rows 4+:  per-class scores (no separate objectness)
+
+        - Old layout (YOLO v5 / v7):
+            output shape [1, num_anchors, 5+num_classes]
+            Cols 0-3: cx, cy, w, h (normalised to input size)
+            Col  4:   objectness confidence
+            Cols 5+:  per-class scores
+
+        Args:
+            outputs: List containing the single YOLO output tensor.
+            orig_width: Original image width (pixels).
+            orig_height: Original image height (pixels).
+            threshold: Confidence threshold for filtering detections.
+            iou_threshold: IoU threshold for NMS (anchor-based layouts only).
+
+        Returns:
+            List of Detection objects in xyxy absolute-pixel coordinates.
+        """
+        raw = outputs[0]  # [1, ?, ?]
+        if raw.ndim == 3:
+            raw = raw[0]  # remove batch dim → [A, B]
+
+        target_h, target_w = self._get_input_size()
+        scale_x = orig_width / target_w
+        scale_y = orig_height / target_h
+
+        # End-to-end export: last dim == 6 means [x1,y1,x2,y2,conf,class_id]
+        if raw.shape[1] == 6:
+            logger.debug("YOLO end-to-end (post-NMS) format detected")
+            return self._postprocess_yolo_e2e(raw, scale_x, scale_y, orig_width, orig_height, threshold)
+
+        # Anchor-based layouts -----------------------------------------------
+        # New layout: shape [4+cls, anchors]  (first dim < second dim)
+        # Old layout: shape [anchors, 5+cls]  (first dim > second dim)
+        if raw.shape[0] < raw.shape[1]:
+            # New layout: [4+cls, anchors] — transpose to [anchors, 4+cls]
+            raw = raw.T
+            cx, cy, w, h = raw[:, 0], raw[:, 1], raw[:, 2], raw[:, 3]
+            class_scores = raw[:, 4:]  # [anchors, num_classes]
+            scores = class_scores.max(axis=1)
+            labels = class_scores.argmax(axis=1)
+            logger.debug(f"YOLO new layout: {raw.shape[1]-4} classes, {raw.shape[0]} anchors")
+        else:
+            # Old layout: [anchors, 5+cls]
+            cx, cy, w, h = raw[:, 0], raw[:, 1], raw[:, 2], raw[:, 3]
+            objectness = raw[:, 4]
+            class_scores = raw[:, 5:]  # [anchors, num_classes]
+            scores = objectness * class_scores.max(axis=1)
+            labels = class_scores.argmax(axis=1)
+            logger.debug(f"YOLO old layout: {raw.shape[1]-5} classes, {raw.shape[0]} anchors")
+
+        # Filter by confidence before NMS ------------------------------------
+        mask = scores >= threshold
+        if not mask.any():
+            return []
+
+        cx, cy, w, h = cx[mask], cy[mask], w[mask], h[mask]
+        scores = scores[mask]
+        labels = labels[mask]
+
+        # cxcywh (normalised to input dims) → xyxy (absolute pixels) --------
+        x1 = np.clip((cx - w / 2) * scale_x, 0, orig_width)
+        y1 = np.clip((cy - h / 2) * scale_y, 0, orig_height)
+        x2 = np.clip((cx + w / 2) * scale_x, 0, orig_width)
+        y2 = np.clip((cy + h / 2) * scale_y, 0, orig_height)
+        boxes_xyxy = np.stack([x1, y1, x2, y2], axis=1)
+
+        # Class-aware NMS ----------------------------------------------------
+        detections: list[Detection] = []
+        for cls_id in np.unique(labels):
+            cls_mask = labels == cls_id
+            kept = self._nms(boxes_xyxy[cls_mask], scores[cls_mask], iou_threshold)
+            cls_boxes = boxes_xyxy[cls_mask][kept]
+            cls_scores = scores[cls_mask][kept]
+            for box, score in zip(cls_boxes, cls_scores):
+                detections.append(
+                    Detection(
+                        bbox=[float(box[0]), float(box[1]), float(box[2]), float(box[3])],
+                        score=float(score),
+                        label=int(cls_id),
+                        label_name=self.id2label.get(int(cls_id), f"class_{cls_id}"),
+                    )
+                )
+        return detections
+
+    def _postprocess_yolo_e2e(
+        self,
+        raw: np.ndarray,
+        scale_x: float,
+        scale_y: float,
+        orig_width: int,
+        orig_height: int,
+        threshold: float,
+    ) -> list[Detection]:
+        """Postprocess end-to-end YOLO ONNX output (NMS baked into the graph).
+
+        Expected layout after batch removal: [max_dets, 6]
+          col 0-3: x1, y1, x2, y2 in model-input pixel coordinates
+          col 4:   confidence score [0, 1]
+          col 5:   class ID (integer, stored as float)
+
+        Args:
+            raw: Array of shape [max_dets, 6].
+            scale_x: Horizontal scale factor (orig_width / model_input_width).
+            scale_y: Vertical scale factor (orig_height / model_input_height).
+            orig_width: Original image width for coordinate clipping.
+            orig_height: Original image height for coordinate clipping.
+            threshold: Confidence score threshold.
+
+        Returns:
+            List of Detection objects.
+        """
+        conf = raw[:, 4]
+        mask = conf >= threshold
+        if not mask.any():
+            return []
+
+        raw = raw[mask]
+        x1 = np.clip(raw[:, 0] * scale_x, 0, orig_width)
+        y1 = np.clip(raw[:, 1] * scale_y, 0, orig_height)
+        x2 = np.clip(raw[:, 2] * scale_x, 0, orig_width)
+        y2 = np.clip(raw[:, 3] * scale_y, 0, orig_height)
+        scores = raw[:, 4]
+        class_ids = raw[:, 5].astype(np.int32)
+
+        detections: list[Detection] = []
+        for box_coords, score, cls_id in zip(zip(x1, y1, x2, y2), scores, class_ids):
+            detections.append(
+                Detection(
+                    bbox=[float(c) for c in box_coords],
+                    score=float(score),
+                    label=int(cls_id),
+                    label_name=self.id2label.get(int(cls_id), f"class_{cls_id}"),
+                )
+            )
+        return detections
 
     def _postprocess_rtdetr(self, outputs: list[np.ndarray], threshold: float) -> list[Detection]:
         """Postprocess RT-DETR ONNX model outputs.
@@ -347,7 +623,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
 
     def predict(
         self, image: str | Path | Image.Image | np.ndarray, threshold: float | None = None, **kwargs: Any
-    ) -> DetectResult:
+    ) -> VisionResult:
         """Run object detection on an image.
 
         Args:
@@ -368,8 +644,8 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         # Use provided threshold or default
         conf_threshold = threshold if threshold is not None else self.threshold
 
-        # Preprocess
-        input_tensor = self._preprocess(pil_image)
+        # Preprocess — YOLO models use /255 only; DETR-family use ImageNet norm
+        input_tensor = self._preprocess_yolo(pil_image) if self._is_yolo else self._preprocess(pil_image)
 
         # Prepare input feed dict - handle multiple inputs
         input_feed = {self.input_name: input_tensor}
@@ -389,19 +665,31 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         logger.info(f"Postprocessing {len(outputs)} output tensors")
 
         # RT-DETR ONNX models output 3 tensors: labels, boxes, scores
+        # YOLO ONNX models output 1 tensor (auto-detected at load time)
         # Standard DETR models output 2 tensors: logits, boxes
         if len(outputs) == 3 and "orig_target_sizes" in self.input_names:
-            # RT-DETR format - outputs already processed
             logger.debug("Detected RT-DETR ONNX model format")
             detections = self._postprocess_rtdetr(outputs, conf_threshold)
+        elif self._is_yolo:
+            logger.debug("Detected YOLO ONNX model format")
+            detections = self._postprocess_yolo(outputs, orig_width, orig_height, conf_threshold)
         else:
-            # Standard DETR format - need to process logits
             logger.debug("Using standard DETR postprocessing")
             detections = self._postprocess_detr(outputs, orig_width, orig_height, conf_threshold)
 
-        # Create result
-        result = DetectResult(
-            detections=detections,
+        # Convert to Instance list (VisionResult is the universal type expected by
+        # tracking, graph nodes, and the rest of the framework).
+        instances = [
+            Instance(
+                bbox=tuple(d.bbox),
+                score=d.score,
+                label=d.label,
+                label_name=d.label_name,
+            )
+            for d in detections
+        ]
+        result = VisionResult(
+            instances=instances,
             meta={
                 "model_path": str(self.model_path),
                 "threshold": conf_threshold,
@@ -412,5 +700,5 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             },
         )
 
-        logger.info(f"Found {len(detections)} detections above threshold {conf_threshold}")
+        logger.info(f"Found {len(instances)} detections above threshold {conf_threshold}")
         return result
