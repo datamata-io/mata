@@ -16,8 +16,11 @@ import numpy as np
 from PIL import Image
 
 from .core.exceptions import TaskNotSupportedError
+from .core.logging import get_logger
 from .core.model_loader import UniversalLoader
 from .core.types import ClassifyResult, DepthResult, DetectResult, ModelType, SegmentResult, VisionResult
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from .core.artifacts.result import MultiResult
@@ -186,9 +189,24 @@ def run(
     # Run prediction
     if task in ("detect", "segment", "classify", "depth", "pose", "vlm", "ocr"):
         return adapter.predict(input, **kwargs)
+    elif task == "embed":
+        from .core.artifacts.image import Image as ImageArtifact
+
+        if isinstance(input, (str, Path)):
+            image_artifact = ImageArtifact.from_path(str(input))
+        elif isinstance(input, Image.Image):
+            image_artifact = ImageArtifact.from_pil(input)
+        elif isinstance(input, np.ndarray):
+            image_artifact = ImageArtifact.from_numpy(input)
+        else:
+            raise ValueError(
+                f"Unsupported input type for embed task: {type(input).__name__}. "
+                "Expected file path, PIL Image, or numpy array."
+            )
+        return adapter.embed(image_artifact)
     else:
         # Should not reach here due to earlier checks
-        raise TaskNotSupportedError(task, ["detect", "segment", "classify", "depth", "pose", "vlm", "ocr"])
+        raise TaskNotSupportedError(task, ["detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "embed"])
 
 
 def track(
@@ -497,6 +515,7 @@ def _track_generator(
     if save:
         base = str(save_dir) if save_dir is not None else "runs/track"
         out_dir = _make_output_dir(base)
+        logger.info(f"Saving output to: {out_dir.resolve()}")
 
     # --- Trail history (cv2 display/save path) -----------------------
     trail_history: dict[int, list[tuple[int, int]]] | None = {} if show_trails else None
@@ -585,6 +604,7 @@ def _track_generator(
                                 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
                                 out_path = str(out_dir / "track.mp4")
                                 writer = cv2.VideoWriter(out_path, fourcc, src_fps, (src_w, src_h))
+                                logger.info(f"Video writer opened: {out_path}")
                             if writer is not None:
                                 writer.write(annotated)
 
@@ -1093,6 +1113,10 @@ def _build_capability_map() -> dict[str, str]:
         "VLMQuery": "vlm",
         # OCR
         "OCR": "ocr",
+        # Embedding
+        "Embed": "embed",
+        # ReID (cross-camera re-identification)
+        "ReID": "reid",
         # Annotate (uses backend, not a provider)
         # Filter, TopK, Fuse, Merge, etc. have no provider
     }
@@ -1116,6 +1140,10 @@ def _infer_capability(adapter: Any) -> str | None:
         return "vlm"
     if "ocr" in cls_name:
         return "ocr"
+    if "reid" in cls_name or "bridge" in cls_name:
+        return "reid"
+    if "embed" in cls_name:
+        return "embed"
 
     return None
 

@@ -8,11 +8,13 @@ from __future__ import annotations
 
 # Visualization & Analysis nodes (Task 5.8)
 from mata.nodes.annotate import Annotate
+from mata.nodes.annotate_rt import AnnotateRT
 from mata.nodes.classify import Classify
 from mata.nodes.depth import EstimateDepth
 
 # Core task nodes (Task 5.1)
 from mata.nodes.detect import Detect
+from mata.nodes.embed import Embed
 from mata.nodes.expand_boxes import ExpandBoxes
 
 # Data transformation nodes (Task 5.2)
@@ -31,12 +33,13 @@ from mata.nodes.prompt_points import PromptPoints
 
 # Mask refinement nodes (Task 5.4)
 from mata.nodes.refine_mask import RefineMask
+
+# Tracking nodes (Task 5.5)
+from mata.nodes.reid import ReID
 from mata.nodes.roi import ExtractROIs
 from mata.nodes.segment import SegmentImage
 from mata.nodes.segment_everything import SegmentEverything
 from mata.nodes.topk import TopK
-
-# Tracking nodes (Task 5.5)
 from mata.nodes.track import Track
 
 # Storage nodes (v1.10.0)
@@ -54,6 +57,7 @@ __all__ = [
     "Classify",
     "SegmentImage",
     "EstimateDepth",
+    "Embed",
     # Data transformation nodes
     "Filter",
     "TopK",
@@ -67,6 +71,7 @@ __all__ = [
     "MaskToBox",
     # Tracking nodes
     "Track",
+    "ReID",
     # Fusion nodes
     "Fuse",
     "Merge",
@@ -80,6 +85,7 @@ __all__ = [
     "OCR",
     # Visualization & Analysis nodes
     "Annotate",
+    "AnnotateRT",
     "NMS",
     # Storage nodes
     "ValkeyStore",

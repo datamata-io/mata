@@ -16,6 +16,7 @@ Available (Tasks A3–A5):
     BYTETracker       — full two-stage ByteTrack algorithm
     BOTSORT           — BotSort: BYTETracker + GMC + optional ReID
     ReIDBridge        — cross-camera ReID embedding store via Valkey (v1.9.2)
+    GlobalIDRegistry  — stable cross-camera global identity mapper with TTL eviction (v1.9.2b2)
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from __future__ import annotations
 from mata.trackers.basetrack import BaseTrack, TrackState
 from mata.trackers.bot_sort import BOTSORT, BOTrack
 from mata.trackers.byte_tracker import BYTETracker, DetectionResults, STrack
+from mata.trackers.global_id_registry import GlobalIDRegistry
 from mata.trackers.reid_bridge import ReIDBridge
 
 __all__ = [
@@ -34,4 +36,5 @@ __all__ = [
     "BYTETracker",
     "BOTSORT",
     "ReIDBridge",
+    "GlobalIDRegistry",
 ]

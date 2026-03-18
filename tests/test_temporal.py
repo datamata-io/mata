@@ -477,6 +477,208 @@ class TestVideoProcessorFile:
 
         assert not fake_cap._opened  # release() still called
 
+    # ---------------------------------------------------------------
+    # Callback tests (Task E1)
+    # ---------------------------------------------------------------
+
+    def test_process_video_callback_called_per_frame(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """Callback fires once for each processed frame."""
+        fake_cap = _FakeCapture(num_frames=4)
+        call_count = 0
+
+        def on_frame(result, frame_num, frame_bgr):
+            nonlocal call_count
+            call_count += 1
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                vp.process_video("test.mp4", callback=on_frame)
+
+        assert call_count == 4
+
+    def test_process_video_callback_receives_result(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """First callback argument is a MultiResult."""
+        fake_cap = _FakeCapture(num_frames=2)
+        received_results: list = []
+
+        def on_frame(result, frame_num, frame_bgr):
+            received_results.append(result)
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                vp.process_video("test.mp4", callback=on_frame)
+
+        assert len(received_results) == 2
+        for r in received_results:
+            assert isinstance(r, MultiResult)
+
+    def test_process_video_callback_receives_frame_num(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """Second callback argument is the int frame number."""
+        fake_cap = _FakeCapture(num_frames=3)
+        received_nums: list = []
+
+        def on_frame(result, frame_num, frame_bgr):
+            received_nums.append(frame_num)
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                vp.process_video("test.mp4", callback=on_frame)
+
+        assert received_nums == [0, 1, 2]
+        for n in received_nums:
+            assert isinstance(n, int)
+
+    def test_process_video_callback_receives_frame_bgr(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """Third callback argument is a BGR numpy ndarray."""
+        fake_cap = _FakeCapture(num_frames=2)
+        received_frames: list = []
+
+        def on_frame(result, frame_num, frame_bgr):
+            received_frames.append(frame_bgr)
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                vp.process_video("test.mp4", callback=on_frame)
+
+        assert len(received_frames) == 2
+        for f in received_frames:
+            assert isinstance(f, np.ndarray)
+            assert f.ndim == 3
+            assert f.shape[2] == 3  # BGR channels
+
+    def test_process_video_callback_none_default(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """No callback (None) behaves identically to the old implementation."""
+        fake_cap = _FakeCapture(num_frames=3)
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                # callback defaults to None — should not raise
+                results = vp.process_video("test.mp4")
+
+        assert len(results) == 3
+        assert mock_scheduler.execute.call_count == 3
+
+    def test_process_video_callback_skipped_frames_not_called(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """FramePolicyEveryN(n=3) — callback only fires for processed frames."""
+        fake_cap = _FakeCapture(num_frames=9)
+        received_nums: list = []
+
+        def on_frame(result, frame_num, frame_bgr):
+            received_nums.append(frame_num)
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=3),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                vp.process_video("test.mp4", callback=on_frame)
+
+        # Frames 0, 3, 6 processed → callback called 3 times
+        assert received_nums == [0, 3, 6]
+        assert mock_scheduler.execute.call_count == 3
+
+    def test_process_video_callback_does_not_affect_return(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """Providing a callback still returns the full list[MultiResult]."""
+        fake_cap = _FakeCapture(num_frames=5)
+        cb_results: list = []
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                returned = vp.process_video(
+                    "test.mp4",
+                    callback=lambda r, n, f: cb_results.append(r),
+                )
+
+        assert isinstance(returned, list)
+        assert len(returned) == 5
+        # callback and return value reference the same objects
+        assert returned == cb_results
+
+    def test_process_video_callback_with_max_frames(
+        self, mock_compiled_graph, mock_scheduler, providers
+    ):
+        """Callback fires exactly max_frames times when max_frames < total frames."""
+        fake_cap = _FakeCapture(num_frames=20)
+        call_count = 0
+
+        def on_frame(result, frame_num, frame_bgr):
+            nonlocal call_count
+            call_count += 1
+
+        with patch("mata.core.graph.temporal._cv2") as mock_cv2:
+            mock_cv2.VideoCapture.return_value = fake_cap
+            vp = VideoProcessor(
+                graph=mock_compiled_graph,
+                providers=providers,
+                frame_policy=FramePolicyEveryN(n=1),
+                scheduler=mock_scheduler,
+            )
+            with patch("os.path.exists", return_value=True):
+                results = vp.process_video("test.mp4", max_frames=6, callback=on_frame)
+
+        assert call_count == 6
+        assert len(results) == 6
+
 
 # ===================================================================
 # VideoProcessor — stream

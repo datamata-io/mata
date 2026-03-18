@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.2, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), and an OCR evaluation pipeline.
+MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.2 Beta Release 2 , it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, and a first-class `embed` task for feature embedding extraction.
 
 **Universal Loading (v1.5.2+):**
 
@@ -13,7 +13,9 @@ mata.load("segment", "fast-model")              # Config alias
 mata.load("depth", "depth-anything/Depth-Anything-V2-Small-hf")
 mata.load("track", "facebook/detr-resnet-50", tracker="botsort")  # 🆕 v1.8.0
 mata.load("track", "facebook/detr-resnet-50", tracker="botsort",
-          reid_model="openai/clip-vit-base-patch32")             # 🆕 v1.9.2 ReID
+          reid_model="openai/clip-vit-base-patch32")             # 🆕 v1.9.2b1 Beta Release 1 | ReID
+mata.load("embed", "openai/clip-vit-base-patch32")               # 🆕 v1.9.2b2 Beta Release 2 Embed
+mata.load("embed", "./osnet_x0_25.onnx")                         # 🆕 v1.9.2b2 ONNX Embed
 ```
 
 **Object Tracking (v1.8.0+):**
@@ -56,6 +58,8 @@ mata.run("detect", "image.jpg", model="IDEA-Research/grounding-dino-tiny",
     text_prompts="cat . dog . person")
 mata.run("segment", "image.jpg", model="facebook/sam3",
     text_prompts="cat")
+# CLIP embeddings for similarity search (v1.9.2 Beta Release 2)
+emb = mata.run("embed", "image.jpg", model="openai/clip-vit-base-patch32")
 ```
 
 ### Core Architecture Layers
@@ -88,6 +92,13 @@ Image/Crops)   ↓                      Validator (detect/segment/classify/depth
                ↓           ↓
                HuggingFace  Valkey embedding store
                ONNX         (publish/query/TTL eviction)
+               ↓
+               Embed Layer (🆕 v1.9.2 Beta Release 2)
+               ↓           ↓
+               EmbedAdapter Embeddings artifact
+               ↓           ↓
+               (wraps       (N, D) float32 vectors
+               ReIDAdapter)  + instance_ids mapping
 ```
 
 **Key Design Pattern:** Task contracts over model specifics - all adapters implement the same `predict()` interface returning task-specific results (VisionResult for detect/segment, ClassifyResult, DepthResult).
@@ -186,6 +197,12 @@ pytest tests/test_vlm_tool_calling.py -v   # Integration (12 tests)
 
 # OCR evaluation test suite (v1.9.0)
 pytest tests/test_eval_ocr.py -v           # OCR evaluation (71 tests)
+
+# Embed test suites (v1.9.2 Beta Release 2)
+pytest tests/test_embeddings_artifact.py -v  # Embeddings artifact (25 tests)
+pytest tests/test_embed_adapter.py -v        # EmbedAdapter (22 tests)
+pytest tests/test_embed_api.py -v            # Public API integration (25 tests)
+pytest tests/test_embed_node.py -v           # Embed graph node (24 tests)
 
 # With coverage (target: >80%)
 pip install pytest-cov

@@ -1,6 +1,7 @@
 """Universal adapters for model-agnostic loading."""
 
 from .base import BaseAdapter
+from .embed_adapter import EmbedAdapter
 from .huggingface_adapter import HuggingFaceDetectAdapter
 from .huggingface_classify_adapter import HuggingFaceClassifyAdapter
 from .huggingface_depth_adapter import HuggingFaceDepthAdapter
@@ -26,6 +27,7 @@ __all__ = [
     "BaseAdapter",
     "PyTorchBaseAdapter",
     "ONNXBaseAdapter",
+    "EmbedAdapter",
     "ReIDAdapter",
     "HuggingFaceReIDAdapter",
     "ONNXReIDAdapter",

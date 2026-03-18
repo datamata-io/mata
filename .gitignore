@@ -164,6 +164,9 @@ smoke_logs/
 output/
 runs/
 
+# Dev Plan Artifacts
+docs/plans/
+
 # Dev Test Artifacts
 examples/inference/outputs/
 bm_test/

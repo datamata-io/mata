@@ -14,6 +14,7 @@
 | [VLM Agent Mode](#-vlm-agent-mode-quick-reference-v17) | v1.7 |
 | [Object Tracking](#-object-tracking-quick-reference-v18) | v1.8 |
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
+| [Feature Embedding](#-feature-embedding-quick-reference-v192b2) | v1.9.2 Beta Release 2 |
 | [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
 | [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
 
@@ -1330,6 +1331,124 @@ export_tracking_json(results, "tracks.json")
 # { "frames": [{"frame_id": 0, "instances": [...]}, ...],
 #   "meta":   {"num_frames": 120, "unique_tracks": 5, "tracker": "botsort"} }
 ```
+
+---
+
+## 🧬 Feature Embedding Quick Reference (v1.9.2 Beta Release 2)
+
+### `mata.load()` / `mata.run()` — one-liner embeddings
+
+```python
+import mata
+
+# Load adapter (HuggingFace)
+adapter = mata.load("embed", "openai/clip-vit-base-patch32")
+
+# Load adapter (local ONNX — e.g. OSNet)
+adapter = mata.load("embed", "./osnet_x0_25.onnx")
+
+# Load via config alias
+adapter = mata.load("embed", "my-encoder")  # .mata/models.yaml
+
+# One-liner — returns (1, D) np.ndarray
+emb = mata.run("embed", "photo.jpg", model="openai/clip-vit-base-patch32")
+print(emb.shape)   # (1, 512)
+print(emb.dtype)   # float32
+```
+
+### `adapter.embed()` — direct usage
+
+```python
+from mata.core.artifacts.image import Image
+from mata.core.artifacts.rois import ROIs
+
+# Whole-image embedding
+image = Image.from_path("photo.jpg")
+emb = adapter.embed(image)          # (1, D) float32
+
+# Per-region embeddings (from ExtractROIs)
+rois = ...                            # ROIs artifact
+embs = adapter.embed(rois)          # (N, D) float32 — one vector per region
+```
+
+### Config alias (`.mata/models.yaml`)
+
+```yaml
+models:
+  embed:
+    clip-encoder:
+      source: "openai/clip-vit-base-patch32"
+      device: "cuda"
+    osnet-reid:
+      source: "./osnet_x0_25.onnx"
+```
+
+```python
+adapter = mata.load("embed", "clip-encoder")  # resolves via config
+```
+
+### Graph node — `Embed`
+
+```python
+from mata.nodes import Embed
+
+# Default — reads "rois", writes "embeddings"
+node = Embed(using="encoder")
+
+# Custom artifact key names
+node = Embed(using="encoder", src="person_crops", out="person_embs")
+
+# Skip L2 normalization
+node = Embed(using="encoder", normalize=False)
+```
+
+### Pipeline: Detect → ExtractROIs → Embed
+
+```python
+from mata.nodes import Detect, Filter, ExtractROIs, Embed
+from mata.core.graph import Graph
+
+graph = (
+    Graph("embed_pipeline")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.5, out="filtered"))
+    .then(ExtractROIs(src_dets="filtered", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+)
+
+result = mata.infer(graph, image="photo.jpg", providers={
+    "detector": mata.load("detect", "facebook/detr-resnet-50"),
+    "encoder":  mata.load("embed", "openai/clip-vit-base-patch32"),
+})
+
+embs = result["embeddings"]
+print(embs.vectors.shape)      # (N, 512)
+print(embs.instance_ids)       # ('emb_0000', 'emb_0001', ...)
+print(embs.normalized)         # True
+```
+
+### `Embeddings` artifact
+
+```python
+from mata.core.artifacts.embeddings import Embeddings
+import numpy as np
+
+# Create directly
+embs = Embeddings(
+    vectors=np.random.randn(5, 512).astype(np.float32),
+    instance_ids=("id_0", "id_1", "id_2", "id_3", "id_4"),
+    normalized=True,
+    meta={"model": "clip"},
+)
+
+len(embs)      # 5
+embs[0]        # first (512,) vector
+embs.embedding_dim  # 512
+```
+
+**Test suite:** `tests/test_embeddings_artifact.py` (25) · `tests/test_embed_adapter.py` (22) · `tests/test_embed_api.py` (25) · `tests/test_embed_node.py` (24) — **96 tests total**
+
+**Example:** [examples/inference/embedding.py](examples/inference/embedding.py)
 
 ### Graph Node Integration
 
