@@ -11,9 +11,50 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.9.2] Beta Release 2 - 2026-03-18
+## [1.9.2] - 2026-03-19
 
 ### Added
+
+**PyPI Distribution Rename**
+
+- PyPI distribution name changed from `mata` to `datamata`; users now run `pip install datamata` to install
+- `import mata` is unchanged — all existing code continues to work without modification
+- Follows the PIL/Pillow precedent: distribution name and import name differ intentionally
+
+**Valkey / Redis Graph Pipeline Storage**
+
+- `export_valkey(result, url, key, ttl, serializer)` — serializes any MATA result type to a Valkey or Redis key with optional TTL; supports `json` (default) and `msgpack` serializers
+- `load_valkey(url, key, result_type="auto")` — deserializes a stored result back to the original type; auto-detects `VisionResult`, `ClassifyResult`, `DepthResult`, and `OCRResult` from stored payload structure
+- `publish_valkey(result, url, channel, serializer)` — fire-and-forget Pub/Sub broadcast; returns subscriber count
+- `_parse_valkey_uri()` helper supporting `valkey://host:port/key`, `valkey://host:port/db/key`, and `redis://user:pass@host:port/db/key` formats
+- `ValkeyStore` graph sink node — pass-through sink that writes an artifact to Valkey during graph execution; supports `{node}` and `{timestamp}` key template placeholders, TTL, and serializer selection
+- `ValkeyLoad` graph source node — source node with `inputs={}` that loads a stored result from Valkey and injects it into the graph as a typed artifact
+- `valkey://` and `redis://` URI scheme dispatch added to all six `result.save()` methods (`VisionResult`, `DetectResult`, `SegmentResult`, `ClassifyResult`, `DepthResult`, `OCRResult`) — existing file-based paths are fully unaffected
+- `ModelRegistry.get_valkey_connection(name="default")` — reads named Valkey connection profiles from the `storage.valkey` section of `.mata/models.yaml` or `~/.mata/models.yaml`; resolves `password_env` from environment variables; raises `ModelNotFoundError` for unknown connection names
+- YAML `storage.valkey.<name>` config schema with `url`, `db`, `ttl`, `password_env`, and `tls` fields
+- Optional dependency groups: `pip install datamata[valkey]` → `valkey>=6.0.0`; `pip install datamata[redis]` → `redis>=5.0.0`; both added to the `dev` extras group
+- `export_valkey`, `load_valkey`, and `publish_valkey` exported from `mata.core.exporters`
+- `ValkeyStore` and `ValkeyLoad` exported from `mata.nodes`
+- 89 new tests: 42 exporter tests (`test_valkey_exporter.py`), 33 graph node tests (`test_valkey_nodes.py`), 14 config and pub/sub tests (`test_valkey_config.py`)
+
+**Appearance-Based ReID Tracking**
+
+- `mata.track(..., reid_model="org/model")` — activate appearance-based re-identification for BotSort by supplying any HuggingFace image encoder ID or local `.onnx` path
+- `ReIDAdapter` — abstract base class for appearance feature extractors; L2-normalised embedding output; lazy-loaded to keep startup cost zero when ReID is unused
+- `HuggingFaceReIDAdapter` — ViT / CLIP / AutoModel architecture auto-detection (CLIP image encoder, ViT/DeiT/Swin/BEiT pooler output, generic AutoModel mean-pooling); all `transformers` imports lazy
+- `ONNXReIDAdapter` — ONNX Runtime ReID extractor; auto-detects NCHW/NHWC input layout from model metadata; supports CPU and CUDA execution providers
+- `TrackingAdapter.update()` now extracts detection crops, batch-encodes them through the ReID encoder, and injects embeddings into `BOTSORT` — activating the appearance distance branch in `get_dists()`; `Instance.embedding` populated in output `VisionResult`
+- `mata.track()` extended with `reid_model: str | None` and `with_reid: bool = False` kwargs; `with_reid=True` without `reid_model` raises `ValueError`
+- Config alias support: `reid_model` and `with_reid` keys can be declared in `.mata/models.yaml` under a `track:` alias; runtime kwargs always take precedence
+- `ReIDBridge` — cross-camera appearance store backed by Valkey/Redis; publishes L2-normalised embeddings keyed by `reid:{camera_id}:{track_id}`; `query()` returns nearest matches above cosine-similarity threshold from other cameras; uses `scan_iter` (production-safe, non-blocking); TTL-based auto-eviction; `msgpack` binary serialisation
+- `TrackingAdapter.__init__()` extended with `reid_bridge: ReIDBridge | None`; after each `update()` confirmed tracks with embeddings are published automatically; `ConnectionError` caught and logged, never raised
+- `mata.track()` / `mata.load("track", ...)` extended with `reid_bridge` kwarg; forwarded to `TrackingAdapter`
+- `ReIDAdapter`, `HuggingFaceReIDAdapter`, `ONNXReIDAdapter` exported from `mata.adapters`
+- `ReIDBridge` exported from `mata.trackers`
+- `src/mata/trackers/configs/botsort.yaml` — commented `reid_model` / `with_reid` documentation block added (v1.9.2+)
+- 80+ new tests: `test_reid_adapter.py` (ReID adapter unit tests), `test_tracking_reid.py` (TrackingAdapter + API integration), `test_reid_bridge.py` (cross-camera bridge)
+- `examples/track/reid_tracking.py` — basic single-camera ReID tracking example script
+- `examples/track/cross_camera_reid.py` — cross-camera ReID via Valkey example script
 
 **Feature Embedding — `embed` task (first-class public task)**
 
@@ -44,89 +85,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 **Documentation**
 
+- `docs/VALKEY_GUIDE.md` — full integration guide covering installation, basic usage, graph pipeline integration, YAML configuration, streaming patterns, Pub/Sub architecture, security (TLS, `password_env`, SSRF prevention, key sanitization), performance tuning (serializer choice, TTL strategies, connection pooling, async patterns), and top-5 troubleshooting issues
+- `docs/GRAPH_API_REFERENCE.md` — new "Storage Nodes" section with full parameter tables for `ValkeyStore` and `ValkeyLoad`; new sections for `ReID` node, `AnnotateRT` node, `CrossMatches` artifact; updated `Graph.run()` callback documentation
 - `docs/GRAPH_COOKBOOK.md` — 4 new recipes: single-camera tracking + annotation (Recipe 26), cross-camera ReID pipeline (Recipe 27), camera agent pipeline (Recipe 28), custom callback patterns (Recipe 29)
-- `docs/GRAPH_API_REFERENCE.md` — new sections for `ReID` node, `AnnotateRT` node, `CrossMatches` artifact; updated `Graph.run()` callback documentation
+- `README.md` — Valkey added to Key Features list and Optional Dependencies table; ReID tracking section added with single-camera and cross-camera usage examples
+- `QUICKSTART.md` — new "Valkey / Redis Result Storage" section with annotated code examples
+- `QUICK_REFERENCE.md` — new "Valkey/Redis Storage Quick Reference (v1.9)" section with cheatsheet
+- `docs/VALIDATION_GUIDE.md` — ReID tracking validation notes added
+
+### Fixed
+
+- Torchvision detection adapter: incorrect 0-based COCO label mapping replaced with proper 1-based `_get_torchvision_coco_labels()` matching torchvision's `__background__` + 80-class COCO convention
+- Torchvision detection adapter: removed incorrect ImageNet mean/std normalization from preprocessing — torchvision detection models expect float32 tensors in `[0, 1]` range only
+- Example scripts: added download instructions for COCO test image (`000000039769.jpg`); updated torchvision example to use `fasterrcnn_resnet50_fpn_v2`
 
 ### Changed
 
 - `Graph.run()` callback signature for video files is now `(result, frame_num, frame_bgr)` — adds raw BGR frame as third argument; stream/webcam callbacks retain existing `(result, frame_num)` signature
 - `_build_capability_map()` extended with `"Embed"` and `"ReID"` entries
 - `bm_test/camera_agent.py` refactored to use `Graph.run()` pipeline — removed manual `_reid_step()`, `_annotate_frame()`, `_track_color()` helpers
-
----
-
-## [1.9.2] Beta Release 1 - 2026-03-09
-
-### Changed
-
-**PyPI Distribution Rename**
-
-- PyPI distribution name changed from `mata` to `datamata`; users now run `pip install datamata` to install
-- `import mata` is unchanged — all existing code continues to work without modification
-- Follows the PIL/Pillow precedent: distribution name and import name differ intentionally
-
-### Added
-
-**Valkey / Redis Graph Pipeline Storage**
-
-- `export_valkey(result, url, key, ttl, serializer)` — serializes any MATA result type to a Valkey or Redis key with optional TTL; supports `json` (default) and `msgpack` serializers
-- `load_valkey(url, key, result_type="auto")` — deserializes a stored result back to the original type; auto-detects `VisionResult`, `ClassifyResult`, `DepthResult`, and `OCRResult` from stored payload structure
-- `publish_valkey(result, url, channel, serializer)` — fire-and-forget Pub/Sub broadcast; returns subscriber count
-- `_parse_valkey_uri()` helper supporting `valkey://host:port/key`, `valkey://host:port/db/key`, and `redis://user:pass@host:port/db/key` formats
-- `ValkeyStore` graph sink node — pass-through sink that writes an artifact to Valkey during graph execution; supports `{node}` and `{timestamp}` key template placeholders, TTL, and serializer selection
-- `ValkeyLoad` graph source node — source node with `inputs={}` that loads a stored result from Valkey and injects it into the graph as a typed artifact
-- `valkey://` and `redis://` URI scheme dispatch added to all six `result.save()` methods (`VisionResult`, `DetectResult`, `SegmentResult`, `ClassifyResult`, `DepthResult`, `OCRResult`) — existing file-based paths are fully unaffected
-- `ModelRegistry.get_valkey_connection(name="default")` — reads named Valkey connection profiles from the `storage.valkey` section of `.mata/models.yaml` or `~/.mata/models.yaml`; resolves `password_env` from environment variables; raises `ModelNotFoundError` for unknown connection names
-- YAML `storage.valkey.<name>` config schema with `url`, `db`, `ttl`, `password_env`, and `tls` fields
-- Optional dependency groups: `pip install datamata[valkey]` → `valkey>=6.0.0`; `pip install datamata[redis]` → `redis>=5.0.0`; both added to the `dev` extras group
-- `export_valkey`, `load_valkey`, and `publish_valkey` exported from `mata.core.exporters`
-- `ValkeyStore` and `ValkeyLoad` exported from `mata.nodes`
-- 89 new tests: 42 exporter tests (`test_valkey_exporter.py`), 33 graph node tests (`test_valkey_nodes.py`), 14 config and pub/sub tests (`test_valkey_config.py`)
-
-**Documentation**
-
-- `docs/VALKEY_GUIDE.md` — full integration guide covering installation, basic usage, graph pipeline integration, YAML configuration, streaming patterns, Pub/Sub architecture, security (TLS, `password_env`, SSRF prevention, key sanitization), performance tuning (serializer choice, TTL strategies, connection pooling, async patterns), and top-5 troubleshooting issues
-- `docs/GRAPH_API_REFERENCE.md` — new "Storage Nodes" section with full parameter tables for `ValkeyStore` and `ValkeyLoad`
-- `README.md` — Valkey added to Key Features list and Optional Dependencies table
-- `QUICKSTART.md` — new "Valkey / Redis Result Storage" section with annotated code examples
-- `QUICK_REFERENCE.md` — new "Valkey/Redis Storage Quick Reference (v1.9)" section with cheatsheet
-
-**Appearance-Based ReID Tracking**
-
-- `mata.track(..., reid_model="org/model")` — activate appearance-based re-identification for BotSort by supplying any HuggingFace image encoder ID or local `.onnx` path
-- `ReIDAdapter` — abstract base class for appearance feature extractors; L2-normalised embedding output; lazy-loaded to keep startup cost zero when ReID is unused
-- `HuggingFaceReIDAdapter` — ViT / CLIP / AutoModel architecture auto-detection (CLIP image encoder, ViT/DeiT/Swin/BEiT pooler output, generic AutoModel mean-pooling); all `transformers` imports lazy
-- `ONNXReIDAdapter` — ONNX Runtime ReID extractor; auto-detects NCHW/NHWC input layout from model metadata; supports CPU and CUDA execution providers
-- `TrackingAdapter.update()` now extracts detection crops, batch-encodes them through the ReID encoder, and injects embeddings into `BOTSORT` — activating the appearance distance branch in `get_dists()`; `Instance.embedding` populated in output `VisionResult`
-- `mata.track()` extended with `reid_model: str | None` and `with_reid: bool = False` kwargs; `with_reid=True` without `reid_model` raises `ValueError`
-- Config alias support: `reid_model` and `with_reid` keys can be declared in `.mata/models.yaml` under a `track:` alias; runtime kwargs always take precedence
-- `ReIDBridge` — cross-camera appearance store backed by Valkey/Redis; publishes L2-normalised embeddings keyed by `reid:{camera_id}:{track_id}`; `query()` returns nearest matches above cosine-similarity threshold from other cameras; uses `scan_iter` (production-safe, non-blocking); TTL-based auto-eviction; `msgpack` binary serialisation
-- `TrackingAdapter.__init__()` extended with `reid_bridge: ReIDBridge | None`; after each `update()` confirmed tracks with embeddings are published automatically; `ConnectionError` caught and logged, never raised
-- `mata.track()` / `mata.load("track", ...)` extended with `reid_bridge` kwarg; forwarded to `TrackingAdapter`
-- `ReIDAdapter`, `HuggingFaceReIDAdapter`, `ONNXReIDAdapter` exported from `mata.adapters`
-- `ReIDBridge` exported from `mata.trackers`
-- `src/mata/trackers/configs/botsort.yaml` — commented `reid_model` / `with_reid` documentation block added (v1.9.2+)
-- 80+ new tests: `test_reid_adapter.py` (ReID adapter unit tests), `test_tracking_reid.py` (TrackingAdapter + API integration), `test_reid_bridge.py` (cross-camera bridge)
-- `examples/track/reid_tracking.py` — basic single-camera ReID tracking example script
-- `examples/track/cross_camera_reid.py` — cross-camera ReID via Valkey example script
-
-**Documentation**
-
-- `docs/VALKEY_GUIDE.md` — full integration guide covering installation, basic usage, graph pipeline integration, YAML configuration, streaming patterns, Pub/Sub architecture, security (TLS, `password_env`, SSRF prevention, key sanitization), performance tuning (serializer choice, TTL strategies, connection pooling, async patterns), and top-5 troubleshooting issues
-- `docs/GRAPH_API_REFERENCE.md` — new "Storage Nodes" section with full parameter tables for `ValkeyStore` and `ValkeyLoad`
-- `README.md` — Valkey added to Key Features list and Optional Dependencies table; ReID tracking section added with single-camera and cross-camera usage examples
-- `QUICKSTART.md` — new "Valkey / Redis Result Storage" section with annotated code examples
-- `QUICK_REFERENCE.md` — new "Valkey/Redis Storage Quick Reference (v1.9)" section with cheatsheet
-- `docs/VALIDATION_GUIDE.md` — ReID tracking validation notes added
-
-### Changed
-
 - `mata.nodes.__all__` extended with `ValkeyStore` and `ValkeyLoad`
 - `mata.core.exporters.__init__` extended with `export_valkey`, `load_valkey`, `publish_valkey`
 - `mata.track()` signature extended with `reid_model`, `with_reid`, `reid_bridge` kwargs (backward-compatible defaults)
 - `TrackingAdapter.__init__()` extended with `reid_encoder`, `reid_bridge` kwargs (both default to `None`; zero overhead when unused)
 - `BOTSORT.get_dists()` appearance-distance branch now reachable when `encoder` is set via `reid_encoder`
 - ByteTrack vs BotSort ReID comparison table in `README.md` updated to reflect v1.9.2 BotSort support
+- `UniversalLoader._load_from_torchvision()` now supports `task="track"` by wrapping the detection adapter with `TrackingAdapter`
 
 ---
 

@@ -8,6 +8,10 @@ Progressive examples from simplest one-liner to advanced patterns:
   5. Export Results        — JSON string, .json file, annotated image
   6. Config Aliases        — register named shortcuts with mata.register_model()
 
+Download the test image (COCO 000000039769.jpg) if not already present:
+    wget -P examples/images http://images.cocodataset.org/val2017/000000039769.jpg (linux/macOS)
+    curl -o examples/images/000000039769.jpg http://images.cocodataset.org/val2017/000000039769.jpg (Windows)
+
 Run:
     python examples/detect/basic_detection.py
 """

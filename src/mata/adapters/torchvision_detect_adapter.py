@@ -185,8 +185,107 @@ class TorchvisionDetectAdapter(PyTorchBaseAdapter):
         self._setup_preprocessing()
 
         # Setup label mapping (use COCO labels if not provided)
+        # NOTE: torchvision COCO models use 1-based class IDs where
+        #       0 = __background__, 1 = person, 2 = bicycle, …, 80 = toothbrush.
+        #       The base _get_coco_labels() is 0-based, so we build our own.
         if not self.id2label:
-            self.id2label = self._get_coco_labels()
+            self.id2label = self._get_torchvision_coco_labels()
+
+    @staticmethod
+    def _get_torchvision_coco_labels() -> dict[int, str]:
+        """1-based COCO label mapping used by all torchvision detection models.
+
+        Torchvision COCO models reserve index 0 for ``__background__`` and
+        assign class IDs 1–90 (with gaps, matching the official COCO 80-class
+        subset).  This differs from the base ``_get_coco_labels()`` which is
+        0-based, so we provide our own mapping here.
+
+        Returns:
+            Dictionary mapping class IDs (1-based) to class names.
+        """
+        return {
+            0: "__background__",
+            1: "person",
+            2: "bicycle",
+            3: "car",
+            4: "motorcycle",
+            5: "airplane",
+            6: "bus",
+            7: "train",
+            8: "truck",
+            9: "boat",
+            10: "traffic light",
+            11: "fire hydrant",
+            13: "stop sign",
+            14: "parking meter",
+            15: "bench",
+            16: "bird",
+            17: "cat",
+            18: "dog",
+            19: "horse",
+            20: "sheep",
+            21: "cow",
+            22: "elephant",
+            23: "bear",
+            24: "zebra",
+            25: "giraffe",
+            27: "backpack",
+            28: "umbrella",
+            31: "handbag",
+            32: "tie",
+            33: "suitcase",
+            34: "frisbee",
+            35: "skis",
+            36: "snowboard",
+            37: "sports ball",
+            38: "kite",
+            39: "baseball bat",
+            40: "baseball glove",
+            41: "skateboard",
+            42: "surfboard",
+            43: "tennis racket",
+            44: "bottle",
+            46: "wine glass",
+            47: "cup",
+            48: "fork",
+            49: "knife",
+            50: "spoon",
+            51: "bowl",
+            52: "banana",
+            53: "apple",
+            54: "sandwich",
+            55: "orange",
+            56: "broccoli",
+            57: "carrot",
+            58: "hot dog",
+            59: "pizza",
+            60: "donut",
+            61: "cake",
+            62: "chair",
+            63: "couch",
+            64: "potted plant",
+            65: "bed",
+            67: "dining table",
+            70: "toilet",
+            72: "tv",
+            73: "laptop",
+            74: "mouse",
+            75: "remote",
+            76: "keyboard",
+            77: "cell phone",
+            78: "microwave",
+            79: "oven",
+            80: "toaster",
+            81: "sink",
+            82: "refrigerator",
+            84: "book",
+            85: "clock",
+            86: "vase",
+            87: "scissors",
+            88: "teddy bear",
+            89: "hair drier",
+            90: "toothbrush",
+        }
 
     def _load_model(self) -> None:
         """Load torchvision detection model.
@@ -275,19 +374,15 @@ class TorchvisionDetectAdapter(PyTorchBaseAdapter):
     def _setup_preprocessing(self) -> None:
         """Setup preprocessing pipeline.
 
-        Torchvision models use ImageNet normalization:
-        - mean=[0.485, 0.456, 0.406]
-        - std=[0.229, 0.224, 0.225]
+        Torchvision detection models internally handle their own normalization
+        and resizing.  They expect a float32 tensor in the range [0, 1] — do
+        NOT apply ImageNet mean/std normalization externally.
 
-        No resizing is needed as torchvision models handle variable input sizes.
+        See: https://pytorch.org/vision/stable/models.html#object-detection
         """
         self.transform = self.transforms.Compose(
             [
-                self.transforms.ToTensor(),
-                self.transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
-                ),
+                self.transforms.ToTensor(),  # uint8 HWC → float32 CHW in [0, 1]
             ]
         )
 

@@ -128,9 +128,7 @@ def _make_tracks(n: int = 2, frame_id: str = "f001") -> Tracks:
 def _make_cross_matches() -> CrossMatches:
     """CrossMatches with one match for track_id=1."""
     return CrossMatches(
-        matches=[
-            CrossMatch(local_track_id=1, remote_camera_id="cam-2", remote_track_id=5, similarity=0.88)
-        ]
+        matches=[CrossMatch(local_track_id=1, remote_camera_id="cam-2", remote_track_id=5, similarity=0.88)]
     )
 
 
@@ -320,6 +318,7 @@ class TestDrawBoxes:
         with patch.dict(sys.modules, {"cv2": None}, clear=False):
             # patch builtins __import__ for cv2
             import builtins
+
             real_import = builtins.__import__
 
             def _import(name, *args, **kwargs):
@@ -329,6 +328,7 @@ class TestDrawBoxes:
 
             with patch("builtins.__import__", side_effect=_import):
                 from mata.visualization_cv2 import draw_boxes as _draw_boxes
+
                 result = _draw_boxes(frame, [inst])
         assert result is frame
 
@@ -375,6 +375,7 @@ class TestDrawTrails:
         frame = _blank_frame()
 
         import builtins
+
         real_import = builtins.__import__
 
         def _import(name, *args, **kwargs):
@@ -384,6 +385,7 @@ class TestDrawTrails:
 
         with patch("builtins.__import__", side_effect=_import):
             from mata.visualization_cv2 import draw_trails as _dt
+
             result = _dt(frame, {1: [(0, 0), (10, 10)]})
         assert result is frame
 
@@ -415,6 +417,7 @@ class TestDrawCameraLabel:
         frame = _blank_frame()
 
         import builtins
+
         real_import = builtins.__import__
 
         def _import(name, *args, **kwargs):
@@ -424,6 +427,7 @@ class TestDrawCameraLabel:
 
         with patch("builtins.__import__", side_effect=_import):
             from mata.visualization_cv2 import draw_camera_label as _dcl
+
             result = _dcl(frame, "CAM-X")
         assert result is frame
 
@@ -574,10 +578,12 @@ class TestAnnotateRTRun:
         image = _make_image()
         dets = _make_detections(2)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_boxes") as mock_db, \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_boxes") as mock_db,
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets)
         mock_db.assert_not_called()
 
@@ -588,10 +594,12 @@ class TestAnnotateRTRun:
         image = _make_image()
         dets = _make_detections(1)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_camera_label") as mock_dcl, \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_camera_label") as mock_dcl,
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_trails"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets)
         mock_dcl.assert_called_once()
 
@@ -602,10 +610,12 @@ class TestAnnotateRTRun:
         image = _make_image()
         dets = _make_detections(1)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_camera_label") as mock_dcl, \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_camera_label") as mock_dcl,
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_trails"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets)
         mock_dcl.assert_not_called()
 
@@ -617,10 +627,12 @@ class TestAnnotateRTRun:
         image = _make_image()
         dets = _make_detections(2)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_boxes") as mock_db, \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_boxes") as mock_db,
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets, cm=cross)
         # draw_boxes called; cross_matches kwarg is our artifact
         assert mock_db.called
@@ -634,10 +646,12 @@ class TestAnnotateRTRun:
         image = _make_image()
         dets = _make_detections(1)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             # cm key not provided — should not raise
             node.run(ctx, image=image, detections=dets)
 
@@ -648,10 +662,12 @@ class TestAnnotateRTRun:
         dets = _make_detections(2)
         mock_cv2 = _make_mock_cv2()
 
-        with patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             for frame_num in range(3):
                 image = _make_image(frame_id=f"f{frame_num:03d}")
                 node.run(ctx, image=image, detections=dets)
@@ -660,10 +676,12 @@ class TestAnnotateRTRun:
         # not accumulate for them — but no crash is the key guarantee.
         # Using a Tracks artifact with track IDs:
         node2 = AnnotateRT(show_trails=True, tracks_src="trk")
-        with patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             for frame_num in range(3):
                 image = _make_image(frame_id=f"f{frame_num:03d}")
                 tracks = _make_tracks(1, frame_id=f"f{frame_num:03d}")
@@ -681,10 +699,12 @@ class TestAnnotateRTRun:
         dets = _make_detections(0)
         mock_cv2 = _make_mock_cv2()
 
-        with patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             for i in range(10):
                 image = _make_image(frame_id=f"f{i:03d}")
                 tracks = _make_tracks(1, frame_id=f"f{i:03d}")
@@ -699,10 +719,12 @@ class TestAnnotateRTRun:
         dets = _make_detections(0)
         mock_cv2 = _make_mock_cv2()
 
-        with patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             image = _make_image()
             node.run(ctx, image=image, detections=dets, trk=_make_tracks(1))
 
@@ -716,10 +738,12 @@ class TestAnnotateRTRun:
         ctx = _make_ctx()
         dets = _make_detections(0)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=_make_image(), detections=dets, trk=_make_tracks(2))
 
         assert node._trail_history == {}
@@ -732,10 +756,12 @@ class TestAnnotateRTRun:
         n = 3
         dets = _make_detections(n)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets)
 
         metrics = ctx.get_metrics()
@@ -749,10 +775,12 @@ class TestAnnotateRTRun:
         image = _make_image(color_space="RGB")
         dets = _make_detections(0)
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets)
         mock_cv2.cvtColor.assert_called_once()
 
@@ -775,10 +803,12 @@ class TestAnnotateRTRun:
         dets = _make_detections(0)
         tracks = _make_tracks(1)  # track_id=1, active
         mock_cv2 = _make_mock_cv2()
-        with patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets, trk=tracks)
         assert 1 in node._trail_history
 
@@ -790,10 +820,12 @@ class TestAnnotateRTRun:
         dets = _make_detections(1)
         mock_cv2 = _make_mock_cv2()
         # Note: "trk" not passed → should fall back to instances from dets
-        with patch("mata.visualization_cv2.draw_boxes"), \
-             patch("mata.visualization_cv2.draw_trails"), \
-             patch("mata.visualization_cv2.draw_camera_label"), \
-             patch.dict(sys.modules, {"cv2": mock_cv2}):
+        with (
+            patch("mata.visualization_cv2.draw_boxes"),
+            patch("mata.visualization_cv2.draw_trails"),
+            patch("mata.visualization_cv2.draw_camera_label"),
+            patch.dict(sys.modules, {"cv2": mock_cv2}),
+        ):
             node.run(ctx, image=image, detections=dets)  # no "trk" kwarg
 
 
@@ -803,6 +835,7 @@ class TestAnnotateRTExportAndRepr:
     def test_exported_from_nodes_package(self):
         """AnnotateRT importable from mata.nodes."""
         from mata.nodes import AnnotateRT as _AnnotateRT
+
         assert _AnnotateRT is AnnotateRT
 
     def test_repr_contains_key_fields(self):

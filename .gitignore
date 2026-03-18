@@ -154,6 +154,7 @@ datasets/
 *.jpeg
 *.mp4
 *.avi
+examples/images/000000039769.jpg
 
 # Logs
 logs/

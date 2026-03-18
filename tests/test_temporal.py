@@ -481,9 +481,7 @@ class TestVideoProcessorFile:
     # Callback tests (Task E1)
     # ---------------------------------------------------------------
 
-    def test_process_video_callback_called_per_frame(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_called_per_frame(self, mock_compiled_graph, mock_scheduler, providers):
         """Callback fires once for each processed frame."""
         fake_cap = _FakeCapture(num_frames=4)
         call_count = 0
@@ -505,9 +503,7 @@ class TestVideoProcessorFile:
 
         assert call_count == 4
 
-    def test_process_video_callback_receives_result(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_receives_result(self, mock_compiled_graph, mock_scheduler, providers):
         """First callback argument is a MultiResult."""
         fake_cap = _FakeCapture(num_frames=2)
         received_results: list = []
@@ -530,9 +526,7 @@ class TestVideoProcessorFile:
         for r in received_results:
             assert isinstance(r, MultiResult)
 
-    def test_process_video_callback_receives_frame_num(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_receives_frame_num(self, mock_compiled_graph, mock_scheduler, providers):
         """Second callback argument is the int frame number."""
         fake_cap = _FakeCapture(num_frames=3)
         received_nums: list = []
@@ -555,9 +549,7 @@ class TestVideoProcessorFile:
         for n in received_nums:
             assert isinstance(n, int)
 
-    def test_process_video_callback_receives_frame_bgr(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_receives_frame_bgr(self, mock_compiled_graph, mock_scheduler, providers):
         """Third callback argument is a BGR numpy ndarray."""
         fake_cap = _FakeCapture(num_frames=2)
         received_frames: list = []
@@ -582,9 +574,7 @@ class TestVideoProcessorFile:
             assert f.ndim == 3
             assert f.shape[2] == 3  # BGR channels
 
-    def test_process_video_callback_none_default(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_none_default(self, mock_compiled_graph, mock_scheduler, providers):
         """No callback (None) behaves identically to the old implementation."""
         fake_cap = _FakeCapture(num_frames=3)
 
@@ -603,9 +593,7 @@ class TestVideoProcessorFile:
         assert len(results) == 3
         assert mock_scheduler.execute.call_count == 3
 
-    def test_process_video_callback_skipped_frames_not_called(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_skipped_frames_not_called(self, mock_compiled_graph, mock_scheduler, providers):
         """FramePolicyEveryN(n=3) — callback only fires for processed frames."""
         fake_cap = _FakeCapture(num_frames=9)
         received_nums: list = []
@@ -628,9 +616,7 @@ class TestVideoProcessorFile:
         assert received_nums == [0, 3, 6]
         assert mock_scheduler.execute.call_count == 3
 
-    def test_process_video_callback_does_not_affect_return(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_does_not_affect_return(self, mock_compiled_graph, mock_scheduler, providers):
         """Providing a callback still returns the full list[MultiResult]."""
         fake_cap = _FakeCapture(num_frames=5)
         cb_results: list = []
@@ -654,9 +640,7 @@ class TestVideoProcessorFile:
         # callback and return value reference the same objects
         assert returned == cb_results
 
-    def test_process_video_callback_with_max_frames(
-        self, mock_compiled_graph, mock_scheduler, providers
-    ):
+    def test_process_video_callback_with_max_frames(self, mock_compiled_graph, mock_scheduler, providers):
         """Callback fires exactly max_frames times when max_frames < total frames."""
         fake_cap = _FakeCapture(num_frames=20)
         call_count = 0

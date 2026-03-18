@@ -12,6 +12,12 @@ result = mata.run("detect", "examples/images/000000039769.jpg", model="facebook/
 print(result)
 ```
 
+```shell
+Note: Download the test image (COCO 000000039769.jpg) if not already present:
+wget -P examples/images http://images.cocodataset.org/val2017/000000039769.jpg (linux/macOS)
+curl -o examples/images/000000039769.jpg http://images.cocodataset.org/val2017/000000039769.jpg (Windows)
+```
+
 See [`detect/basic_detection.py`](detect/basic_detection.py) for the full progressive walkthrough.
 
 ## By Task

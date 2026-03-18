@@ -12,6 +12,10 @@ Models supported:
 Requirements:
     pip install datamata transformers pillow
 
+Download the test image (COCO 000000039769.jpg) if not already present:
+    wget -P examples/images http://images.cocodataset.org/val2017/000000039769.jpg (linux/macOS)
+    curl -o examples/images/000000039769.jpg http://images.cocodataset.org/val2017/000000039769.jpg (Windows)
+
 Usage:
     python examples/detect/zeroshot_detection.py
 """

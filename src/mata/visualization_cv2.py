@@ -95,9 +95,7 @@ def draw_boxes(
 
         tid = getattr(inst, "track_id", None)
         score = getattr(inst, "score", None)
-        label_name = getattr(inst, "label_name", None) or str(
-            getattr(inst, "label", "")
-        )
+        label_name = getattr(inst, "label_name", None) or str(getattr(inst, "label", ""))
 
         color = track_color(tid) if tid is not None else (0, 255, 0)
 

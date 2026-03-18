@@ -707,16 +707,23 @@ class UniversalLoader:
         """Load torchvision detection model.
 
         Args:
-            task: Task type (currently only "detect" supported)
+            task: Task type ("detect" or "track")
             model_name: Full model name (e.g., "torchvision/retinanet_resnet50_fpn")
             **kwargs: Additional arguments passed to adapter
 
         Returns:
-            TorchvisionDetectAdapter instance
+            TorchvisionDetectAdapter instance, or TrackingAdapter wrapping one
 
         Raises:
-            UnsupportedModelError: If task is not "detect"
+            UnsupportedModelError: If task is not "detect" or "track"
         """
+        if task == "track":
+            tracker_config, frame_rate, reid_model, with_reid, reid_bridge = self._resolve_tracker_kwargs(kwargs)
+            detect_adapter = self._load_from_torchvision("detect", model_name, **kwargs)
+            return self._wrap_with_tracking(
+                detect_adapter, tracker_config, frame_rate, reid_model, with_reid, reid_bridge
+            )
+
         if task == "detect":
             from mata.adapters.torchvision_detect_adapter import TorchvisionDetectAdapter
 
@@ -724,7 +731,7 @@ class UniversalLoader:
             return TorchvisionDetectAdapter(model_name=model_name, **kwargs)
         else:
             raise UnsupportedModelError(
-                f"Torchvision adapter not yet implemented for task '{task}'. " f"Supported tasks: detect"
+                f"Torchvision adapter not yet implemented for task '{task}'. " f"Supported tasks: detect, track"
             )
 
     def _load_from_file(self, task: str, file_path: str, **kwargs) -> Any:
