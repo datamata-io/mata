@@ -155,6 +155,7 @@ datasets/
 *.mp4
 *.avi
 examples/images/000000039769.jpg
+examples/images/000000015338.jpg
 
 # Logs
 logs/
@@ -189,3 +190,4 @@ logs/security/
 CLAUDE.md
 .claude/
 .github/agents/
+.github/skills/

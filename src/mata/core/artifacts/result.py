@@ -119,6 +119,43 @@ class MultiResult(Artifact):
         """
         return name in self.channels
 
+    def __getitem__(self, name: str) -> Artifact:
+        """Enable dict-style channel access: result['detections'].
+
+        Args:
+            name: Channel name to retrieve
+
+        Returns:
+            Artifact from the specified channel
+
+        Raises:
+            KeyError: If channel does not exist
+
+        Examples:
+            >>> result['detections']  # Same as result.channels["detections"]
+            >>> result['masks']
+        """
+        if name not in self.channels:
+            raise KeyError(
+                f"Channel '{name}' not found in MultiResult. " f"Available channels: {list(self.channels.keys())}"
+            )
+        return self.channels[name]
+
+    def __contains__(self, name: object) -> bool:
+        """Enable 'key in result' membership test.
+
+        Args:
+            name: Channel name to check
+
+        Returns:
+            True if channel exists, False otherwise
+
+        Examples:
+            >>> "detections" in result  # True
+            >>> "nonexistent" in result  # False
+        """
+        return name in self.channels
+
     def get_channel(self, name: str, default: Artifact | None = None) -> Artifact | None:
         """Get channel artifact with optional default.
 
@@ -276,6 +313,37 @@ class MultiResult(Artifact):
             >>> json_compact = result.to_json(indent=None)
         """
         return json.dumps(self.to_dict(), indent=indent, default=str)
+
+    def save(self, path: str, indent: int | None = 2, ttl: int | None = None) -> None:
+        """Save MultiResult to a local file or Valkey/Redis key.
+
+        Dispatches on the path prefix:
+        - ``valkey://``, ``redis://``, ``rediss://`` — write JSON to the
+          specified Valkey/Redis key.
+        - Any other string — treated as a local file path and written as
+          UTF-8 JSON.
+
+        Args:
+            path: Destination file path or Valkey URI.
+            indent: JSON indentation (default 2, ``None`` = compact).
+            ttl: Valkey key TTL in seconds (ignored for local files).
+
+        Examples:
+            >>> result.save("output/result.json")
+            >>> result.save("valkey://localhost:6379/pipeline:result:latest", ttl=3600)
+        """
+        if path.startswith(("valkey://", "redis://", "rediss://")):
+            from mata.core.exporters.valkey_exporter import (
+                _parse_valkey_uri,
+                export_valkey,
+            )
+
+            base_url, key = _parse_valkey_uri(path)
+            export_valkey(result=self, url=base_url, key=key, ttl=ttl)
+        else:
+            from pathlib import Path as _Path
+
+            _Path(path).write_text(self.to_json(indent=indent), encoding="utf-8")
 
     @classmethod
     def from_json(cls, json_str: str) -> MultiResult:

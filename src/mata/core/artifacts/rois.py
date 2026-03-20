@@ -5,6 +5,8 @@ Provides cropped image regions extracted from detections for downstream processi
 
 from __future__ import annotations
 
+import base64
+import io
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -222,14 +224,38 @@ class ROIs(Artifact):
         serialized_rois = []
         for roi in self.roi_images:
             if PIL_AVAILABLE and isinstance(roi, PILImage.Image):
-                # Convert PIL to numpy then to list
+                buf = io.BytesIO()
+                roi.save(buf, format="PNG")
+                b64 = base64.b64encode(buf.getvalue()).decode("ascii")
                 serialized_rois.append(
-                    {"type": "pil", "mode": roi.mode, "size": roi.size, "data": np.array(roi).tolist()}
+                    {"type": "pil", "mode": roi.mode, "size": list(roi.size), "data": b64, "encoding": "base64_png"}
                 )
             elif NUMPY_AVAILABLE and isinstance(roi, np.ndarray):
-                serialized_rois.append(
-                    {"type": "numpy", "shape": list(roi.shape), "dtype": str(roi.dtype), "data": roi.tolist()}
-                )
+                img = PILImage.fromarray(roi) if PIL_AVAILABLE else None
+                if img is not None:
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                    serialized_rois.append(
+                        {
+                            "type": "numpy",
+                            "shape": list(roi.shape),
+                            "dtype": str(roi.dtype),
+                            "data": b64,
+                            "encoding": "base64_png",
+                        }
+                    )
+                else:
+                    # Fallback when PIL unavailable: compact hex instead of tolist()
+                    serialized_rois.append(
+                        {
+                            "type": "numpy",
+                            "shape": list(roi.shape),
+                            "dtype": str(roi.dtype),
+                            "data": roi.tobytes().hex(),
+                            "encoding": "hex_raw",
+                        }
+                    )
             else:
                 raise TypeError(f"Cannot serialize ROI type: {type(roi)}")
 
@@ -253,10 +279,25 @@ class ROIs(Artifact):
         # Reconstruct ROI images
         roi_images = []
         for roi_data in data["roi_images"]:
-            if roi_data["type"] == "numpy" and NUMPY_AVAILABLE:
+            encoding = roi_data.get("encoding", "raw_list")
+            if encoding == "base64_png":
+                raw = base64.b64decode(roi_data["data"])
+                img = PILImage.open(io.BytesIO(raw))
+                if roi_data["type"] == "pil":
+                    roi_images.append(img)
+                else:
+                    # numpy type — return as array
+                    roi_images.append(np.array(img))
+            elif encoding == "hex_raw" and NUMPY_AVAILABLE:
+                raw = bytes.fromhex(roi_data["data"])
+                arr = np.frombuffer(raw, dtype=roi_data["dtype"]).reshape(roi_data["shape"])
+                roi_images.append(arr.copy())
+            elif roi_data["type"] == "numpy" and NUMPY_AVAILABLE:
+                # Legacy: raw list format
                 arr = np.array(roi_data["data"], dtype=roi_data["dtype"])
                 roi_images.append(arr)
             elif roi_data["type"] == "pil" and PIL_AVAILABLE:
+                # Legacy: raw list format
                 arr = np.array(roi_data["data"], dtype=np.uint8)
                 img = PILImage.fromarray(arr, mode=roi_data["mode"])
                 roi_images.append(img)

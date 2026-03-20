@@ -1,8 +1,8 @@
 """System prompt templates for VLM tool-calling.
 
 This module provides templates and utilities for instructing VLMs how to use tools.
-Different VLM families may need different prompt formats, but we start with a universal
-template optimized for Qwen3-VL and similar open-weight vision-language models.
+The prompt template uses a universal fenced-block format compatible with modern
+instruction-following VLMs (Qwen3-VL, LFM2-VL, LLaVA, MedGemma, etc.).
 
 The prompt engineering approach:
 - Explicit format instructions with examples
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 # Universal system prompt template for tool-calling VLMs
-# Works with Qwen3-VL, LLaVA, and similar open-weight models
+# Compatible with instruction-following models that support fenced code blocks
 TOOL_SYSTEM_PROMPT_TEMPLATE = """
 You have access to the following tools to help analyze this image:
 

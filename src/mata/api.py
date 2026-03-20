@@ -123,7 +123,7 @@ def run(
     creating adapters. For repeated inference, use load() instead.
 
     Args:
-        task: Task type ("detect", "segment", "classify", "depth", "vlm")
+        task: Task type ("detect", "segment", "classify", "depth", "vlm", "ocr", "barcode")
         input: Input image (path, PIL Image, or numpy array)
         model: Optional model source (path, HF ID, or alias)
         model_type: Optional explicit model type (see load() for details)
@@ -187,7 +187,7 @@ def run(
     adapter = load(task=task, model=model, model_type=model_type, **kwargs)
 
     # Run prediction
-    if task in ("detect", "segment", "classify", "depth", "pose", "vlm", "ocr"):
+    if task in ("detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "barcode"):
         return adapter.predict(input, **kwargs)
     elif task == "embed":
         from .core.artifacts.image import Image as ImageArtifact
@@ -206,7 +206,9 @@ def run(
         return adapter.embed(image_artifact)
     else:
         # Should not reach here due to earlier checks
-        raise TaskNotSupportedError(task, ["detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "embed"])
+        raise TaskNotSupportedError(
+            task, ["detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "barcode", "embed"]
+        )
 
 
 def track(

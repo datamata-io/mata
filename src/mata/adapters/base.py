@@ -127,7 +127,11 @@ class BaseAdapter(ABC):
                 from io import BytesIO
 
                 try:
-                    with urllib.request.urlopen(image, timeout=30) as response:
+                    req = urllib.request.Request(
+                        image,
+                        headers={"User-Agent": "mata-vision/1.9.3 (https://github.com/datamata-io/mata)"},
+                    )
+                    with urllib.request.urlopen(req, timeout=30) as response:
                         image_data = response.read()
                     pil_image = Image.open(BytesIO(image_data)).convert("RGB")
                     input_path = image  # Store URL as path

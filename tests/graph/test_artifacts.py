@@ -12,6 +12,11 @@ Tests cover:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import PIL.Image
+
 import numpy as np
 import pytest
 
@@ -379,6 +384,29 @@ class TestMultiResultArtifact:
         mr2 = MultiResult.from_dict(d)
         assert mr2.has_channel("dets")
 
+    def test_save_local_json(self, tmp_path):
+        mr = MultiResult(channels={}, provenance={"graph_name": "test"})
+        out = tmp_path / "result.json"
+        mr.save(str(out))
+        assert out.exists()
+        import json
+
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["provenance"]["graph_name"] == "test"
+
+    def test_save_valkey_uri(self):
+        from unittest.mock import MagicMock, patch
+
+        mr = MultiResult(channels={}, provenance={"source": "test"})
+        with patch("mata.core.exporters.valkey_exporter._get_valkey_client") as mock_client:
+            client = MagicMock()
+            mock_client.return_value = client
+            mr.save("valkey://localhost:6379/pipeline:result:latest", ttl=60)
+            client.setex.assert_called_once()
+            args = client.setex.call_args[0]
+            assert args[0] == "pipeline:result:latest"
+            assert args[1] == 60
+
 
 # ──────────────────────────────────────────────────────────────
 # 8. Instance ID utilities
@@ -449,3 +477,78 @@ class TestArtifactTypeRegistry:
         self.registry.register("x", Image)
         with pytest.raises(ValueError, match="already registered"):
             self.registry.register("x", Detections)
+
+
+# ──────────────────────────────────────────────────────────────
+# 9. ROIs artifact serialization
+# ──────────────────────────────────────────────────────────────
+
+
+class TestROIsArtifact:
+    """ROIs creation and serialization with base64-encoded PNG format."""
+
+    def _make_pil_roi(self, w: int = 32, h: int = 24) -> PIL.Image.Image:
+        from PIL import Image as PILImage
+
+        arr = np.zeros((h, w, 3), dtype=np.uint8)
+        arr[:, :, 0] = 128  # red channel
+        return PILImage.fromarray(arr, mode="RGB")
+
+    def test_pil_to_dict_uses_base64_png(self):
+        from mata.core.artifacts.rois import ROIs
+
+        roi = self._make_pil_roi()
+        rois = ROIs(roi_images=[roi], source_boxes=[(0, 0, 32, 24)], instance_ids=["inst_0"])
+        d = rois.to_dict()
+        roi_d = d["roi_images"][0]
+        assert roi_d["encoding"] == "base64_png", "Should use base64_png, not raw list"
+        assert isinstance(roi_d["data"], str), "base64 payload must be a string"
+        # Verify it is not a gigantic list of ints
+        assert not isinstance(roi_d["data"], list), "Raw pixel list must NOT be used"
+
+    def test_pil_round_trip(self):
+        from mata.core.artifacts.rois import ROIs
+
+        roi = self._make_pil_roi(32, 24)
+        rois = ROIs(roi_images=[roi], source_boxes=[(0, 0, 32, 24)], instance_ids=["inst_0"])
+        d = rois.to_dict()
+        rois2 = ROIs.from_dict(d)
+        assert len(rois2.roi_images) == 1
+        from PIL import Image as PILImage
+
+        restored = rois2.roi_images[0]
+        assert isinstance(restored, PILImage.Image)
+        assert restored.size == (32, 24)
+
+    def test_numpy_to_dict_uses_base64_png(self):
+        from mata.core.artifacts.rois import ROIs
+
+        arr = np.zeros((24, 32, 3), dtype=np.uint8)
+        arr[:, :, 1] = 200  # green channel
+        rois = ROIs(roi_images=[arr], source_boxes=[(0, 0, 32, 24)], instance_ids=["inst_0"])
+        d = rois.to_dict()
+        roi_d = d["roi_images"][0]
+        assert roi_d["encoding"] == "base64_png"
+        assert isinstance(roi_d["data"], str)
+
+    def test_numpy_round_trip(self):
+        from mata.core.artifacts.rois import ROIs
+
+        arr = np.zeros((24, 32, 3), dtype=np.uint8)
+        arr[:, :, 2] = 255  # blue channel
+        rois = ROIs(roi_images=[arr], source_boxes=[(0, 0, 32, 24)], instance_ids=["inst_0"])
+        d = rois.to_dict()
+        rois2 = ROIs.from_dict(d)
+        assert len(rois2.roi_images) == 1
+
+    def test_serialized_size_is_small(self):
+        """Ensure a 100x100 RGB ROI serializes to < 100 KB in JSON (not gigabytes)."""
+        import json
+
+        from mata.core.artifacts.rois import ROIs
+
+        arr = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        rois = ROIs(roi_images=[arr], source_boxes=[(0, 0, 100, 100)], instance_ids=["inst_0"])
+        d = rois.to_dict()
+        size = len(json.dumps(d))
+        assert size < 100_000, f"Serialized ROI JSON too large: {size} bytes"

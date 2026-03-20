@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamata"
-version = "1.9.2"
+version = "1.9.3"
 description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -101,6 +101,22 @@ ocr-all = [
     "paddleocr>=2.7.0",
     "paddlepaddle>=2.5.0",
     "pytesseract>=0.3.10",
+]
+
+# Barcode — pyzbar (default, requires libzbar0 on Linux)
+barcode = [
+    "pyzbar>=0.1.9",
+]
+
+# Barcode — zxing-cpp backend
+barcode-zxing = [
+    "zxing-cpp>=2.0.0",
+]
+
+# Barcode — all engines
+barcode-all = [
+    "pyzbar>=0.1.9",
+    "zxing-cpp>=2.0.0",
 ]
 
 # Valkey/Redis result storage

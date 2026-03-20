@@ -66,6 +66,12 @@ See [`detect/basic_detection.py`](detect/basic_detection.py) for the full progre
 | [`persist_tracking.py`](track/persist_tracking.py) | Per-frame tracking with `tracker.update()` YOLO-like pattern |
 | [`stream_tracking.py`](track/stream_tracking.py)   | Constant-memory stream mode for video/RTSP                   |
 
+### Barcode & QR Code ([`barcode/`](barcode/)) _(v1.9.3)_
+
+| File                                     | What it shows                                                    |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| [`basic_scan.py`](barcode/basic_scan.py) | One-shot scan, load/reuse, pyzbar vs zxing, export, ROI pipeline |
+
 ## Pipelines & Graphs ([`graph/`](graph/))
 
 6 core examples + 20 industry scenarios.  
@@ -99,3 +105,12 @@ Notable graph example:
 | [`diode.yaml`](configs/diode.yaml)                                 | DIODE depth estimation        |
 | [`torchvision_aliases.yaml`](configs/torchvision_aliases.yaml)     | Torchvision model aliases     |
 | [`torchvision_detection.yaml`](configs/torchvision_detection.yaml) | Torchvision detection config  |
+
+## Changelog
+
+| Date       | Change                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-03-19 | Fixed `MultiResult.__getitem__` and `__contains__` — `result['key']` and `'key' in result` now work correctly (was `TypeError` at runtime)                         |
+| 2026-03-19 | Fixed `grounding_sam_pipeline.py` — moved private `_mask_to_binary` import to lazy in-place usage                                                                  |
+| 2026-03-19 | Removed `graph/valkey_rtsp_pipeline.py` — required live RTSP + Valkey with no mock fallback; see `graph/valkey_pipeline.py` and `track/stream_tracking.py` instead |
+| 2026-03-19 | Known issues in scenario `--real` mode documented in [`docs/2026-03-19_Bugs_Report.md`](../docs/2026-03-19_Bugs_Report.md)                                         |

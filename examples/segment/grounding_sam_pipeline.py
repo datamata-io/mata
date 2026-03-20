@@ -18,7 +18,6 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 import mata
-from mata.visualization import _mask_to_binary
 
 
 def visualize_instances(image, result, output_path):
@@ -54,6 +53,7 @@ def visualize_instances(image, result, output_path):
             if hasattr(instance.mask, "to_binary"):
                 mask_array = instance.mask.to_binary()
             else:
+                from mata.visualization import _mask_to_binary  # private fallback for raw mask dicts
                 mask_array = _mask_to_binary(instance.mask, image_size=image.size)
 
             mask_img = Image.fromarray((mask_array * 255).astype(np.uint8), mode="L")

@@ -993,3 +993,155 @@ class TestVLMAdapterV154Integration:
         assert isinstance(result, VisionResult)
         assert result.text is not None
         assert result.meta.get("image_count") == 2
+
+
+class TestCoordinateScalingHeuristic:
+    """Test generic coordinate scaling heuristic in _scale_bbox_from_vlm."""
+
+    def test_normalized_01_coords(self, mock_transformers_vlm, mock_pytorch_base):
+        """Coords in [0, 1] range scaled to image dimensions."""
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+        bbox = (0.5, 0.5, 1.0, 1.0)
+        result = adapter._scale_bbox_from_vlm(bbox, 640, 480)
+        assert result == pytest.approx((320.0, 240.0, 640.0, 480.0), abs=1.0)
+
+    def test_qwen_1000_unit_coords(self, mock_transformers_vlm, mock_pytorch_base):
+        """Qwen3-VL ~1000-unit coords still work correctly (regression)."""
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+        bbox = (500, 500, 1000, 1000)
+        result = adapter._scale_bbox_from_vlm(bbox, 640, 480)
+        assert result == pytest.approx((320.0, 240.0, 640.0, 480.0), abs=1.0)
+
+    def test_raw_pixel_coords_passthrough(self, mock_transformers_vlm, mock_pytorch_base):
+        """Large coords (>1500) treated as raw pixels, no scaling."""
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+        bbox = (100, 200, 1800, 2400)
+        result = adapter._scale_bbox_from_vlm(bbox, 1920, 2560)
+        assert result == pytest.approx((100.0, 200.0, 1800.0, 2400.0), abs=1.0)
+
+    def test_zero_bbox(self, mock_transformers_vlm, mock_pytorch_base):
+        """All-zero bbox returns all-zero."""
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+        bbox = (0, 0, 0, 0)
+        result = adapter._scale_bbox_from_vlm(bbox, 640, 480)
+        assert result == (0, 0, 0, 0)
+
+    def test_clamped_to_image_bounds(self, mock_transformers_vlm, mock_pytorch_base):
+        """Scaled coords are clamped to image boundaries."""
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+        bbox = (0.0, 0.0, 1.1, 1.1)  # slightly > 1.0
+        result = adapter._scale_bbox_from_vlm(bbox, 640, 480)
+        assert result[2] <= 640
+        assert result[3] <= 480
+
+
+class TestVLMDtypeKwarg:
+    """Test dtype constructor parameter."""
+
+    def test_default_dtype_auto(self, mock_transformers_vlm, mock_pytorch_base):
+        """Default dtype is 'auto'."""
+        adapter = HuggingFaceVLMAdapter("model-id")
+        assert adapter.dtype == "auto"
+
+    def test_explicit_dtype_bfloat16(self, mock_transformers_vlm, mock_pytorch_base):
+        """Explicit bfloat16 dtype stored and passed to from_pretrained."""
+        adapter = HuggingFaceVLMAdapter("model-id", dtype="bfloat16")
+        assert adapter.dtype == "bfloat16"
+        # Verify from_pretrained was called with torch_dtype="bfloat16"
+        mock_transformers_vlm["model_class"].from_pretrained.assert_called_once()
+        call_kwargs = mock_transformers_vlm["model_class"].from_pretrained.call_args[1]
+        assert call_kwargs["torch_dtype"] == "bfloat16"
+
+    def test_dtype_in_info(self, mock_transformers_vlm, mock_pytorch_base):
+        """info() includes dtype field."""
+        adapter = HuggingFaceVLMAdapter("model-id", dtype="float16")
+        assert adapter.info()["dtype"] == "float16"
+
+
+class TestVLMTrustRemoteCodeKwarg:
+    """Test trust_remote_code constructor parameter."""
+
+    def test_default_trust_remote_code_false(self, mock_transformers_vlm, mock_pytorch_base):
+        """Default trust_remote_code is False."""
+        adapter = HuggingFaceVLMAdapter("model-id")
+        assert adapter.trust_remote_code is False
+
+    def test_explicit_trust_remote_code_true(self, mock_transformers_vlm, mock_pytorch_base):
+        """Explicit trust_remote_code=True passed to both from_pretrained calls."""
+        adapter = HuggingFaceVLMAdapter("model-id", trust_remote_code=True)
+        assert adapter.trust_remote_code is True
+        # Verify processor from_pretrained was called with trust_remote_code=True
+        proc_kwargs = mock_transformers_vlm["processor_class"].from_pretrained.call_args[1]
+        assert proc_kwargs["trust_remote_code"] is True
+        # Verify model from_pretrained was called with trust_remote_code=True
+        model_kwargs = mock_transformers_vlm["model_class"].from_pretrained.call_args[1]
+        assert model_kwargs["trust_remote_code"] is True
+
+    def test_trust_remote_code_in_info(self, mock_transformers_vlm, mock_pytorch_base):
+        """info() includes trust_remote_code field."""
+        adapter = HuggingFaceVLMAdapter("model-id", trust_remote_code=True)
+        assert adapter.info()["trust_remote_code"] is True
+
+
+class TestVLMExpandedModelDetection:
+    """Test newly added VLM detection patterns (v1.9.3)."""
+
+    def test_medgemma_detected(self):
+        """MedGemma models detected as VLM."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/medgemma-1.5-4b-it") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/medgemma-4b-it") is True
+
+    def test_lfm2_vl_detected(self):
+        """LFM2-VL models detected as VLM."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("LiquidAI/LFM2.5-VL-1.6B") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("LiquidAI/LFM2-VL-7B") is True
+
+    def test_smolvlm_detected(self):
+        """SmolVLM models detected as VLM."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("HuggingFaceTB/SmolVLM-256M-Instruct") is True
+
+    def test_moondream_detected(self):
+        """Moondream models detected as VLM."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("vikhyatk/moondream2") is True
+
+    def test_existing_patterns_unchanged(self):
+        """Existing detection patterns still work (regression)."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("Qwen/Qwen3-VL-2B-Instruct") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("llava-hf/llava-1.5-7b-hf") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("OpenGVLab/InternVL2-1B") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("facebook/detr-resnet-50") is False
+        assert HuggingFaceVLMAdapter._is_vlm_model("openai/clip-vit-base-patch32") is False
+
+    def test_gemma_base_not_vlm(self):
+        """Plain Gemma (non-medical, non-VL) should not match VLM patterns."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-2b") is False
+
+
+class TestVLMLoaderKwargsPassthrough:
+    """Test that new kwargs flow through UniversalLoader correctly."""
+
+    def test_dtype_flows_through_loader(self, mock_transformers_vlm, mock_pytorch_base):
+        """dtype kwarg reaches adapter constructor via loader."""
+        from mata.core.model_loader import UniversalLoader
+
+        loader = UniversalLoader()
+        wrapper = loader.load("vlm", "test/model", dtype="bfloat16")
+        assert wrapper.adapter.dtype == "bfloat16"
+
+    def test_trust_remote_code_flows_through_loader(self, mock_transformers_vlm, mock_pytorch_base):
+        """trust_remote_code kwarg reaches adapter constructor via loader."""
+        from mata.core.model_loader import UniversalLoader
+
+        loader = UniversalLoader()
+        wrapper = loader.load("vlm", "test/model", trust_remote_code=True)
+        assert wrapper.adapter.trust_remote_code is True
+
+    def test_prediction_params_not_forwarded(self, mock_transformers_vlm, mock_pytorch_base):
+        """Prediction params (prompt, etc.) are filtered out from constructor kwargs."""
+        from mata.core.model_loader import UniversalLoader
+
+        loader = UniversalLoader()
+        # prompt should NOT be passed to adapter constructor
+        wrapper = loader.load("vlm", "test/model", prompt="test", dtype="bfloat16")
+        assert not hasattr(wrapper.adapter, "prompt_attr_that_shouldnt_exist")
+        assert wrapper.adapter.dtype == "bfloat16"

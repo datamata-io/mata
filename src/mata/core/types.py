@@ -834,6 +834,112 @@ class OCRResult:
             raise ValueError(f"Unsupported OCR save format: '{suffix}'. " "Use .json, .csv, .txt, or .png/.jpg")
 
 
+@dataclass(frozen=True)
+class BarcodeRegion:
+    """A single detected and decoded barcode or QR code.
+
+    Attributes:
+        data: Decoded payload string (URL, number, text, etc.)
+        type: Barcode symbology (e.g. "QR_CODE", "EAN_13", "CODE_128",
+              "DATA_MATRIX", "UPC_A", "PDF_417").
+        bbox: Bounding box in xyxy absolute pixel coords (x1, y1, x2, y2).
+              None if decoder doesn't provide spatial info.
+        score: Confidence score in [0.0, 1.0]. 1.0 for algorithmic decoders
+               that produce exact results.
+        raw_bytes: Raw byte payload (for binary QR codes). None for
+                   text-only barcodes.
+    """
+
+    data: str
+    type: str
+    bbox: tuple[float, float, float, float] | None = None
+    score: float = 1.0
+    raw_bytes: bytes | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"data": self.data, "type": self.type, "score": self.score}
+        if self.bbox is not None:
+            d["bbox"] = list(self.bbox)
+        if self.raw_bytes is not None:
+            d["raw_bytes"] = self.raw_bytes.hex()
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> BarcodeRegion:
+        raw = data.get("raw_bytes")
+        return cls(
+            data=data["data"],
+            type=data["type"],
+            bbox=tuple(data["bbox"]) if data.get("bbox") else None,
+            score=data.get("score", 1.0),
+            raw_bytes=bytes.fromhex(raw) if raw else None,
+        )
+
+
+@dataclass(frozen=True)
+class BarcodeResult:
+    """Result of barcode/QR code detection and decoding on an image.
+
+    Attributes:
+        barcodes: List of detected and decoded barcode regions.
+        meta: Optional metadata (engine info, input path, etc.)
+    """
+
+    barcodes: list[BarcodeRegion]
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    def __len__(self) -> int:
+        return len(self.barcodes)
+
+    def __iter__(self):
+        return iter(self.barcodes)
+
+    def filter_by_type(self, *types: str) -> BarcodeResult:
+        """Return new BarcodeResult containing only barcodes of given types."""
+        types_upper = {t.upper() for t in types}
+        return BarcodeResult(
+            barcodes=[b for b in self.barcodes if b.type.upper() in types_upper],
+            meta=self.meta,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "barcodes": [b.to_dict() for b in self.barcodes],
+            "meta": self.meta,
+        }
+
+    def to_json(self, **kwargs: Any) -> str:
+        return json.dumps(self.to_dict(), **kwargs)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> BarcodeResult:
+        data = json.loads(json_str)
+        return cls(
+            barcodes=[BarcodeRegion.from_dict(b) for b in data.get("barcodes", [])],
+            meta=data.get("meta", {}),
+        )
+
+    def save(self, output_path: str, **kwargs: Any) -> None:
+        from pathlib import Path
+
+        suffix = Path(output_path).suffix.lower()
+        if suffix == ".json":
+            from mata.core.exporters import export_json
+
+            export_json(self, output_path, **kwargs)
+        elif suffix == ".csv":
+            Path(output_path).write_text(
+                "data,type,score,x1,y1,x2,y2\n"
+                + "\n".join(
+                    f"{b.data},{b.type},{b.score},"
+                    + (f"{b.bbox[0]},{b.bbox[1]},{b.bbox[2]},{b.bbox[3]}" if b.bbox else ",,,")
+                    for b in self.barcodes
+                )
+            )
+        else:
+            raise ValueError(f"Unsupported barcode save format: '{suffix}'. Use .json or .csv")
+
+
 class ModelType(str, Enum):
     """Supported model source types for explicit loading.
 
@@ -917,6 +1023,9 @@ class ModelType(str, Enum):
     EASYOCR = "easyocr"
     PADDLEOCR = "paddleocr"
     TESSERACT = "tesseract"
+    # Barcode engines (v1.9.3+)
+    PYZBAR = "pyzbar"
+    ZXING = "zxing"
 
     @classmethod
     def normalize(cls, value: str | ModelType | None) -> ModelType | None:

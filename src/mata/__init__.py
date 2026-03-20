@@ -24,10 +24,12 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "1.9.2"
+__version__ = "1.9.3"
 
 from .api import get_model_info, infer, list_models, load, register_model, run, track, val, verbose
 from .core import (
+    BarcodeRegion,
+    BarcodeResult,
     ClassifyResult,
     DepthResult,
     # Types
@@ -95,6 +97,8 @@ __all__ = [
     "DepthResult",
     "OCRResult",
     "TextRegion",
+    "BarcodeRegion",
+    "BarcodeResult",
     "Track",
     "TrackResult",
     "Entity",

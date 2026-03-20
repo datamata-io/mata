@@ -72,8 +72,13 @@ class TestLoadImageURL:
 
             pil_image, image_path = adapter._load_image(url)
 
-            # Verify urlopen was called with correct URL and timeout
-            mock_urlopen.assert_called_once_with(url, timeout=30)
+            # Verify urlopen was called once with the correct URL and timeout
+            mock_urlopen.assert_called_once()
+            call_args = mock_urlopen.call_args
+            first_arg = call_args.args[0]
+            url_called = first_arg.full_url if hasattr(first_arg, "full_url") else first_arg
+            assert url_called == url
+            assert call_args.kwargs.get("timeout") == 30
 
             # Verify returned values
             assert isinstance(pil_image, Image.Image)
@@ -94,7 +99,12 @@ class TestLoadImageURL:
 
             pil_image, image_path = adapter._load_image(url)
 
-            mock_urlopen.assert_called_once_with(url, timeout=30)
+            mock_urlopen.assert_called_once()
+            call_args = mock_urlopen.call_args
+            first_arg = call_args.args[0]
+            url_called = first_arg.full_url if hasattr(first_arg, "full_url") else first_arg
+            assert url_called == url
+            assert call_args.kwargs.get("timeout") == 30
             assert isinstance(pil_image, Image.Image)
             assert pil_image.mode == "RGB"
             assert image_path == url
@@ -113,8 +123,7 @@ class TestLoadImageURL:
             adapter._load_image(url)
 
             # Verify timeout parameter
-            _, kwargs = mock_urlopen.call_args
-            assert kwargs.get("timeout") == 30
+            assert mock_urlopen.call_args.kwargs.get("timeout") == 30
 
     def test_load_image_url_network_failure(self, adapter):
         """Test that network failures raise InvalidInputError with clear message."""
@@ -440,4 +449,9 @@ class TestEdgeCases:
 
             assert isinstance(pil_image, Image.Image)
             assert image_path == url
-            mock_urlopen.assert_called_once_with(url, timeout=30)
+            mock_urlopen.assert_called_once()
+            call_args = mock_urlopen.call_args
+            first_arg = call_args.args[0]
+            url_called = first_arg.full_url if hasattr(first_arg, "full_url") else first_arg
+            assert url_called == url
+            assert call_args.kwargs.get("timeout") == 30

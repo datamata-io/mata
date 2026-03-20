@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.2 Beta Release 2 , it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, and a first-class `embed` task for feature embedding extraction.
+MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.3, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, and a `barcode` task for QR/barcode decoding.
 
 **Universal Loading (v1.5.2+):**
 
@@ -16,6 +16,13 @@ mata.load("track", "facebook/detr-resnet-50", tracker="botsort",
           reid_model="openai/clip-vit-base-patch32")             # 🆕 v1.9.2b1 Beta Release 1 | ReID
 mata.load("embed", "openai/clip-vit-base-patch32")               # 🆕 v1.9.2b2 Beta Release 2 Embed
 mata.load("embed", "./osnet_x0_25.onnx")                         # 🆕 v1.9.2b2 ONNX Embed
+mata.load("barcode", "pyzbar")                                   # 🆕 v1.9.3 Barcode/QR via pyzbar
+mata.load("barcode", "zxing")                                    # 🆕 v1.9.3 Barcode/QR via zxing-cpp
+mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct")                   # 🆕 v1.9.3 VLM (standard)
+mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16") # 🆕 v1.9.3 VLM with dtype
+mata.load("vlm", "LiquidAI/LFM2.5-VL-1.6B", dtype="bfloat16")  # 🆕 v1.9.3 VLM lightweight
+mata.load("vlm", "florence-community/Florence-2-large")          # 🆕 v1.9.3 VLM encoder-decoder
+mata.load("vlm", "google/paligemma2-3b-pt-224", dtype="bfloat16") # 🆕 v1.9.3 VLM document
 ```
 
 **Object Tracking (v1.8.0+):**
@@ -99,9 +106,76 @@ Image/Crops)   ↓                      Validator (detect/segment/classify/depth
                ↓           ↓
                (wraps       (N, D) float32 vectors
                ReIDAdapter)  + instance_ids mapping
+               ↓
+               Barcode Layer (🆕 v1.9.3)
+               ↓              ↓
+               PyzbarAdapter  ZxingAdapter
+               (libzbar)      (zxing-cpp)
+               ↓              ↓
+               BarcodeResult  BarcodeData artifact
+               (frozen)       (graph wiring + ROI correlation)
 ```
 
 **Key Design Pattern:** Task contracts over model specifics - all adapters implement the same `predict()` interface returning task-specific results (VisionResult for detect/segment, ClassifyResult, DepthResult).
+
+### VLM Multi-Model Support (v1.9.3)
+
+**NEW in v1.9.3:** VLMs now support a wider range of model families via `dtype` and `trust_remote_code` constructor kwargs.
+
+**Supported Model Families:**
+
+| Model ID                              | Use Case                  | Required kwargs                    |
+| ------------------------------------- | ------------------------- | ---------------------------------- |
+| `Qwen/Qwen3-VL-2B-Instruct`           | General VQA (dev/testing) | —                                  |
+| `google/medgemma-1.5-4b-it`           | Medical imaging           | `dtype="bfloat16"`                 |
+| `LiquidAI/LFM2.5-VL-1.6B`             | Lightweight general       | `dtype="bfloat16"`                 |
+| `HuggingFaceTB/SmolVLM-256M-Instruct` | Edge/mobile               | —                                  |
+| `florence-community/Florence-2-large` | Grounding/captioning      | — (community model)                |
+| `google/paligemma2-3b-pt-224`         | Document understanding    | `dtype="bfloat16"` (gated)         |
+| `llava-hf/llava-v1.6-mistral-7b-hf`   | High-quality VQA          | —                                  |
+| `microsoft/Phi-3.5-vision-instruct`   | Code/diagrams             | Deferred (needs flash-attn, Linux) |
+| `vikhyatk/moondream2`                 | Tiny/fast                 | `trust_remote_code=True`           |
+
+**Loading Examples:**
+
+```python
+# Standard (backward compatible)
+vlm = mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct")
+
+# Medical imaging with explicit dtype
+vlm = mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16")
+
+# Lightweight VLM
+vlm = mata.load("vlm", "LiquidAI/LFM2.5-VL-1.6B", dtype="bfloat16")
+
+# Models requiring trust_remote_code
+vlm = mata.load("vlm", "microsoft/Florence-2-large", trust_remote_code=True)
+vlm = mata.load("vlm", "microsoft/Phi-3.5-vision-instruct",
+                dtype="bfloat16", trust_remote_code=True)
+
+# One-shot inference
+result = mata.run("vlm", "image.jpg",
+                  model="google/medgemma-1.5-4b-it",
+                  dtype="bfloat16",
+                  prompt="Describe this X-ray")
+```
+
+**YAML Configuration:**
+
+```yaml
+models:
+  vlm:
+    qwen3:
+      source: "Qwen/Qwen3-VL-2B-Instruct"
+      max_new_tokens: 512
+    medgemma:
+      source: "google/medgemma-1.5-4b-it"
+      dtype: "bfloat16"
+      max_new_tokens: 2000
+    lfm2:
+      source: "LiquidAI/LFM2.5-VL-1.6B"
+      dtype: "bfloat16"
+```
 
 ### VLM Tool-Calling Agent System (v1.7.0)
 
@@ -203,6 +277,11 @@ pytest tests/test_embeddings_artifact.py -v  # Embeddings artifact (25 tests)
 pytest tests/test_embed_adapter.py -v        # EmbedAdapter (22 tests)
 pytest tests/test_embed_api.py -v            # Public API integration (25 tests)
 pytest tests/test_embed_node.py -v           # Embed graph node (24 tests)
+
+# Barcode test suites (v1.9.3)
+pytest tests/test_barcode_adapter.py -v      # Barcode adapter (60+ tests)
+pytest tests/test_barcode_node.py -v         # Barcode graph node (40+ tests)
+pytest tests/test_barcode_integration.py -v  # Barcode integration (25+ tests)
 
 # With coverage (target: >80%)
 pip install pytest-cov

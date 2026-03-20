@@ -21,7 +21,7 @@ from pathlib import Path
 # Setup paths
 IMAGE_DIR = Path(__file__).parent.parent / "images"
 IMAGE_1 = IMAGE_DIR / "000000039769.jpg"
-IMAGE_2 = IMAGE_DIR / "hanvin-cheong-tuR2XRPdtYI-unsplash.jpg"
+IMAGE_2 = IMAGE_DIR / "000000015338.jpg"
 
 # ---------------------------------------------------------------------------
 # Mock providers

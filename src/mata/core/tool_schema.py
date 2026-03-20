@@ -408,6 +408,25 @@ TASK_SCHEMA_DEFAULTS: dict[str, ToolSchema] = {
         ],
         builtin=False,
     ),
+    "barcode": ToolSchema(
+        name="barcode",
+        task="barcode",
+        description=(
+            "Detect and decode barcodes or QR codes in the image or a cropped region. "
+            "Returns decoded data, symbology type, and bounding boxes. "
+            "Use this when you need to read barcodes, QR codes, or other machine-readable codes."
+        ),
+        parameters=[
+            ToolParameter(
+                name="region",
+                type="bbox",
+                description="Optional crop region [x1, y1, x2, y2] to scan a specific area",
+                required=False,
+                default=None,
+            ),
+        ],
+        builtin=False,
+    ),
 }
 
 
