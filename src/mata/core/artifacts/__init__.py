@@ -6,6 +6,7 @@ including base classes, type registry, and common artifact types.
 
 from __future__ import annotations
 
+from mata.core.artifacts.barcode_data import BarcodeData, BarcodeEntry
 from mata.core.artifacts.base import Artifact, ArtifactTypeRegistry
 from mata.core.artifacts.classifications import Classifications
 from mata.core.artifacts.converters import (
@@ -53,6 +54,8 @@ __all__ = [
     "CrossMatches",
     "DepthMap",
     "Embeddings",
+    "BarcodeData",
+    "BarcodeEntry",
     "OCRText",
     "TextBlock",
     "Keypoints",

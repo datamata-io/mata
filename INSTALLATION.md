@@ -193,6 +193,34 @@ Possible causes:
    print(detector.device)  # Should show "cuda"
    ```
 
+## Optional Features
+
+### Barcode & QR Code Decoding
+
+To decode barcodes and QR codes, install pyzbar or zxing-cpp:
+
+```bash
+pip install datamata[barcode]         # pyzbar (libzbar wrapper) — recommended
+pip install datamata[barcode-zxing]   # zxing-cpp (Apache 2.0, broader symbologies)
+pip install datamata[barcode-all]     # both engines
+```
+
+**Linux (Ubuntu/Debian)**: pyzbar requires the `libzbar0` system library:
+
+```bash
+sudo apt-get install libzbar0
+```
+
+**macOS**: Install the `zbar` C library via Homebrew:
+
+```bash
+brew install zbar
+```
+
+**Windows**: pyzbar ships with a bundled `libzbar.dll` — no additional system library required.
+
+---
+
 ## Development Installation
 
 If you want to contribute or modify MATA:

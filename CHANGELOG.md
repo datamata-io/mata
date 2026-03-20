@@ -11,6 +11,46 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.3] - 2026-03-19
+
+### Added
+
+**Barcode & QR Code Detection — `barcode` task**
+
+- `mata.run("barcode", image, model="pyzbar")` and `mata.load("barcode", "pyzbar")` — new first-class barcode/QR decoding task
+- `BarcodeRegion` — frozen dataclass for a single decoded symbol: `data`, `type`, `bbox` (xyxy), `score`, `raw_bytes`
+- `BarcodeResult` — frozen dataclass aggregating all decoded barcodes; supports `to_json()`, `from_json()`, `to_dict()`, `save()`, `filter_by_type()`
+- `PyzbarAdapter` — primary barcode engine wrapping `pyzbar` (libzbar); MIT license; ~2 ms decode; supports 12+ symbologies (QR_CODE, EAN_13, EAN_8, UPC_A, UPC_E, CODE_128, CODE_39, CODE_93, ITF, CODABAR, DATA_MATRIX, PDF_417, AZTEC)
+- `ZxingAdapter` — secondary barcode engine wrapping `zxing-cpp`; Apache 2.0; broader symbology support including Aztec and MaxiCode; 4-corner position → xyxy bbox
+- Both adapters use lazy imports — zero overhead when the `barcode` task is unused
+- `ModelType.PYZBAR` and `ModelType.ZXING` enum entries for explicit engine selection
+- `BarcodeData` graph artifact — frozen, wraps `BarcodeResult` for typed graph wiring; `from_barcode_result()` factory; `instance_ids` correlation for ROI pipelines; `to_dict()` / `to_json()` serialization
+- `BarcodeEntry` — frozen dataclass for a single barcode within the graph artifact
+- `Barcode` graph node — accepts `Image` or `ROIs` inputs, produces `BarcodeData`; records `latency_ms` and `num_barcodes` metrics; supports `Detect >> ExtractROIs >> Barcode` composition
+- VLM tool schema: `schema_for_task("barcode")` returns a valid `ToolSchema`; VLM agents with `tools=["barcode"]` can invoke barcode reading
+- Optional dependency groups: `pip install datamata[barcode]` (pyzbar), `pip install datamata[barcode-zxing]` (zxing-cpp), `pip install datamata[barcode-all]`
+- `BarcodeData` and `BarcodeEntry` exported from `mata.core.artifacts`
+- `Barcode` exported from `mata.nodes`
+- `PyzbarAdapter` and `ZxingAdapter` exported from `mata.adapters`
+- 123 new tests: `test_barcode_adapter.py` (58), `test_barcode_node.py` (40), `test_barcode_integration.py` (25)
+- `examples/barcode/basic_scan.py` — one-shot barcode scan example
+- `examples/barcode/README.md` — barcode examples overview
+
+**Multi-VLM Model Support**
+
+- `HuggingFaceVLMAdapter` now accepts a `dtype` constructor kwarg (default `"auto"`); pass `dtype="bfloat16"` for MedGemma, LFM2.5-VL, and other models that require an explicit torch dtype
+- `HuggingFaceVLMAdapter` now accepts a `trust_remote_code` constructor kwarg (default `False`); required for Florence-2, Phi-3.5 Vision, InternVL2, Moondream2, and other community models with custom code
+- `_scale_bbox_from_vlm()` generalized with an auto-detection heuristic: coordinates `< 2.0` → `[0, 1]` normalized; `< 1500` → Qwen3-VL ~1000-unit space; otherwise raw pixel passthrough — eliminates the hardcoded Qwen3-VL assumption and enables correct bbox scaling for all VLM families
+- `_is_vlm_model()` expanded with detection patterns for `medgemma`, `lfm.*vl`, `smolvlm`, `moondream2`
+- 9 VLM model families now supported via the unified `AutoModelForImageTextToText` adapter: Qwen3-VL, MedGemma, LFM2.5-VL, SmolVLM, Florence-2, PaliGemma 2, Phi-3.5 Vision, LLaVA-NeXT, Moondream2 — see `docs/VLM_MODEL_SUPPORT.md` for the full compatibility table
+- `mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16")` and `mata.load("vlm", "florence-community/Florence-2-large", trust_remote_code=True)` now work end-to-end
+- Tool prompt module updated to reflect multi-model compatibility; comments are no longer Qwen3-VL-specific
+- `bm_test/vlm/test_multi_vlm_smoke.py` — standalone GPU integration smoke test covering 7 model families (Qwen3-VL, MedGemma, LFM2.5-VL, SmolVLM, Moondream2, InternVL2, LLaVA-1.5)
+- 20 new tests in `tests/test_vlm_adapter.py`: `TestCoordinateScalingHeuristic` (5), `TestVLMDtypeKwarg` (3), `TestVLMTrustRemoteCodeKwarg` (3), `TestVLMExpandedModelDetection` (6), `TestVLMLoaderKwargsPassthrough` (3)
+- `docs/VLM_MODEL_SUPPORT.md` — new multi-model support guide with full compatibility matrix, dtype/trust_remote_code requirements, and model-specific usage examples
+
+---
+
 ## [1.9.2] - 2026-03-19
 
 ### Added
@@ -80,7 +120,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `_build_capability_map()` — added `"Embed": "embed"` and `"ReID": "reid"` entries; `_infer_capability()` updated with `"reid"` and `"embed"` heuristics
 - `ReID` and `AnnotateRT` exported from `mata.nodes`
 - `CrossMatch` and `CrossMatches` exported from `mata.core.artifacts`
-- `bm_test/camera_agent.py` migrated from manual 60-line while-loop to `Graph.run()` with callback, ReID node, and AnnotateRT node
 - 166 new tests: `test_cross_matches.py` (29), `test_reid_node.py` (43), `test_annotate_rt.py` (50), `test_graph_video_pipeline_integration.py` (32), callback tests in `test_temporal.py` (+8) and `test_graph_run_video.py` (+4)
 
 **Documentation**
@@ -103,7 +142,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - `Graph.run()` callback signature for video files is now `(result, frame_num, frame_bgr)` — adds raw BGR frame as third argument; stream/webcam callbacks retain existing `(result, frame_num)` signature
 - `_build_capability_map()` extended with `"Embed"` and `"ReID"` entries
-- `bm_test/camera_agent.py` refactored to use `Graph.run()` pipeline — removed manual `_reid_step()`, `_annotate_frame()`, `_track_color()` helpers
 - `mata.nodes.__all__` extended with `ValkeyStore` and `ValkeyLoad`
 - `mata.core.exporters.__init__` extended with `export_valkey`, `load_valkey`, `publish_valkey`
 - `mata.track()` signature extended with `reid_model`, `with_reid`, `reid_bridge` kwargs (backward-compatible defaults)

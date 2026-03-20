@@ -15,6 +15,7 @@ from mata.core.types import ModelType
 logger = get_logger(__name__)
 
 _EXTERNAL_OCR_ENGINES = {"easyocr", "paddleocr", "tesseract"}
+_EXTERNAL_BARCODE_ENGINES = {"pyzbar", "zxing"}
 
 
 class UniversalLoader:
@@ -319,6 +320,16 @@ class UniversalLoader:
 
             return TesseractAdapter(**kwargs)
 
+        elif model_type == ModelType.PYZBAR:
+            from mata.adapters.barcode.pyzbar_adapter import PyzbarAdapter
+
+            return PyzbarAdapter(**kwargs)
+
+        elif model_type == ModelType.ZXING:
+            from mata.adapters.barcode.zxing_adapter import ZxingAdapter
+
+            return ZxingAdapter(**kwargs)
+
         else:
             raise UnsupportedModelError(f"Unknown model type: {model_type}")
 
@@ -365,6 +376,10 @@ class UniversalLoader:
         # Check for external OCR engine names (bare strings, no '/')
         # Must be checked before HuggingFace slash-check to avoid intercepting HF model IDs
         if source.lower() in _EXTERNAL_OCR_ENGINES:
+            return "external_engine", source.lower()
+
+        # Check for external barcode engine names
+        if source.lower() in _EXTERNAL_BARCODE_ENGINES:
             return "external_engine", source.lower()
 
         # Check if it's a HuggingFace ID (contains '/')
@@ -648,6 +663,8 @@ class UniversalLoader:
                 "output_mode",
                 "images",
             }
+            # Filter out prediction-time params; remaining kwargs (device, dtype,
+            # trust_remote_code, etc.) are forwarded to the adapter constructor
             vlm_kwargs = {k: v for k, v in kwargs.items() if k not in prediction_params}
             adapter = HuggingFaceVLMAdapter(model_id=model_id, **vlm_kwargs)
             return VLMWrapper(adapter)
@@ -671,37 +688,55 @@ class UniversalLoader:
             )
 
     def _load_from_external_engine(self, task: str, engine_name: str, **kwargs) -> Any:
-        """Load an external OCR engine adapter by name.
+        """Load an external OCR or barcode engine adapter by name.
 
         Args:
-            task: Task type (must be "ocr")
-            engine_name: Engine name, one of "easyocr", "paddleocr", "tesseract"
+            task: Task type ("ocr" or "barcode")
+            engine_name: Engine name, one of "easyocr", "paddleocr", "tesseract",
+                "pyzbar", "zxing"
             **kwargs: Additional arguments forwarded to the adapter constructor
 
         Returns:
             Adapter instance for the requested engine
 
         Raises:
-            UnsupportedModelError: If task is not "ocr" or engine_name is unknown
+            UnsupportedModelError: If task/engine combination is invalid
         """
-        if task != "ocr":
-            raise UnsupportedModelError(
-                f"External engine '{engine_name}' is only supported for task='ocr', got task='{task}'"
-            )
-        if engine_name == "easyocr":
-            from mata.adapters.ocr.easyocr_adapter import EasyOCRAdapter
+        # OCR engines
+        if engine_name in _EXTERNAL_OCR_ENGINES:
+            if task != "ocr":
+                raise UnsupportedModelError(
+                    f"External engine '{engine_name}' is only supported for task='ocr', got task='{task}'"
+                )
+            if engine_name == "easyocr":
+                from mata.adapters.ocr.easyocr_adapter import EasyOCRAdapter
 
-            return EasyOCRAdapter(**kwargs)
-        elif engine_name == "paddleocr":
-            from mata.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+                return EasyOCRAdapter(**kwargs)
+            elif engine_name == "paddleocr":
+                from mata.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
 
-            return PaddleOCRAdapter(**kwargs)
-        elif engine_name == "tesseract":
-            from mata.adapters.ocr.tesseract_adapter import TesseractAdapter
+                return PaddleOCRAdapter(**kwargs)
+            elif engine_name == "tesseract":
+                from mata.adapters.ocr.tesseract_adapter import TesseractAdapter
 
-            return TesseractAdapter(**kwargs)
-        else:
-            raise UnsupportedModelError(f"Unknown external OCR engine: '{engine_name}'")
+                return TesseractAdapter(**kwargs)
+
+        # Barcode engines
+        if engine_name in _EXTERNAL_BARCODE_ENGINES:
+            if task != "barcode":
+                raise UnsupportedModelError(
+                    f"External engine '{engine_name}' is only supported for task='barcode', got task='{task}'"
+                )
+            if engine_name == "pyzbar":
+                from mata.adapters.barcode.pyzbar_adapter import PyzbarAdapter
+
+                return PyzbarAdapter(**kwargs)
+            elif engine_name == "zxing":
+                from mata.adapters.barcode.zxing_adapter import ZxingAdapter
+
+                return ZxingAdapter(**kwargs)
+
+        raise UnsupportedModelError(f"Unknown external engine: '{engine_name}'")
 
     def _load_from_torchvision(self, task: str, model_name: str, **kwargs) -> Any:
         """Load torchvision detection model.

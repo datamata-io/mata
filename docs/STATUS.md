@@ -1,12 +1,57 @@
-# ✅ MATA Status — Validation Improvements COMPLETE
+# ✅ MATA Status — Barcode & QR Task + Multi-VLM Support COMPLETE
 
-**Latest Update:** March 1, 2026  
-**Version:** 1.8.1 (Validation Label Remapping & Dataset Configs)  
+**Latest Update:** March 20, 2026  
+**Version:** 1.9.3 (Barcode Task + Multi-VLM Expansion)  
 **Status:** 🎉 **PRODUCTION READY**
 
 ---
 
-## 🆕 LATEST: Validation Improvements (v1.8.1)
+## 🆕 LATEST: Barcode & QR Task + Multi-VLM Support (v1.9.3)
+
+**Released:** March 20, 2026
+
+Adds a first-class `"barcode"` task for decoding QR codes and barcodes (12+ symbologies) using pyzbar or zxing-cpp, with a full graph node and artifact. Also expands VLM support from Qwen3-VL-only to 9 model families via new `dtype` and `trust_remote_code` constructor kwargs, a generalized coordinate-scaling heuristic, and expanded auto-detection patterns.
+
+**New in v1.9.3:**
+
+- `mata.run("barcode", image, model="pyzbar")` — first-class barcode/QR decoding task
+- `PyzbarAdapter` (primary) and `ZxingAdapter` (secondary) — both lazy-loaded
+- `BarcodeResult`, `BarcodeRegion` — frozen dataclasses; exportable to JSON/CSV
+- `BarcodeData` graph artifact + `Barcode` node — supports `Detect >> ExtractROIs >> Barcode`
+- VLM `dtype` kwarg — `mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16")`
+- VLM `trust_remote_code` kwarg — enables Florence-2, Phi-3.5 Vision, Moondream2, etc.
+- Generalized `_scale_bbox_from_vlm()` — works across all VLM coordinate spaces
+- `docs/VLM_MODEL_SUPPORT.md` — full 9-model compatibility table
+- Optional extras: `pip install datamata[barcode]` / `datamata[barcode-zxing]` / `datamata[barcode-all]`
+- 114+ new barcode tests + 20 new VLM tests
+
+---
+
+## Appearance-Based ReID + Feature Embedding + Valkey (v1.9.2)
+
+**Released:** March 19, 2026
+
+Added PyPI rename (`datamata`), Valkey/Redis graph pipeline storage, appearance-based ReID tracking, feature embedding task (`"embed"`), cross-camera ReID via Valkey, and a graph video pipeline with `CrossMatch` artifact, `ReID` and `AnnotateRT` nodes.
+
+---
+
+## OCR Evaluation Pipeline (v1.9.0)
+
+**Released:** March 2026
+
+Added OCR evaluation with `OCRMetrics`, COCO-Text JSON dataset support, and 71 new eval tests. Added `OCRMetrics` to the `mata.val()` public API.
+
+---
+
+## Graph Notation Refactor (v1.9.1)
+
+**Released:** March 8, 2026
+
+Refactored graph flow notation from `→` to `>` in all examples, scripts, and documentation for consistency with the DSL operator syntax.
+
+---
+
+## Validation Improvements (v1.8.1)
 
 **Released:** March 1, 2026
 

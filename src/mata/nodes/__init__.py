@@ -9,6 +9,7 @@ from __future__ import annotations
 # Visualization & Analysis nodes (Task 5.8)
 from mata.nodes.annotate import Annotate
 from mata.nodes.annotate_rt import AnnotateRT
+from mata.nodes.barcode import Barcode
 from mata.nodes.classify import Classify
 from mata.nodes.depth import EstimateDepth
 
@@ -83,6 +84,8 @@ __all__ = [
     "PromoteEntities",
     # OCR nodes
     "OCR",
+    # Barcode nodes
+    "Barcode",
     # Visualization & Analysis nodes
     "Annotate",
     "AnnotateRT",

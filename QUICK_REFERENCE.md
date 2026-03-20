@@ -1,4 +1,4 @@
-# MATA Quick Reference — v1.5 to v1.9
+﻿# MATA Quick Reference — v1.5 to v1.9.3
 
 ## 📋 Table of Contents
 
@@ -15,6 +15,7 @@
 | [Object Tracking](#-object-tracking-quick-reference-v18) | v1.8 |
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
 | [Feature Embedding](#-feature-embedding-quick-reference-v192b2) | v1.9.2 Beta Release 2 |
+| [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193) | v1.9.3 |
 | [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
 | [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
 
@@ -1633,7 +1634,138 @@ result = mata.infer(graph, image="form.jpg", providers={
 
 ---
 
-## �📊 Evaluation Quick Reference (v1.8)
+## 🔲 Barcode & QR Code Quick Reference (v1.9.3)
+
+### Load backends
+
+```python
+import mata
+
+mata.load("barcode", "pyzbar")   # pyzbar (libzbar) — recommended, MIT license
+mata.load("barcode", "zxing")    # zxing-cpp — broader symbologies, Apache 2.0
+mata.load("barcode", "my-alias") # config alias
+```
+
+### `mata.run()` — one-liner decode
+
+```python
+# Scan with pyzbar
+result = mata.run("barcode", "image.jpg", model="pyzbar")
+
+print(f"Found {len(result.barcodes)} barcode(s)")
+for bc in result.barcodes:
+    print(f"[{bc.type}] {bc.data}  score={bc.score:.2f}  bbox={bc.bbox}")
+
+# Filter by symbology type
+qr_only = result.filter_by_type("QR_CODE")
+
+# Scan with zxing-cpp
+result = mata.run("barcode", "image.jpg", model="zxing")
+```
+
+### Export formats
+
+```python
+result.save("output.json")   # structured JSON (roundtrippable)
+result.save("output.csv")    # CSV: type, data, score, x1, y1, x2, y2
+
+json_str = result.to_json(indent=2)
+data     = result.to_dict()
+
+# Reconstruct from JSON
+from mata.adapters.barcode import BarcodeResult
+loaded = BarcodeResult.from_json(json_str)
+```
+
+### Engine comparison
+
+| Engine | Alias | Bbox | License | Install |
+|--------|-------|------|---------|--------|
+| pyzbar | `"pyzbar"` | ✅ xyxy | MIT | `pip install datamata[barcode]` |
+| zxing-cpp | `"zxing"` | ✅ xyxy (from corners) | Apache 2.0 | `pip install datamata[barcode-zxing]` |
+
+**Supported symbologies (pyzbar):** QR_CODE, EAN_13, EAN_8, UPC_A, UPC_E, CODE_128, CODE_39, CODE_93, ITF, CODABAR, DATA_MATRIX, PDF_417, AZTEC (12+)
+
+**Additional symbologies (zxing-cpp):** MaxiCode, RSS_14, RSS_EXPANDED, and more
+
+### Config aliases (`.mata/models.yaml`)
+
+```yaml
+models:
+  barcode:
+    default-barcode:
+      source: "pyzbar"
+    zxing-decoder:
+      source: "zxing"
+```
+
+```python
+adapter = mata.load("barcode", "default-barcode")  # resolves via config
+```
+
+### Graph node — `Barcode`
+
+```python
+from mata.nodes import Barcode
+
+# Whole-image decode
+node = Barcode(using="barcode_engine", out="barcodes")
+
+# ROI-mode: decode each crop individually, preserves instance_ids
+node = Barcode(using="barcode_engine", src="rois", out="barcodes")
+```
+
+### Pipeline: Detect → ExtractROIs → Barcode → Fuse
+
+```python
+from mata.nodes import Detect, Filter, ExtractROIs, Barcode, Fuse
+from mata.core.graph import Graph
+
+graph = (
+    Graph("barcode_pipeline")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", label_in=["barcode", "qr_code"], out="filtered"))
+    .then(ExtractROIs(src_dets="filtered", out="rois"))
+    .then(Barcode(using="barcode_engine", src="rois", out="barcodes"))
+    .then(Fuse(out="final", dets="filtered", barcodes="barcodes"))
+)
+
+result = mata.infer(graph, image="shelf.jpg", providers={
+    "detector":       mata.load("detect", "facebook/detr-resnet-50"),
+    "barcode_engine": mata.load("barcode", "pyzbar"),
+})
+for item in result["final"].items:
+    print(f"{item.label}: {item.barcode_data!r}")
+```
+
+When `Barcode` receives a `ROIs` artifact, `BarcodeData.instance_ids` aligns
+one-to-one with the source ROI IDs so `Fuse` can correlate detections with
+their decoded payloads.
+
+### VLM tool-calling integration
+
+```python
+from mata.nodes import VLMQuery
+
+node = VLMQuery(
+    using="vlm",
+    prompt="Read all barcodes and QR codes visible in this image.",
+    tools=["barcode", "zoom"],   # barcode exposed as an agent tool
+    max_iterations=4,
+)
+result = mata.infer(graph, image="shelf.jpg", providers={
+    "vlm":     mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct"),
+    "barcode": mata.load("barcode", "pyzbar"),
+})
+```
+
+**Test suites:** `tests/test_barcode_adapter.py` (60+) · `tests/test_barcode_node.py` (40+) · `tests/test_barcode_integration.py` (25+) — **~125 barcode tests total**
+
+**Example:** [examples/barcode/basic_scan.py](examples/barcode/basic_scan.py)
+
+---
+
+## 📊 Evaluation Quick Reference (v1.8)
 
 ### `mata.val()` — YOLO-style validation
 
@@ -1813,7 +1945,7 @@ conn = registry.get_valkey_connection("production")
 
 ---
 
-**Version:** 1.9.0
-**Date:** March 9, 2026
+**Version:** 1.9.3
+**Date:** March 19, 2026
 **Status:** ✅ Production Ready
 ````

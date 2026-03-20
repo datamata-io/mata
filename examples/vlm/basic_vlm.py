@@ -7,6 +7,10 @@ Core patterns for working with vision-language models:
   4. Load-once, predict many (batch efficiency)
   5. Accessing result metadata
   6. Structured output parsing
+  7. Medical imaging with MedGemma (dtype='bfloat16')
+  8. Lightweight VLM with LFM2.5 (dtype='bfloat16')
+  9. Florence-2 grounding/captioning (community model)
+  10. PaliGemma 2 document understanding (gated)
 
 Run:
   python examples/vlm/basic_vlm.py
@@ -22,7 +26,7 @@ import mata
 # ── paths ─────────────────────────────────────────────────────────────────────
 IMAGE_DIR = Path(__file__).parent.parent / "images"
 IMAGE_1 = IMAGE_DIR / "000000039769.jpg"
-IMAGE_2 = IMAGE_DIR / "hanvin-cheong-tuR2XRPdtYI-unsplash.jpg"
+IMAGE_2 = IMAGE_DIR / "000000015338.jpg"
 
 MODEL = "Qwen/Qwen3-VL-2B-Instruct"
 
@@ -154,6 +158,65 @@ def example_structured_output():
         print("  (No entities parsed — graceful fallback to raw text.)")
 
 
+# === Section 7: Medical Imaging with MedGemma ===
+
+def example_medgemma():
+    """Use MedGemma for medical image analysis (requires dtype='bfloat16')."""
+    print("\n=== 7. Medical Imaging with MedGemma ===")
+
+    vlm = mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16")
+    # Medical imaging test image (chest X-ray, CC0)
+    XRAY_URL = "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png"
+    result = vlm.predict(XRAY_URL, prompt="Describe this X-ray image.")
+    print(f"Response:\n{result.text}")
+
+
+# === Section 8: Lightweight VLM with LFM2.5 ===
+
+def example_lfm2():
+    """Use LFM2.5-VL for lightweight inference (requires dtype='bfloat16')."""
+    print("\n=== 8. Lightweight VLM with LFM2.5 ===")
+
+    vlm = mata.load("vlm", "LiquidAI/LFM2.5-VL-1.6B", dtype="bfloat16")
+    result = vlm.predict(str(IMAGE_1), prompt="What is in this image?")
+    print(f"Response:\n{result.text}")
+
+
+# === Section 9: Florence-2 (Grounding / Captioning) ===
+
+def example_florence2():
+    """Load Florence-2 for dense captioning and grounding.
+
+    The canonical loading ID is florence-community/Florence-2-large, which is the
+    official transformers-5.x port.  MATA transparently redirects the legacy
+    microsoft/Florence-2-large ID to the community model automatically, so both
+    forms work — but loading the community ID directly avoids the redirect overhead.
+    """
+    print("\n=== 9. Florence-2 (Grounding / Captioning) ===")
+
+    # Direct community model (recommended — no trust_remote_code required)
+    vlm = mata.load("vlm", "florence-community/Florence-2-large")
+    result = vlm.predict(str(IMAGE_1), prompt="Describe this image in detail.")
+    print(f"Response:\n{result.text}")
+
+    # The legacy microsoft/Florence-2-large ID also works — MATA auto-redirects it
+    # vlm = mata.load("vlm", "microsoft/Florence-2-large", trust_remote_code=True)
+
+
+# === Section 10: PaliGemma 2 (Document Understanding) ===
+
+def example_paligemma2():
+    """Use PaliGemma 2 for document understanding and fine-grained recognition.
+
+    PaliGemma models are gated on HuggingFace — run `huggingface-cli login` first.
+    """
+    print("\n=== 10. PaliGemma 2 (Document Understanding) ===")
+
+    vlm = mata.load("vlm", "google/paligemma2-3b-pt-224", dtype="bfloat16")
+    result = vlm.predict(str(IMAGE_1), prompt="Describe this image.")
+    print(f"Response:\n{result.text}")
+
+
 def main():
     print("MATA — VLM Examples")
     print("=" * 40)
@@ -170,6 +233,10 @@ def main():
         example_load_once,
         example_metadata,
         example_structured_output,
+        example_medgemma,
+        example_lfm2,
+        example_florence2,
+        example_paligemma2,
     ]:
         try:
             fn()

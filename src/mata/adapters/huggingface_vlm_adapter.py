@@ -7,18 +7,24 @@ question answering (VQA), and image-based conversation using chat-style APIs.
 Key Features:
 - Chat-based API with system prompt support
 - Configurable generation parameters (temperature, top_p, top_k)
-- Support for Qwen3-VL, LLaVA, InternVL, and other VLM architectures
+- Multi-model support: Qwen3-VL, MedGemma, LFM2-VL, LLaVA, InternVL, and more
+- Configurable dtype and trust_remote_code for model-specific requirements
 - Multi-turn conversation ready (future enhancement)
 - Streaming support ready (future enhancement)
 
 Supported Models:
 - Qwen/Qwen3-VL-2B-Instruct (recommended for dev/testing)
-- LLaVA models (llava-hf/llava-1.5-7b-hf)
-- InternVL models (OpenGVLab/InternVL2-1B)
-- Phi-Vision models (microsoft/phi-3-vision-instruct)
-- CogVLM, MiniCPM-V, Molmo, Idefics, PaliGemma, Florence-2
+- google/medgemma-1.5-4b-it (medical imaging, requires dtype="bfloat16")
+- LiquidAI/LFM2.5-VL-1.6B (lightweight, requires dtype="bfloat16")
+- HuggingFaceTB/SmolVLM-256M-Instruct (ultra-light edge)
+- microsoft/Florence-2-large (grounding/captioning, requires trust_remote_code=True)
+- google/paligemma2-3b-pt-224 (document understanding)
+- llava-hf/llava-v1.6-mistral-7b-hf (high-quality VQA)
+- OpenGVLab/InternVL2-1B (multilingual, requires trust_remote_code=True)
+- microsoft/Phi-3.5-vision-instruct (code/diagrams, requires trust_remote_code=True)
+- vikhyatk/moondream2 (tiny/fast, requires trust_remote_code=True)
 
-Note: Requires transformers >= 4.51.0 for Qwen3-VL support
+Note: Requires transformers >= 5.0.0 for full multi-model support
 """
 
 from __future__ import annotations
@@ -93,6 +99,51 @@ def _ensure_transformers():
     return _transformers
 
 
+def _load_processor_patched(auto_processor_cls, model_id: str, trust_remote_code: bool):
+    """Load a processor after patching TokenizersBackend for legacy compat.
+
+    Some custom processor code (e.g. Florence-2) accesses
+    ``tokenizer.additional_special_tokens`` which was removed in
+    transformers >= 5.0.  This helper temporarily adds the attribute so the
+    processor __init__ can proceed.
+    """
+    try:
+        from transformers.tokenization_utils_tokenizers import TokenizersBackend
+    except ImportError:
+        # transformers < 5.0 — no TokenizersBackend to patch.
+        return auto_processor_cls.from_pretrained(
+            model_id,
+            trust_remote_code=trust_remote_code,
+        )
+
+    _orig_getattr = TokenizersBackend.__getattr__
+
+    def _compat_getattr(self, key):
+        if key == "additional_special_tokens":
+            return list(getattr(self, "all_special_tokens", []))
+        return _orig_getattr(self, key)
+
+    TokenizersBackend.__getattr__ = _compat_getattr
+    try:
+        return auto_processor_cls.from_pretrained(
+            model_id,
+            trust_remote_code=trust_remote_code,
+        )
+    finally:
+        TokenizersBackend.__getattr__ = _orig_getattr
+
+
+# Mapping of model IDs whose custom code (trust_remote_code) is incompatible
+# with the installed transformers version → community-converted versions that
+# use native transformers classes.  Only applied when the original repo fails.
+_MODEL_COMPAT_REDIRECTS: dict[str, str] = {
+    "microsoft/Florence-2-large": "florence-community/Florence-2-large",
+    "microsoft/Florence-2-base": "florence-community/Florence-2-base",
+    "microsoft/Florence-2-large-ft": "florence-community/Florence-2-large-ft",
+    "microsoft/Florence-2-base-ft": "florence-community/Florence-2-base-ft",
+}
+
+
 class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
     """Vision-Language Model adapter using HuggingFace transformers.
 
@@ -150,6 +201,8 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
         temperature: float = 0.7,
         top_p: float = 0.8,
         top_k: int = 20,
+        dtype: str = "auto",
+        trust_remote_code: bool = False,
         **kwargs,
     ):
         """Initialize VLM adapter with model and generation parameters.
@@ -162,6 +215,13 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             temperature: Sampling temperature (default: 0.7, higher = more random)
             top_p: Nucleus sampling probability (default: 0.8)
             top_k: Top-k sampling parameter (default: 20)
+            dtype: Torch dtype for model loading ("auto", "bfloat16", "float16",
+                "float32", or a torch.dtype object). Default "auto" lets
+                Transformers select the optimal dtype.
+            trust_remote_code: Allow executing custom model code from the
+                HuggingFace Hub. Required by InternVL, CogVLM, Phi-Vision,
+                Moondream2, Florence-2. Default False for security — must be
+                explicitly opted in.
             **kwargs: Additional arguments passed to parent class
 
         Raises:
@@ -186,6 +246,13 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
         self.temperature = temperature
         self.top_p = top_p
         self.top_k = top_k
+        self.dtype = dtype
+        self.trust_remote_code = trust_remote_code
+
+        # Resolve possible compatibility redirect (e.g. microsoft/Florence-2-large
+        # → florence-community/Florence-2-large for transformers >= 5.0).
+        # The redirect is stored so predict() forward-calls use the same ID.
+        self._effective_model_id = model_id
 
         # Load model and processor
         try:
@@ -195,16 +262,112 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
 
             with suppress_third_party_logs():
 
-                # Load processor
+                # Load processor — fall back to AutoTokenizer for models
+                # (e.g. moondream3) that don't ship standard processor files.
                 AutoProcessor = transformers_lib["AutoProcessor"]  # noqa: N806
-                self.processor = AutoProcessor.from_pretrained(model_id)
+                try:
+                    self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=self.trust_remote_code)
+                except AttributeError as ae:
+                    if "additional_special_tokens" not in str(ae):
+                        raise
+                    # transformers >=5.0 compat: TokenizersBackend dropped the
+                    # additional_special_tokens property that some legacy custom
+                    # processor code (e.g. Florence-2) still accesses.  Patch
+                    # the class temporarily and retry.
+                    logger.warning(f"Patching tokenizer for {model_id} " f"(missing additional_special_tokens).")
+                    self.processor = _load_processor_patched(
+                        AutoProcessor,
+                        model_id,
+                        self.trust_remote_code,
+                    )
+                except (ValueError, OSError):
+                    from transformers import AutoTokenizer
+
+                    logger.warning(f"AutoProcessor not available for {model_id}; " f"falling back to AutoTokenizer.")
+                    self.processor = AutoTokenizer.from_pretrained(model_id, trust_remote_code=self.trust_remote_code)
                 logger.debug(f"Loaded processor for {model_id}")
 
-                # Load model with appropriate dtype and device mapping
+                # Load model — fallback chain for trust_remote_code models whose
+                # custom config is not registered with AutoModelForImageTextToText.
+                #
+                # Tried in order:
+                #   1. AutoModelForImageTextToText  (standard, preferred)
+                #   2. AutoModel                    (generic, handles most custom configs)
+                #   3. AutoModelForCausalLM         (for LLM-style VLMs like Moondream2)
+                #
+                # For each class, if Accelerate's meta-device dispatch causes a
+                # "Tensor.item() cannot be called on meta tensors" RuntimeError,
+                # the load is retried WITHOUT device_map and the model is moved
+                # to the target device manually afterward.
                 AutoModelForImageTextToText = transformers_lib["AutoModelForImageTextToText"]  # noqa: N806
-                self.model = AutoModelForImageTextToText.from_pretrained(
-                    model_id, torch_dtype="auto", device_map=self.device
+                load_kwargs = dict(
+                    torch_dtype=self.dtype,
+                    device_map=self.device,
+                    trust_remote_code=self.trust_remote_code,
                 )
+
+                def _try_load(cls, kwargs, src=None):
+                    """Try loading with device_map; on meta-tensor error, retry without it."""
+                    src = src or model_id
+                    try:
+                        return cls.from_pretrained(src, **kwargs)
+                    except RuntimeError as re:
+                        if "meta tensors" not in str(re):
+                            raise
+                        logger.warning(
+                            f"{cls.__name__} hit meta-tensor error for {src} "
+                            f"(device_map incompatible); retrying without device_map."
+                        )
+                        no_dmap = {k: v for k, v in kwargs.items() if k != "device_map"}
+                        model = cls.from_pretrained(src, **no_dmap)
+                        return model.to(self.device)
+
+                try:
+                    self.model = _try_load(AutoModelForImageTextToText, load_kwargs)
+                except (AttributeError, RuntimeError):
+                    # transformers >=5.0 compat: legacy custom configs (e.g.
+                    # microsoft/Florence-2) use APIs removed in v5.  If a
+                    # community-converted version is registered in
+                    # _MODEL_COMPAT_REDIRECTS, silently redirect to it and
+                    # reload without trust_remote_code.
+                    redirect = _MODEL_COMPAT_REDIRECTS.get(model_id)
+                    if redirect is None:
+                        raise
+                    logger.warning(
+                        f"Model {model_id!r} is incompatible with the installed "
+                        f"transformers version; redirecting to {redirect!r}."
+                    )
+                    self._effective_model_id = redirect
+                    compat_kwargs = dict(load_kwargs)
+                    compat_kwargs["trust_remote_code"] = False
+                    self.model = _try_load(AutoModelForImageTextToText, compat_kwargs, src=redirect)
+                    # Reload the processor too from the compatible repo.
+                    self.processor = AutoProcessor.from_pretrained(redirect, trust_remote_code=False)
+                except ValueError as ve:
+                    if "Unrecognized configuration class" not in str(ve):
+                        raise
+                    logger.warning(
+                        f"AutoModelForImageTextToText does not support {model_id}'s "
+                        f"custom config; trying fallback loaders."
+                    )
+                    from transformers import AutoModel, AutoModelForCausalLM
+
+                    self.model = None
+                    last_exc: Exception = ve
+                    for fallback_cls in (AutoModel, AutoModelForCausalLM):
+                        try:
+                            self.model = _try_load(fallback_cls, load_kwargs)
+                            break
+                        except ValueError as inner_ve:
+                            if "Unrecognized configuration class" in str(inner_ve):
+                                last_exc = inner_ve
+                                continue
+                            raise
+                        except Exception as inner_exc:
+                            last_exc = inner_exc
+                            continue
+                    if self.model is None:
+                        raise last_exc
 
             self.model.eval()
 
@@ -329,8 +492,7 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
         if not all_images:
             raise InvalidInputError("At least one image is required. Provide 'image' and/or 'images' parameter.")
 
-        # Store original image dimensions (for bbox scaling)
-        # Qwen3-VL uses normalized ~1000-unit coordinate space
+        # Store original image dimensions for bbox coordinate scaling
         original_width, original_height = all_images[0].size
         logger.debug(f"Original image dimensions: {original_width}x{original_height}")
 
@@ -360,10 +522,33 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
 
         messages.append({"role": "user", "content": user_content})
 
-        # Process inputs using chat template
-        inputs = self.processor.apply_chat_template(
-            messages, tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt"
-        ).to(self.device)
+        # Process inputs — chat-based API (standard VLMs) or direct API
+        # (encoder-decoder VLMs like Florence-2 that pre-date chat templates).
+        has_chat_template = (
+            hasattr(self.processor, "apply_chat_template")
+            and getattr(self.processor, "chat_template", None) is not None
+        )
+
+        if has_chat_template:
+            inputs = self.processor.apply_chat_template(
+                messages, tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt"
+            ).to(self.device)
+        else:
+            # Florence-2 and similar encoder-decoder VLMs: pass text + images
+            # directly to the processor without chat markup.
+            if len(all_images) > 1:
+                logger.debug(
+                    f"Processor for {self.model_id} does not support chat template; "
+                    f"only the first image will be used."
+                )
+            inputs = self.processor(text=prompt, images=all_images[0], return_tensors="pt").to(self.device)
+            # Cast floating-point inputs to the model's dtype so they match
+            # model weights (e.g. community Florence-2 loads as float16 which
+            # mismatches float32 processor outputs).
+            model_dtype = next(self.model.parameters()).dtype
+            for k, v in inputs.items():
+                if hasattr(v, "is_floating_point") and v.is_floating_point():
+                    inputs[k] = v.to(model_dtype)
 
         # Determine generation parameters (predict-time overrides constructor defaults)
         gen_max_tokens = max_new_tokens if max_new_tokens is not None else self.max_new_tokens
@@ -382,8 +567,15 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
                 **({"temperature": gen_temperature, "top_p": gen_top_p, "top_k": gen_top_k} if do_sample else {}),
             )
 
-        # Trim input tokens to get only the generated portion
-        trimmed = [out[len(inp) :] for inp, out in zip(inputs.input_ids, generated_ids)]
+        # Trim input tokens to get only the generated portion.
+        # Encoder-decoder models (e.g. Florence-2): generate() returns the
+        # decoder output only — no prompt tokens to strip.
+        # Decoder-only (causal LM) models: generate() echoes the prompt, so
+        # we must slice it off.
+        if getattr(self.model.config, "is_encoder_decoder", False):
+            trimmed = generated_ids
+        else:
+            trimmed = [out[len(inp) :] for inp, out in zip(inputs.input_ids, generated_ids)]
 
         # Decode generated tokens to text
         output_text = self.processor.batch_decode(
@@ -402,7 +594,6 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
                     for item in parsed:
                         if isinstance(item, Instance):
                             # Scale bbox from VLM coordinate space to original image dimensions
-                            # Qwen3-VL uses ~1000-unit normalized coordinates
                             if item.bbox is not None:
                                 scaled_bbox = self._scale_bbox_from_vlm(item.bbox, original_width, original_height)
                                 # Create new Instance with scaled bbox (frozen dataclass)
@@ -455,24 +646,28 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             prompt=prompt,
         )
 
-    def _scale_bbox_from_vlm(self, bbox: BBox, image_width: int, image_height: int, vlm_size: int = 1000) -> BBox:
+    def _scale_bbox_from_vlm(self, bbox: BBox, image_width: int, image_height: int) -> BBox:
         """Scale bbox from VLM coordinate space to original image dimensions.
 
-        Qwen3-VL and similar VLMs use a normalized ~1000-unit coordinate system
-        for bbox generation, regardless of actual image dimensions. This method
-        scales those coordinates back to the original image size.
+        Different VLMs use different coordinate conventions for bbox output.
+        This method applies a heuristic to auto-detect the coordinate system:
+
+        1. If all coordinates are in [0.0, 2.0) → treat as [0, 1] normalized
+           (e.g., some grounding models output fractional coords)
+        2. If all coordinates are in [0, 1500) → treat as ~1000-unit normalized
+           (e.g., Qwen3-VL uses ~1000-unit coordinate space)
+        3. Otherwise → treat as raw pixel coordinates (no scaling)
 
         Args:
             bbox: Bbox in VLM coordinate space (x1, y1, x2, y2)
             image_width: Original image width in pixels
             image_height: Original image height in pixels
-            vlm_size: VLM coordinate system size (default: 1000 for Qwen3-VL)
 
         Returns:
-            Scaled bbox in original image coordinate space
+            Scaled bbox in original image coordinate space (xyxy format)
 
         Examples:
-            >>> # VLM bbox: [500, 500, 1000, 1000] in 1000x1000 space
+            >>> # VLM bbox: [500, 500, 1000, 1000] in 1000x1000 space (Qwen3-VL style)
             >>> # Original image: 640x480
             >>> scaled = adapter._scale_bbox_from_vlm(
             ...     (500, 500, 1000, 1000), 640, 480
@@ -480,10 +675,21 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             >>> # Result: (320, 240, 640, 480)
         """
         x1, y1, x2, y2 = bbox
+        max_coord = max(x1, y1, x2, y2)
 
-        # Scale from VLM coordinate space to original dimensions
-        scale_x = image_width / vlm_size
-        scale_y = image_height / vlm_size
+        if max_coord < 2.0:
+            # [0, 1] normalized coordinates → scale to image dimensions
+            scale_x = image_width
+            scale_y = image_height
+        elif max_coord < 1500:
+            # ~1000-unit normalized (Qwen3-VL style) → scale proportionally
+            vlm_size = 1000
+            scale_x = image_width / vlm_size
+            scale_y = image_height / vlm_size
+        else:
+            # Raw pixel coordinates → no scaling needed
+            scale_x = 1.0
+            scale_y = 1.0
 
         scaled_x1 = x1 * scale_x
         scaled_y1 = y1 * scale_y
@@ -538,6 +744,8 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             "temperature": self.temperature,
             "top_p": self.top_p,
             "top_k": self.top_k,
+            "dtype": self.dtype,
+            "trust_remote_code": self.trust_remote_code,
         }
 
     @staticmethod
@@ -576,8 +784,13 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             r"minicpm.*v",  # MiniCPM-V
             r"molmo",  # Molmo
             r"idefics",  # Idefics
-            r"paligemma",  # PaliGemma
+            r"paligemma",  # PaliGemma, PaliGemma 2
             r"florence",  # Florence-2
+            # v1.9.3 additions
+            r"medgemma",  # Google MedGemma
+            r"lfm.*vl",  # LiquidAI LFM2-VL, LFM2.5-VL
+            r"smolvlm",  # HuggingFace SmolVLM
+            r"moondream",  # Moondream2
         ]
 
         # Check if any pattern matches

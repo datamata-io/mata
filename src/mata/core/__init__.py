@@ -11,6 +11,8 @@ from .exceptions import (
     TaskNotSupportedError,
 )
 from .types import (
+    BarcodeRegion,
+    BarcodeResult,
     BBox,
     ClassifyResult,
     DepthResult,
@@ -53,6 +55,8 @@ __all__ = [
     "ClassifyResult",
     "OCRResult",
     "TextRegion",
+    "BarcodeRegion",
+    "BarcodeResult",
     "Track",
     "TrackResult",
 ]

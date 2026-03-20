@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.2b2-green?style=flat-square" alt="v1.9.2 Beta Release 2" />
-  <img src="https://img.shields.io/badge/tests-4%2C403%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-1.9.3-green?style=flat-square" alt="v1.9.3" />
+  <img src="https://img.shields.io/badge/tests-4%2C996%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -22,7 +22,7 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 ## 🎯 Key Features
 
 - **Universal Model Loading**: llama.cpp-style loading - use any model by HuggingFace ID, file path, or alias
-- **Multi-Task Support**: Detection, classification, segmentation, depth estimation, OCR (text extraction), feature embedding, vision-language models, and multi-modal pipelines
+- **Multi-Task Support**: Detection, classification, segmentation, depth estimation, OCR (text extraction), feature embedding, barcode/QR decoding, vision-language models, and multi-modal pipelines
 - **Zero-Shot Capabilities**: CLIP (classify), GroundingDINO/OWL-ViT (detect), SAM/SAM3 (segment) - no training required
 - **Vision-Language Models**: Image captioning, VQA, and visual understanding with Qwen3-VL and more
 - **Multi-Format Runtime**: PyTorch ✅ | ONNX Runtime ✅ | TorchScript ✅ | Torchvision ✅ | TensorRT (planned)
@@ -30,10 +30,11 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 - **Object Tracking** (v1.8+): `mata.track()` — Video/stream tracking with vendored ByteTrack and BotSort, persistent track IDs, trajectory trails, CSV/JSON export, and appearance-based ReID (v1.9.2)
 - **OCR / Text Extraction** (v1.9): `mata.run("ocr", ...)` — extract printed and handwritten text using GOT-OCR2, TrOCR, EasyOCR, PaddleOCR, or Tesseract with per-region confidence and bounding boxes
 - **Feature Embedding** (v1.9.2 Beta Release 2): `mata.run("embed", ...)` — extract L2-normalised appearance embeddings with CLIP, DINOv2, OSNet, or any ViT model; `Embed` graph node for `Detect → ExtractROIs → Embed` pipelines
+- **Barcode & QR Code Decoding** (v1.9.3): `mata.run("barcode", ...)` — decode barcodes and QR codes with pyzbar or zxing-cpp; `Barcode` graph node for `Detect → ExtractROIs → Barcode` pipelines; 12+ symbologies
 - **Valkey/Redis Result Storage** (v1.9): persist any result to Valkey/Redis with `result.save("valkey://host/key")` or via `ValkeyStore`/`ValkeyLoad` graph nodes — enables distributed pipelines and cross-process result sharing
 - **Validation & Evaluation**: `mata.val()` — mAP/accuracy/depth metrics against COCO, ImageNet, or custom datasets
 - **Export & Visualization**: Save as JSON/CSV/image overlays/crops with dual backends (PIL/matplotlib)
-- **Task-First API**: Specify what you want (detect, segment, classify, depth, ocr, embed, vlm), not which model to use
+- **Task-First API**: Specify what you want (detect, segment, classify, depth, ocr, embed, barcode, vlm), not which model to use
 - **Model-Agnostic**: Swap models without changing code - all models implement the same task contracts
 - **Config Aliases**: Define shortcuts for commonly used models in YAML config files
 - **License-Safe**: Apache 2.0 licensed with clear separation of components
@@ -104,6 +105,11 @@ pip install matplotlib
 # For Valkey/Redis result storage
 pip install datamata[valkey]   # valkey-py client (recommended)
 pip install datamata[redis]    # redis-py client (alternative)
+
+# For barcode/QR code decoding (v1.9.3)
+pip install datamata[barcode]         # pyzbar (libzbar, recommended)
+pip install datamata[barcode-zxing]   # zxing-cpp (Apache 2.0, broader symbologies)
+pip install datamata[barcode-all]     # both engines
 ```
 
 ## 🚀 Quick Start
@@ -534,6 +540,53 @@ result = mata.infer(graph, image="photo.jpg", providers={
 
 See [Embedding Example](examples/inference/embedding.py)
 
+### Barcode & QR Code Scanning (New in v1.9.3)
+
+Decode barcodes and QR codes from images using `pyzbar` (libzbar) or `zxing-cpp`:
+
+```python
+import mata
+
+# One-shot scan with pyzbar (recommended)
+result = mata.run("barcode", "image.jpg", model="pyzbar")
+
+print(f"Found {len(result.barcodes)} barcode(s):")
+for bc in result.barcodes:
+    print(f"  [{bc.type}] {bc.data} (confidence: {bc.score:.2f})")
+    if bc.bbox:
+        print(f"    bbox: {bc.bbox}")
+
+# Save results
+result.save("output/barcodes.json")
+result.save("output/barcodes.csv")
+
+# zxing-cpp engine (broader symbology support)
+result = mata.run("barcode", "image.jpg", model="zxing")
+```
+
+**Pipeline: detect regions, then decode barcodes from crops:**
+
+```python
+from mata.nodes import Detect, Filter, ExtractROIs, Barcode, Fuse
+
+graph = (
+    Detect(using="detector", out="dets")
+    >> Filter(src="dets", label_in=["barcode", "qr_code"], out="filtered")
+    >> ExtractROIs(src_dets="filtered", out="rois")
+    >> Barcode(using="barcode_engine", src="rois", out="barcodes")
+    >> Fuse(out="final", dets="filtered", barcodes="barcodes")
+)
+
+result = mata.infer(graph, image="shelf.jpg", providers={
+    "detector":       mata.load("detect", "facebook/detr-resnet-50"),
+    "barcode_engine": mata.load("barcode", "pyzbar"),
+})
+```
+
+**Supported symbologies (pyzbar):** QR_CODE, EAN_13, EAN_8, UPC_A, UPC_E, CODE_128, CODE_39, CODE_93, ITF, CODABAR, DATA_MATRIX, PDF_417, AZTEC
+
+See [Barcode Examples](examples/barcode/)
+
 ### Vision-Language Understanding
 
 ```python
@@ -858,6 +911,8 @@ See [examples/segment/sam_segment.py](examples/segment/sam_segment.py) for compr
 | Model           | HuggingFace ID              | Description                                  |
 | --------------- | --------------------------- | -------------------------------------------- |
 | **Qwen3-VL 2B** | `Qwen/Qwen3-VL-2B-Instruct` | Fast, chat-capable VLM (recommended for dev) |
+
+> **v1.9.3 — Multi-VLM Support**: 9 model families now supported, including MedGemma, LFM2.5-VL, SmolVLM, Florence-2, PaliGemma 2, Phi-3.5 Vision, LLaVA-NeXT, and Moondream2. Models requiring explicit dtype or `trust_remote_code` are fully supported. See [docs/VLM_MODEL_SUPPORT.md](docs/VLM_MODEL_SUPPORT.md) for the full compatibility table.
 
 **All models support:**
 
