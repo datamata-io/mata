@@ -497,7 +497,7 @@ result = mata.infer(graph, image="street.jpg", providers={
 
 See [OCR Architecture Summary](docs/OCR_IMPLEMENTATION_SUMMARY.md)
 
-### Feature Embedding (New in v1.9.2 Beta Release 2)
+### Feature Embedding (New in v1.9.2)
 
 Extract L2-normalised appearance embeddings for similarity search, clustering, cross-camera ReID, or any graph pipeline that needs feature vectors:
 
@@ -1338,12 +1338,14 @@ export MATA_CONFIG=/path/to/config.json
 
 > **For a full history of completed features, see [CHANGELOG.md](CHANGELOG.md).**
 
-#### **1. Tracking ReID** — Re-identification for cross-camera / occlusion recovery
+#### **1. Training Module** — Fine-tuning support for several tasks and models.
 
-- ⏳ **ReID model integration**: Feature embeddings via HuggingFace ReID models
-- ⏳ **Cross-camera tracking**: Match track IDs across camera feeds
-- ⏳ **BotSort ReID mode**: Enable `with_reid=true` in botsort config
-- **Status**: Beta Release v1.9.2b1
+- ⏳ **Fine-tuning**: Fine-tuning support for detection and classification
+- ⏳ **Training**: `mata.train()` API for training and evaluation loops
+- ⏳**Data Loaders**: Built-in support for COCO, ImageNet, ADE20K datasets
+- ✅ **Can be tested in v2.0.0b1**: Fine-tuning scripts for RT-DETR and ResNet-50 available in `examples/train/` (training on custom datasets with HuggingFace models is fully supported in v2.0.0b1)
+
+- **Status**: Beta Release v2.0.0b1
 
 ### 🔄 In Progress
 
@@ -1365,7 +1367,6 @@ export MATA_CONFIG=/path/to/config.json
 
 ### ⏳ Planned (v2.0 - Q2 2026)
 
-- 🔲 **Training Module**: Fine-tuning support for detection and classification
 - 🔲 **TensorRT Production**: Optimized inference for NVIDIA GPUs (10-50x speedup)
 - 🔲 **Mobile Deployment**: ONNX quantization and mobile runtime support (TFLite, CoreML)
 - 🔲 **Model Zoo**: Pre-trained weights for common tasks and datasets
