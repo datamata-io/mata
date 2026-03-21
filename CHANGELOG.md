@@ -11,7 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.9.4] - 2026-03-20
+## [1.9.4] - 2026-03-21
 
 ### Added
 
@@ -30,21 +30,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Example notebooks: `examples/notebooks/01_detection.ipynb` through `06_vlm_query.ipynb`
 - `.gitattributes` with `*.ipynb filter=nbstripout` to strip cell outputs on commit
 
-**GGUF Model Loading — `vlm`, `embed`, `classify` tasks via llama-cpp-python**
-
-- `mata.load("vlm", "model.gguf")` — Load quantized GGUF VLMs via `llama-cpp-python`
-- `mata.load("embed", "clip.gguf")` — Embedding extraction from CLIP GGUF files; returns `(N, D)` L2-normalized float32 array
-- `mata.load("classify", "clip.gguf", text_prompts=[...])` — Zero-shot classification via CLIP GGUF cosine similarity; returns `ClassifyResult`
-- `mata.load("vlm", "llava.gguf", mmproj="projector.gguf")` — LLaVA-style multimodal models with separate projector file
-- `ModelType.GGUF` added to `ModelType` enum and loader explicit-type dispatch
-- `LlamaCppBaseAdapter` — base adapter for llama-cpp-python; lazy import, file validation, `_create_llm()`; no torch dependency
-- `LlamaCppVLMAdapter` — VLM adapter; base64 image encoding + `create_chat_completion()` → `VisionResult.text`
-- `LlamaCppEmbedAdapter` — embed adapter; `embedding=True` mode; L2 normalization; duck-types `ReIDAdapter` for `EmbedAdapter` wrapping
-- `LlamaCppClassifyAdapter` — classify adapter; CLIP cosine similarity → `ClassifyResult` sorted by score descending
-- GPU offloading via `n_gpu_layers=-1`; CPU-only default `n_gpu_layers=0`
-- Optional dependency: `pip install datamata[gguf]` (installs `llama-cpp-python>=0.3.0`)
-- All four adapter classes exported from `mata.adapters`
-
 ### Notes
 
 - All notebook display is fully optional — `import mata` works without IPython or matplotlib
@@ -52,13 +37,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `frozen=True` dataclasses unaffected — only methods added, no field mutations
 - 50+ new tests in `tests/test_notebook.py`
 
-- GGUF task support limited to `vlm`, `embed`, `classify`; `detect`/`segment`/`depth`/`track` raise `UnsupportedModelError` with helpful message
-- All GGUF code is torch-free; lazy `llama_cpp` import at first adapter instantiation
-
 ### Tests
 
-- 80+ new tests across `test_llamacpp_base.py`, `test_llamacpp_vlm_adapter.py`, `test_llamacpp_embed_classify.py`, and `test_universal_loader.py`
-- All tests fully mocked — no real GGUF models required in CI
+- New tests in `test_universal_loader.py`
 - 5082 pre-existing tests pass with zero regressions (11 skipped)
 
 ---
