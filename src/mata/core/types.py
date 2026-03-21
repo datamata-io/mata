@@ -1062,11 +1062,6 @@ class ModelType(str, Enum):
     # Barcode engines (v1.9.3+)
     PYZBAR = "pyzbar"
     ZXING = "zxing"
-    # GGUF quantized model file (.gguf) — llama-cpp-python runtime (v1.9.4+)
-    # Source: Local file path to GGUF file
-    # Valid kwargs: model_path, n_gpu_layers, n_ctx, mmproj (VLM), text_prompts (classify), max_tokens, verbose
-    # Requires: llama-cpp-python installed (pip install datamata[gguf])
-    GGUF = "gguf"
 
     @classmethod
     def normalize(cls, value: str | ModelType | None) -> ModelType | None:

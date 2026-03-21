@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.3-green?style=flat-square" alt="v1.9.3" />
-  <img src="https://img.shields.io/badge/tests-4%2C996%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-1.9.4-green?style=flat-square" alt="v1.9.4" />
+  <img src="https://img.shields.io/badge/tests-5%2C082%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -31,6 +31,7 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 - **OCR / Text Extraction** (v1.9): `mata.run("ocr", ...)` — extract printed and handwritten text using GOT-OCR2, TrOCR, EasyOCR, PaddleOCR, or Tesseract with per-region confidence and bounding boxes
 - **Feature Embedding** (v1.9.2 Beta Release 2): `mata.run("embed", ...)` — extract L2-normalised appearance embeddings with CLIP, DINOv2, OSNet, or any ViT model; `Embed` graph node for `Detect → ExtractROIs → Embed` pipelines
 - **Barcode & QR Code Decoding** (v1.9.3): `mata.run("barcode", ...)` — decode barcodes and QR codes with pyzbar or zxing-cpp; `Barcode` graph node for `Detect → ExtractROIs → Barcode` pipelines; 12+ symbologies
+- **Notebook Integration** (v1.9.4): Rich display in Jupyter — results auto-render as HTML tables, SVG charts, and colormapped depth images; `mata.show()` utility; `pip install datamata[notebook]`
 - **Valkey/Redis Result Storage** (v1.9): persist any result to Valkey/Redis with `result.save("valkey://host/key")` or via `ValkeyStore`/`ValkeyLoad` graph nodes — enables distributed pipelines and cross-process result sharing
 - **Validation & Evaluation**: `mata.val()` — mAP/accuracy/depth metrics against COCO, ImageNet, or custom datasets
 - **Export & Visualization**: Save as JSON/CSV/image overlays/crops with dual backends (PIL/matplotlib)
@@ -130,14 +131,14 @@ result
 mata.show(result, image="image.jpg")
 ```
 
-| Result Type | Display | What you see |
-|-------------|---------|-------------|
-| `VisionResult` | `_repr_html_()` | Table: label / score / bbox / track ID |
-| `ClassifyResult` | `_repr_html_()` | SVG bar chart + score table |
-| `DepthResult` | `_repr_png_()` | Colormap PNG (magma) |
-| `OCRResult` | `_repr_html_()` | Text region table |
-| `BarcodeResult` | `_repr_html_()` | Decoded barcode table |
-| `Embeddings` | `_repr_html_()` | Shape / dtype / normalized summary |
+| Result Type      | Display         | What you see                           |
+| ---------------- | --------------- | -------------------------------------- |
+| `VisionResult`   | `_repr_html_()` | Table: label / score / bbox / track ID |
+| `ClassifyResult` | `_repr_html_()` | SVG bar chart + score table            |
+| `DepthResult`    | `_repr_png_()`  | Colormap PNG (magma)                   |
+| `OCRResult`      | `_repr_html_()` | Text region table                      |
+| `BarcodeResult`  | `_repr_html_()` | Decoded barcode table                  |
+| `Embeddings`     | `_repr_html_()` | Shape / dtype / normalized summary     |
 
 See [`examples/notebooks/`](examples/notebooks/) for ready-to-run starter notebooks.
 

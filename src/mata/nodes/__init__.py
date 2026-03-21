@@ -43,11 +43,11 @@ from mata.nodes.segment_everything import SegmentEverything
 from mata.nodes.topk import TopK
 from mata.nodes.track import Track
 
-# Storage nodes (v1.10.0)
+# Storage nodes (v1.9.2)
 from mata.nodes.valkey_load import ValkeyLoad
 from mata.nodes.valkey_store import ValkeyStore
 
-# VLM nodes (Task 5.7)
+# VLM nodes (Task 5.7 - v1.7.0)
 from mata.nodes.vlm_describe import VLMDescribe
 from mata.nodes.vlm_detect import VLMDetect
 from mata.nodes.vlm_query import VLMQuery

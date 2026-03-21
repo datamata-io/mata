@@ -125,13 +125,6 @@ notebook = [
     "matplotlib>=3.5.0",
 ]
 
-# GGUF quantized model files — llama-cpp-python runtime (CPU build)
-# For GPU offloading: install llama-cpp-python with CUDA support manually
-# See: https://llama-cpp-python.readthedocs.io/en/latest/#installation
-gguf = [
-    "llama-cpp-python>=0.3.0",
-]
-
 # Valkey/Redis result storage
 valkey = [
     "valkey>=6.0.0",

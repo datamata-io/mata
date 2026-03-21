@@ -319,10 +319,22 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
             self.model = self.model.to(self.device).eval()
 
             # Extract label mapping and is_thing_map for panoptic
-            if self.id2label is None:
-                # Use model config labels
+            if not self.id2label:
+                # Use model config labels (id2label is empty — not supplied by caller)
                 if hasattr(config, "id2label") and config.id2label:
                     self.id2label = {int(k): v for k, v in config.id2label.items()}
+                    # Normalize PASCAL VOC-style names that some COCO-trained models
+                    # use in their configs to standard COCO category names.
+                    if "coco" in model_id.lower():
+                        _voc_to_coco = {
+                            "motorbike": "motorcycle",
+                            "aeroplane": "airplane",
+                            "sofa": "couch",
+                            "pottedplant": "potted plant",
+                            "diningtable": "dining table",
+                            "tvmonitor": "tv",
+                        }
+                        self.id2label = {k: _voc_to_coco.get(v, v) for k, v in self.id2label.items()}
                 else:
                     logger.warning("Model config has no id2label mapping. Using numeric labels.")
                     self.id2label = {}
@@ -499,10 +511,15 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                 outputs, target_sizes=target_sizes, threshold=conf_threshold
             )[0]
         else:
-            # Instance segmentation post-processing
+            # Instance segmentation post-processing.
+            # Use return_binary_maps=True to get per-instance binary masks.
+            # The default merged segmentation map has an overwrite bug where
+            # later segments blindly overwrite earlier ones, so only the last
+            # segment retains pixels in the merged map.
             target_sizes = [(orig_height, orig_width)]
             results = self.processor.post_process_instance_segmentation(
-                outputs, target_sizes=target_sizes, threshold=conf_threshold
+                outputs, target_sizes=target_sizes, threshold=conf_threshold,
+                return_binary_maps=True,
             )[0]
 
         # Convert to Instance objects
@@ -656,11 +673,19 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
 
             # Check format and process accordingly
             if "segmentation" in results and "segments_info" in results:
-                # Format 1: Mask2Former/OneFormer style
-                segmentation_map = results["segmentation"].cpu().numpy()
+                # Format 1: Mask2Former/OneFormer style.
+                # segmentation is either:
+                #   - 3D tensor (N, H, W) when return_binary_maps=True: each
+                #     slice i is the binary mask for segments_info[i]
+                #   - 2D tensor (H, W) otherwise: pixel values are segment IDs
+                #     (but suffers from an overwrite bug in transformers)
+                segmentation_tensor = results["segmentation"]
+                use_binary_maps = segmentation_tensor.ndim == 3
+                if not use_binary_maps:
+                    segmentation_map = segmentation_tensor.cpu().numpy()
                 segments_info = results["segments_info"]
 
-                for segment in segments_info:
+                for j, segment in enumerate(segments_info):
                     segment_id = segment["id"]
                     label_id = segment["label_id"]
                     score = segment.get("score", 1.0)
@@ -670,7 +695,11 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                         continue
 
                     # Extract binary mask for this segment
-                    binary_mask = segmentation_map == segment_id
+                    if use_binary_maps:
+                        # Per-instance binary slice — correct, no overwrite issue
+                        binary_mask = segmentation_tensor[j].cpu().numpy().astype(bool)
+                    else:
+                        binary_mask = segmentation_map == segment_id
 
                     # Convert to desired format (polygon/RLE/binary)
                     mask_data = self._convert_mask_format(binary_mask)

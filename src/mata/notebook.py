@@ -68,17 +68,26 @@ def render_vision_html(result: VisionResult) -> str | None:
         if input_path:
             try:
                 import os
+                import tempfile
 
                 from mata.core.exporters import export_image
 
                 if os.path.isfile(str(input_path)):
-                    buf = io.BytesIO()
-                    export_image(result, buf, image=str(input_path), format="image")
-                    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-                    img_html = (
-                        f'<img src="data:image/png;base64,{b64}" '
-                        f'style="max-width:100%;height:auto;display:block;margin-bottom:6px" />'
-                    )
+                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                        tmp_path = tmp.name
+                    try:
+                        export_image(result, tmp_path, image=str(input_path))
+                        with open(tmp_path, "rb") as f:
+                            b64 = base64.b64encode(f.read()).decode("ascii")
+                        img_html = (
+                            f'<img src="data:image/png;base64,{b64}" '
+                            f'style="max-width:100%;height:auto;display:block;margin-bottom:6px" />'
+                        )
+                    finally:
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            pass
             except Exception:
                 pass
 

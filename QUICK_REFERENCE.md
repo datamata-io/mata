@@ -1,4 +1,4 @@
-﻿# MATA Quick Reference — v1.5 to v1.9.3
+﻿# MATA Quick Reference — v1.5 to v1.9.4
 
 ## 📋 Table of Contents
 
@@ -1945,7 +1945,7 @@ conn = registry.get_valkey_connection("production")
 
 ---
 
-**Version:** 1.9.3
-**Date:** March 19, 2026
+**Version:** 1.9.4
+**Date:** March 21, 2026
 **Status:** ✅ Production Ready
 ````

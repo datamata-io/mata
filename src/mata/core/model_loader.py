@@ -76,7 +76,6 @@ class UniversalLoader:
                 - ModelType.TORCHSCRIPT: TorchScript model (.pt)
                 - ModelType.ONNX: ONNX model (.onnx)
                 - ModelType.TENSORRT: TensorRT engine (.trt/.engine)
-                - ModelType.GGUF: GGUF quantized model (.gguf, llama-cpp-python)
                 - ModelType.CONFIG_ALIAS: Config file alias
                 - String values accepted but deprecated (use enum)
             **kwargs: Additional arguments passed to adapter constructor
@@ -179,7 +178,6 @@ class UniversalLoader:
             ModelType.TORCHSCRIPT: {"model_path", "device", "threshold", "input_size", "id2label"},
             ModelType.ONNX: {"model_path", "device", "threshold", "id2label"},
             ModelType.TENSORRT: {"engine_path", "device", "threshold"},
-            ModelType.GGUF: {"model_path", "n_gpu_layers", "n_ctx", "mmproj", "text_prompts", "max_tokens", "verbose"},
         }
 
         if model_type not in ADAPTER_KWARGS:
@@ -332,13 +330,6 @@ class UniversalLoader:
 
             return ZxingAdapter(**kwargs)
 
-        elif model_type == ModelType.GGUF:
-            if not source or not self._is_local_file(source):
-                raise ModelNotFoundError(
-                    f"Valid GGUF file required when model_type=GGUF. Got: {source}"
-                )
-            return self._load_from_file(task, source, **kwargs)
-
         else:
             raise UnsupportedModelError(f"Unknown model type: {model_type}")
 
@@ -374,7 +365,7 @@ class UniversalLoader:
         # Check if it looks like a file path (has extension) even if file doesn't exist yet
         # This handles relative paths that might be valid from different working directories
         path = Path(source)
-        if path.suffix.lower() in [".pt", ".pth", ".onnx", ".bin", ".trt", ".engine", ".gguf"]:
+        if path.suffix.lower() in [".pt", ".pth", ".onnx", ".bin", ".trt", ".engine"]:
             logger.debug(f"Treating '{source}' as local file path based on extension")
             return "local_file", source
 
@@ -881,34 +872,10 @@ class UniversalLoader:
             else:
                 raise UnsupportedModelError(f"TensorRT adapter not yet implemented for task '{task}'")
 
-        elif extension in [".gguf"]:
-            if task == "vlm":
-                from mata.adapters.llamacpp_vlm_adapter import LlamaCppVLMAdapter
-                from mata.adapters.wrappers.vlm_wrapper import VLMWrapper
-
-                adapter = LlamaCppVLMAdapter(model_path=file_path, **kwargs)
-                return VLMWrapper(adapter)
-            elif task == "embed":
-                from mata.adapters.embed_adapter import EmbedAdapter
-                from mata.adapters.llamacpp_embed_adapter import LlamaCppEmbedAdapter
-
-                encoder = LlamaCppEmbedAdapter(model_path=file_path, **kwargs)
-                return EmbedAdapter(encoder=encoder)
-            elif task == "classify":
-                from mata.adapters.llamacpp_classify_adapter import LlamaCppClassifyAdapter
-
-                return LlamaCppClassifyAdapter(model_path=file_path, **kwargs)
-            else:
-                raise UnsupportedModelError(
-                    f"GGUF models are not supported for task '{task}'. "
-                    f"Supported tasks: vlm, embed, classify. "
-                    f"For detect/segment, use an ONNX or HuggingFace model instead."
-                )
-
         else:
             raise UnsupportedModelError(
                 f"Unsupported file extension: {extension}. "
-                f"Supported: .onnx, .pth, .pt, .bin, .trt, .engine, .gguf"
+                f"Supported: .onnx, .pth, .pt, .bin, .trt, .engine"
             )
 
     def _resolve_tracker_kwargs(self, kwargs: dict) -> tuple:

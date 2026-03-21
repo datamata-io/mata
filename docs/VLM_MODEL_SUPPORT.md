@@ -533,4 +533,4 @@ scaling heuristic handles [0,1] normalized, ~1000-unit, and raw pixel coords aut
 
 ---
 
-_Last updated: 2026-03-20 — MATA v1.9.3_
+_Last updated: 2026-03-21 — MATA v1.9.4_
