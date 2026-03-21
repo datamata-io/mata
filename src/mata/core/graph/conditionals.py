@@ -327,8 +327,32 @@ class If(Node):
         self.then_branch = then_branch
         self.else_branch = else_branch if else_branch is not None else Pass()
 
+        # Derive If's effective outputs from branch declarations so that
+        # validate_outputs() in the scheduler can match produced artifacts.
+        self.outputs = self._compute_combined_outputs()
+
         # Validate branch compatibility during construction
         self._validate_branch_compatibility()
+
+    def _compute_combined_outputs(self) -> dict:
+        """Compute the effective output signature from both branches.
+
+        Accounts for nodes that use a dynamic ``out`` / ``output_name`` attribute
+        to remap a fixed class-level key to a user-supplied artifact name
+        (e.g. ``TopK(out="final_dets")`` declares ``outputs = {"detections": …}``
+        but actually emits ``{"final_dets": …}``).
+        """
+
+        def _effective(node: Node) -> dict:
+            dynamic_name = getattr(node, "output_name", None) or getattr(node, "out", None)
+            if dynamic_name is not None and len(node.outputs) == 1:
+                return {dynamic_name: next(iter(node.outputs.values()))}
+            return dict(node.outputs)
+
+        combined: dict = {}
+        combined.update(_effective(self.then_branch))
+        combined.update(_effective(self.else_branch))
+        return combined
 
     def _validate_branch_compatibility(self) -> None:
         """Validate that both branches have compatible input/output signatures.
@@ -380,7 +404,8 @@ class If(Node):
 
             # Execute selected branch
             branch_start = time.time()
-            result = selected_branch.run(ctx, **inputs)
+            branch_inputs = self._resolve_branch_inputs(ctx, selected_branch, inputs)
+            result = selected_branch.run(ctx, **branch_inputs)
 
             # Record branch execution time
             branch_time = (time.time() - branch_start) * 1000
@@ -392,6 +417,91 @@ class If(Node):
             # Record error occurrence (1.0 = error occurred)
             ctx.record_metric(self.name, "error", 1.0)
             raise
+
+    def _resolve_branch_inputs(self, ctx: ExecutionContext, branch: Node, passed_inputs: dict) -> dict:
+        """Resolve a branch node's inputs, filling gaps from the execution context.
+
+        When the scheduler calls ``If.run()`` with no kwargs (because ``If.inputs``
+        is empty), branch nodes that declare their own inputs cannot receive them
+        through the normal scheduler path.  This method resolves those missing
+        inputs directly from the context using the branch node's ``src``/``*_src``
+        attributes and type-aware fallbacks.
+
+        Args:
+            ctx: Execution context.
+            branch: The branch node to resolve inputs for.
+            passed_inputs: Artifacts already passed to ``If.run()`` by the scheduler.
+
+        Returns:
+            Dict of resolved input kwargs ready to pass to ``branch.run()``.
+        """
+        resolved = dict(passed_inputs)
+
+        for input_name, input_type in branch.inputs.items():
+            if input_name in resolved:
+                continue  # already provided
+
+            # Strategy 1: direct context lookup (works for Filter-style nodes where
+            # the input key IS the context artifact name, e.g. inputs={"dets": Detections})
+            try:
+                resolved[input_name] = ctx.retrieve(input_name)
+                continue
+            except (KeyError, AttributeError):
+                pass
+
+            # Strategy 2: branch has a 'src' attribute pointing to the context key
+            # (TopK pattern: inputs={"detections": Detections}, src="dets")
+            src = getattr(branch, "src", None)
+            if isinstance(src, str):
+                try:
+                    resolved[input_name] = ctx.retrieve(src)
+                    continue
+                except (KeyError, AttributeError):
+                    pass
+
+            # Strategy 3: scan *_src / *_src_* attributes with type check
+            # (PromptBoxes pattern: image_src="image", dets_src="filtered")
+            for attr, val in vars(branch).items():
+                if not isinstance(val, str):
+                    continue
+                if not (attr == "src" or attr.endswith("_src")):
+                    continue
+                try:
+                    artifact = ctx.retrieve(val)
+                    if isinstance(artifact, input_type):
+                        resolved[input_name] = artifact
+                        break
+                except (KeyError, AttributeError):
+                    continue
+
+            if input_name in resolved:
+                continue
+
+            # Strategy 4: input namespace (e.g. "input.image")
+            try:
+                resolved[input_name] = ctx.retrieve(f"input.{input_name}")
+            except (KeyError, AttributeError):
+                pass  # Missing inputs will be caught by validate_inputs
+
+        return resolved
+
+    def validate_outputs(self, outputs: dict) -> None:
+        """Validate If node outputs leniently.
+
+        The If node may execute either branch, so only artifacts that were
+        actually produced are type-checked. Missing outputs are allowed —
+        e.g. when else_branch=Pass() produces nothing.
+        """
+        from mata.core.exceptions import ValidationError
+
+        for output_name, artifact in outputs.items():
+            if output_name in self.outputs:
+                expected_type = self.outputs[output_name]
+                self._assert_artifact_type(output_name, artifact, expected_type, "output")
+            try:
+                artifact.validate()
+            except Exception as e:
+                raise ValidationError(f"Node '{self.name}' produced invalid artifact: {e}")
 
     def __repr__(self) -> str:
         return f"If(predicate={self.predicate}, then={self.then_branch.name}, else={self.else_branch.name})"

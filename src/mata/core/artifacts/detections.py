@@ -158,12 +158,17 @@ class Detections(Artifact):
         if preserve_ids and "entity_ids" in result.meta:
             entity_ids = result.meta["entity_ids"]
 
+        meta = result.meta.copy() if result.meta else {}
+        # Preserve VisionResult.text (VLM output) in meta so callers can access it
+        if getattr(result, "text", None) is not None:
+            meta.setdefault("text", result.text)
+
         return cls(
             instances=result.instances,
             instance_ids=instance_ids,
             entities=result.entities,
             entity_ids=entity_ids,
-            meta=result.meta.copy() if result.meta else {},
+            meta=meta,
         )
 
     def to_vision_result(self) -> VisionResult:

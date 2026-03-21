@@ -58,6 +58,20 @@ ruff check src/
 mypy src/mata/ --ignore-missing-imports
 ```
 
+## Notebooks
+
+Example notebooks live in `examples/notebooks/`. When contributing:
+
+1. **Install nbstripout** to automatically strip cell outputs before commits:
+   ```bash
+   pip install nbstripout
+   nbstripout --install
+   ```
+2. **Never commit cell outputs** — they are stripped automatically with nbstripout
+3. **Use small/fast models** for quick execution (e.g., `facebook/detr-resnet-50`, `openai/clip-vit-base-patch32`)
+4. **Install notebook extras** for local testing: `pip install datamata[notebook]`
+5. **Test manually** in JupyterLab before submitting a PR
+
 ## Pull Request Process
 
 1. Fork the repository and create a feature branch: `git checkout -b feature/my-feature`

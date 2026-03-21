@@ -22,6 +22,7 @@ def grounding_dino_sam(
     nms_iou_threshold: float | None = None,
     refine_method: str = "morph_close",
     refine_radius: int = 3,
+    text_prompts: str | None = None,
 ) -> Graph:
     """Pre-built GroundingDINO + SAM pipeline.
 
@@ -42,6 +43,10 @@ def grounding_dino_sam(
             One of ``"morph_close"``, ``"morph_open"``, ``"dilate"``,
             ``"erode"`` (default ``"morph_close"``).
         refine_radius: Kernel radius for mask refinement (default ``3``).
+        text_prompts: Optional text prompts forwarded to the detector
+            (e.g. ``"cat . dog . person"`` for GroundingDINO). When
+            ``None``, no prompts are passed and the detector uses its
+            default behaviour (default ``None``).
 
     Returns:
         A :class:`Graph` ready for ``mata.infer()``.
@@ -54,15 +59,19 @@ def grounding_dino_sam(
         >>> segmenter = mata.load("segment", "facebook/sam-vit-base")
         >>> result = mata.infer(
         ...     "image.jpg",
-        ...     grounding_dino_sam(detection_threshold=0.5),
+        ...     grounding_dino_sam(detection_threshold=0.5,
+        ...                        text_prompts="cat . dog . person"),
         ...     providers={"detector": detector, "segmenter": segmenter},
         ... )
         >>> print(len(result["final"].instances))
     """
     graph = Graph("grounding_dino_sam")
 
-    # Step 1: Detect objects
-    graph = graph.then(Detect(using="detector", out="dets"))
+    # Step 1: Detect objects (forward text_prompts to the detector when provided)
+    detect_kwargs = {}
+    if text_prompts is not None:
+        detect_kwargs["text_prompts"] = text_prompts
+    graph = graph.then(Detect(using="detector", out="dets", **detect_kwargs))
 
     # Step 2: Filter by confidence
     graph = graph.then(Filter(src="dets", score_gt=detection_threshold, out="filtered"))

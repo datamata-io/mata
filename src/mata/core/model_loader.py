@@ -871,6 +871,7 @@ class UniversalLoader:
                 return TensorRTDetectAdapter(engine_path=file_path, **kwargs)
             else:
                 raise UnsupportedModelError(f"TensorRT adapter not yet implemented for task '{task}'")
+
         else:
             raise UnsupportedModelError(
                 f"Unsupported file extension: {extension}. " f"Supported: .onnx, .pth, .pt, .bin, .trt, .engine"

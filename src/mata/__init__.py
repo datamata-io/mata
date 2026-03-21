@@ -24,7 +24,7 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "1.9.3"
+__version__ = "1.9.4"
 
 from .api import get_model_info, infer, list_models, load, register_model, run, track, val, verbose
 from .core import (
@@ -71,6 +71,18 @@ except ImportError:
         raise ImportError("Visualization requires Pillow. Install with: pip install Pillow")
 
 
+# Notebook display (lazy import to avoid hard dependency)
+try:
+    from .notebook import show
+
+    _NOTEBOOK_AVAILABLE = True
+except ImportError:
+    _NOTEBOOK_AVAILABLE = False
+
+    def show(*args, **kwargs):
+        raise ImportError("Notebook display requires IPython. Install with: pip install datamata[notebook]")
+
+
 __all__ = [
     # API
     "load",
@@ -82,6 +94,7 @@ __all__ = [
     "get_model_info",
     "register_model",
     "verbose",
+    "show",
     # Metrics
     "DetMetrics",
     "SegmentMetrics",

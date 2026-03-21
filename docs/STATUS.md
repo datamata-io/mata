@@ -1,12 +1,31 @@
-# ✅ MATA Status — Barcode & QR Task + Multi-VLM Support COMPLETE
+# ✅ MATA Status — Notebook Integration + GLM-OCR COMPLETE
 
-**Latest Update:** March 20, 2026  
-**Version:** 1.9.3 (Barcode Task + Multi-VLM Expansion)  
+**Latest Update:** March 21, 2026  
+**Version:** 1.9.4 (Notebook Integration + GLM-OCR)  
 **Status:** 🎉 **PRODUCTION READY**
 
 ---
 
-## 🆕 LATEST: Barcode & QR Task + Multi-VLM Support (v1.9.3)
+## 🆕 LATEST: Notebook Integration + GLM-OCR (v1.9.4)
+
+**Released:** March 21, 2026
+
+Adds rich Jupyter / JupyterLab display for all result types and a new GLM-OCR backend for state-of-the-art document OCR.
+
+**New in v1.9.4:**
+
+- `_repr_html_()` on `VisionResult`, `ClassifyResult`, `OCRResult`, `BarcodeResult`, `Embeddings` — auto-renders in notebook cells
+- `_repr_png_()` on `DepthResult` — magma-colormap PNG via matplotlib
+- `mata.show(result, image=None)` — explicit display utility for any result type
+- New `src/mata/notebook.py` module — all rendering functions; lazy-guarded; zero overhead without IPython
+- `[notebook]` optional dependency group: `pip install datamata[notebook]`
+- GLM-OCR (`zai-org/GLM-OCR`) — third HuggingFace OCR backend; whole-image chat-template API; state-of-the-art document OCR
+- Example notebooks: `examples/notebooks/01_detection.ipynb` through `06_vlm_query.ipynb`
+- 50+ new tests in `tests/test_notebook.py`; 5,082+ total tests passing
+
+---
+
+## Barcode & QR Task + Multi-VLM Support (v1.9.3)
 
 **Released:** March 20, 2026
 

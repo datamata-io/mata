@@ -221,7 +221,30 @@ brew install zbar
 
 ---
 
-## Development Installation
+### Notebook / JupyterLab Rich Display
+
+For interactive display of MATA results in Jupyter notebooks and JupyterLab:
+
+```bash
+pip install datamata[notebook]
+```
+
+This installs `ipython` and `matplotlib`. Results then auto-render as rich HTML
+tables (or colourised PNG for depth maps) when evaluated in a notebook cell:
+
+```python
+import mata
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+result  # ← rich HTML table displays automatically
+```
+
+Use `mata.show()` for explicit display with additional options:
+
+```python
+mata.show(result, image="image.jpg")  # adds image overlay
+```
+
+---
 
 If you want to contribute or modify MATA:
 

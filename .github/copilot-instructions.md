@@ -2,7 +2,14 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a llama.cpp-inspired universal loader. As of v1.9.3, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, and a `barcode` task for QR/barcode decoding.
+MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. As of v1.9.4, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, and a `barcode` task for QR/barcode decoding.
+
+**Embed task — recommended backends (HuggingFace and ONNX are first-class):**
+
+- HuggingFace: `mata.load("embed", "openai/clip-vit-base-patch32")` — 400+ models, auto-detects arch
+- ONNX: `mata.load("embed", "./model.onnx")` — portable, CPU-efficient, no special deps
+
+**v2.0.0 Roadmap:** `mata.export()` for quantized ONNX export is planned for v2.0.0. Training and Export are co-planned as a paired milestone.
 
 **Universal Loading (v1.5.2+):**
 
@@ -235,8 +242,10 @@ Built-in Tools (zoom, crop) + Provider Tools (detect, classify, etc.)
 
 ### Running Tests
 
+ALWAYS USE VIRTUAL ENVIRONMENT BEFORE RUNNING TESTS TO ENSURE ALL TEST DEPENDENCIES ARE AVAILABLE
+
 ```bash
-# All tests (4307+ total, all must pass)
+# All tests (5082+ total, all must pass)
 pytest tests/ -v
 
 # Task-specific test suites
@@ -282,6 +291,9 @@ pytest tests/test_embed_node.py -v           # Embed graph node (24 tests)
 pytest tests/test_barcode_adapter.py -v      # Barcode adapter (60+ tests)
 pytest tests/test_barcode_node.py -v         # Barcode graph node (40+ tests)
 pytest tests/test_barcode_integration.py -v  # Barcode integration (25+ tests)
+
+# Notebook display test suite (v1.9.4)
+pytest tests/test_notebook.py -v             # Notebook rich display (50+ tests)
 
 # With coverage (target: >80%)
 pip install pytest-cov
@@ -493,6 +505,8 @@ models:
 - **PyYAML:** Config file parsing (added in v1.5)
 
 ## Quick Reference Commands
+
+ALWAYS USE VIRTUAL ENVIRONMENT BEFORE RUNNING TESTS TO ENSURE ALL TEST DEPENDENCIES ARE AVAILABLE
 
 ```bash
 # Install dev dependencies

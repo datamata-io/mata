@@ -53,10 +53,10 @@ See [`detect/basic_detection.py`](detect/basic_detection.py) for the full progre
 
 ### VLM & OCR ([`vlm/`](vlm/))
 
-| File                               | What it shows                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------ |
-| [`basic_vlm.py`](vlm/basic_vlm.py) | Description, VQA, system prompts, load-once, metadata, structured output |
-| [`ocr.py`](vlm/ocr.py)             | EasyOCR, PaddleOCR, Tesseract, GOT-OCR2, TrOCR, export, filtering        |
+| File                               | What it shows                                                              |
+| ---------------------------------- | -------------------------------------------------------------------------- |
+| [`basic_vlm.py`](vlm/basic_vlm.py) | Description, VQA, system prompts, load-once, metadata, structured output   |
+| [`ocr.py`](vlm/ocr.py)             | EasyOCR, GLM-OCR, TrOCR, GOT-OCR2, PaddleOCR, Tesseract, export, filtering |
 
 ### Object Tracking ([`track/`](track/))
 

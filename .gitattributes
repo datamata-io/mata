@@ -1,0 +1,8 @@
+# Git attributes for MATA repository
+
+# Strip Jupyter notebook cell outputs on commit (requires nbstripout)
+# Install: pip install nbstripout && nbstripout --install
+*.ipynb filter=nbstripout
+
+# Treat notebooks as JSON for diff purposes
+*.ipynb diff=jupyternotebook linguist-language=JSON

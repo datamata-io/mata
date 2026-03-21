@@ -11,6 +11,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.4] - 2026-03-21
+
+### Added
+
+**Notebook Integration — JupyterLab / Jupyter rich display for all result types**
+
+- `_repr_html_()` on `VisionResult` — HTML table with label / score / bbox / track ID columns; optional base64-embedded image overlay when `meta["input_path"]` is set; truncates to 20 rows for results with >100 instances
+- `_repr_html_()` on `ClassifyResult` — horizontal SVG bar chart (top-5) + score table
+- `_repr_png_()` on `DepthResult` — magma-colormap PNG rendered via matplotlib
+- `_repr_html_()` on `OCRResult` — text region table (text / score / bbox / label)
+- `_repr_html_()` on `BarcodeResult` — decoded barcode table (data / type / score / bbox)
+- `_repr_html_()` on `Embeddings` artifact — shape / dtype / normalized / instance ID summary
+- `mata.show(result, image=None, **kwargs)` — explicit display utility; calls `IPython.display.display()` with HTML or PNG; falls back to `IPython.display.display(result)` for unknown types
+- New `src/mata/notebook.py` module — all `render_*()` functions; all imports lazy-guarded; never breaks `import mata` without Jupyter installed
+- `[notebook]` optional dependency group: `pip install datamata[notebook]` (installs `ipython>=7.0`, `matplotlib>=3.5.0`)
+- `[all]` extras group now includes `notebook`
+- Example notebooks: `examples/notebooks/01_detection.ipynb` through `06_vlm_query.ipynb`
+- `.gitattributes` with `*.ipynb filter=nbstripout` to strip cell outputs on commit
+
+### Notes
+
+- All notebook display is fully optional — `import mata` works without IPython or matplotlib
+- All user content is HTML-escaped (XSS-safe)
+- `frozen=True` dataclasses unaffected — only methods added, no field mutations
+- 50+ new tests in `tests/test_notebook.py`
+
+### Tests
+
+- New tests in `test_universal_loader.py`
+- 5082 pre-existing tests pass with zero regressions (11 skipped)
+
+---
+
 ## [1.9.3] - 2026-03-19
 
 ### Added
