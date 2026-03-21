@@ -874,8 +874,7 @@ class UniversalLoader:
 
         else:
             raise UnsupportedModelError(
-                f"Unsupported file extension: {extension}. "
-                f"Supported: .onnx, .pth, .pt, .bin, .trt, .engine"
+                f"Unsupported file extension: {extension}. " f"Supported: .onnx, .pth, .pt, .bin, .trt, .engine"
             )
 
     def _resolve_tracker_kwargs(self, kwargs: dict) -> tuple:

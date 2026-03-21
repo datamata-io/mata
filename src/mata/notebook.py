@@ -6,6 +6,7 @@ types. These are called by _repr_html_() / _repr_png_() on result dataclasses.
 All IPython/matplotlib imports are guarded — this module is importable without
 Jupyter installed (functions return None when optional deps are missing).
 """
+
 from __future__ import annotations
 
 import base64
@@ -20,14 +21,8 @@ if TYPE_CHECKING:
 _MAX_TABLE_ROWS = 20
 _TRUNCATION_THRESHOLD = 100
 
-_TABLE_STYLE = (
-    "border-collapse:collapse;font-family:monospace,monospace;"
-    "font-size:13px;width:100%"
-)
-_TH_STYLE = (
-    "background:#f0f0f0;border:1px solid #ccc;padding:4px 8px;"
-    "text-align:left;font-weight:bold"
-)
+_TABLE_STYLE = "border-collapse:collapse;font-family:monospace,monospace;" "font-size:13px;width:100%"
+_TH_STYLE = "background:#f0f0f0;border:1px solid #ccc;padding:4px 8px;" "text-align:left;font-weight:bold"
 _TD_STYLE = "border:1px solid #ddd;padding:4px 8px"
 _TD_NUM_STYLE = "border:1px solid #ddd;padding:4px 8px;text-align:right"
 
@@ -289,8 +284,7 @@ def render_embeddings_html(result: Embeddings) -> str | None:
                 preview.append("…")
             ids_str = ", ".join(html.escape(str(i)) for i in preview)
             ids_html = (
-                f'<p style="font-size:12px;color:#555;margin:4px 0">'
-                f"<b>Instance IDs (first 5):</b> {ids_str}</p>"
+                f'<p style="font-size:12px;color:#555;margin:4px 0">' f"<b>Instance IDs (first 5):</b> {ids_str}</p>"
             )
 
         title = f'<p style="font-weight:bold;margin:4px 0">Embeddings — {n} vectors × {d} dims</p>'
@@ -311,9 +305,7 @@ def show(result: Any, image: str | None = None, **kwargs: Any) -> None:
     try:
         from IPython.display import HTML, Image, display
     except ImportError as exc:
-        raise ImportError(
-            "Notebook display requires IPython. Install with: pip install datamata[notebook]"
-        ) from exc
+        raise ImportError("Notebook display requires IPython. Install with: pip install datamata[notebook]") from exc
 
     # Inject image path into meta so render functions can use it
     if image is not None and hasattr(result, "meta"):

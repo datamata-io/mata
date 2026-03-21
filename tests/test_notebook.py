@@ -3,6 +3,7 @@
 All tests use manually constructed result objects — no real model inference.
 IPython and matplotlib are mocked where needed to work without Jupyter installed.
 """
+
 from __future__ import annotations
 
 import sys
@@ -10,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers — build lightweight result objects
@@ -39,10 +39,7 @@ def _vision_result(n=3, with_track=False, with_image_path=False, text=None):
 def _classify_result(n=5):
     from mata.core.types import Classification, ClassifyResult
 
-    preds = [
-        Classification(label=i, label_name=f"class_{i}", score=round(0.9 - i * 0.1, 3))
-        for i in range(n)
-    ]
+    preds = [Classification(label=i, label_name=f"class_{i}", score=round(0.9 - i * 0.1, 3)) for i in range(n)]
     return ClassifyResult(predictions=preds)
 
 
@@ -119,9 +116,8 @@ class TestRenderVisionHtml:
         assert html.count("<tr>") == 4
 
     def test_empty_result_valid_html(self):
-        from mata.notebook import render_vision_html
-
         from mata.core.types import VisionResult
+        from mata.notebook import render_vision_html
 
         result = VisionResult(instances=[])
         html = render_vision_html(result)
@@ -226,9 +222,8 @@ class TestRenderClassifyHtml:
         assert "<svg" in html
 
     def test_empty_result(self):
-        from mata.notebook import render_classify_html
-
         from mata.core.types import ClassifyResult
+        from mata.notebook import render_classify_html
 
         html = render_classify_html(ClassifyResult(predictions=[]))
         assert isinstance(html, str)
@@ -264,9 +259,8 @@ class TestRenderDepthPng:
 
     def test_uses_normalized_when_available(self):
         """Should not raise even with a normalized array."""
-        from mata.notebook import render_depth_png
-
         from mata.core.types import DepthResult
+        from mata.notebook import render_depth_png
 
         depth = np.ones((20, 20), dtype=np.float32) * 5.0
         normalized = depth / depth.max()
@@ -276,16 +270,14 @@ class TestRenderDepthPng:
 
     def test_returns_none_when_matplotlib_missing(self):
         """Mock matplotlib ImportError → must return None."""
-        from mata import notebook
 
         with patch.dict(sys.modules, {"matplotlib": None, "matplotlib.pyplot": None}):
             # Force re-import by catching
-            result = _depth_result(10, 10)
+            _depth_result(10, 10)
             with patch("mata.notebook.render_depth_png", side_effect=ImportError):
                 from mata.notebook import render_depth_png as rdp  # noqa: F401
 
             # Direct test: patch matplotlib import inside the function
-            import importlib
 
             import mata.notebook as nb_mod
 
@@ -332,9 +324,8 @@ class TestRenderOcrHtml:
         assert html.count("<tr>") == 6
 
     def test_empty_result(self):
-        from mata.notebook import render_ocr_html
-
         from mata.core.types import OCRResult
+        from mata.notebook import render_ocr_html
 
         html = render_ocr_html(OCRResult(regions=[]))
         assert isinstance(html, str)
@@ -368,9 +359,8 @@ class TestRenderBarcodeHtml:
         assert html.count("<tr>") == 4
 
     def test_empty_result(self):
-        from mata.notebook import render_barcode_html
-
         from mata.core.types import BarcodeResult
+        from mata.notebook import render_barcode_html
 
         html = render_barcode_html(BarcodeResult(barcodes=[]))
         assert isinstance(html, str)
@@ -465,8 +455,9 @@ class TestReprMethods:
         assert isinstance(html, str)
 
     def test_vision_repr_html_returns_none_on_import_failure(self):
-        from mata.core.types import Instance, VisionResult
         from unittest.mock import patch as _patch
+
+        from mata.core.types import Instance, VisionResult
 
         r = VisionResult(instances=[Instance(bbox=(0, 0, 1, 1), score=0.5, label=0)])
         with _patch("mata.notebook.render_vision_html", side_effect=RuntimeError("boom")):
@@ -494,10 +485,9 @@ class TestGracefulDegradation:
         result = _depth_result(10, 10)
         builtins.__import__ = mock_import  # type: ignore
         try:
-            from mata import notebook as nb
-
             # Force the function to re-execute with patched imports
-            import types
+
+            from mata import notebook as nb
 
             fn_globals = dict(nb.render_depth_png.__globals__)
             fn_globals["__builtins__"] = {"__import__": mock_import}
@@ -515,7 +505,6 @@ class TestGracefulDegradation:
 
     def test_show_raises_when_ipython_missing(self):
         """mata.show() fallback raises ImportError with install message."""
-        import mata
 
         # When IPython is NOT available, the fallback in __init__.py raises ImportError
         with patch.dict(sys.modules, {"IPython": None, "IPython.display": None}):
@@ -538,7 +527,6 @@ class TestGracefulDegradation:
         mock_ipython.display.Image = MagicMock()
 
         with patch.dict(sys.modules, {"IPython": mock_ipython, "IPython.display": mock_ipython.display}):
-            import importlib
 
             import mata.notebook as nb
 
@@ -548,7 +536,7 @@ class TestGracefulDegradation:
 
     def test_vision_repr_html_never_raises(self):
         """_repr_html_() must catch ALL exceptions and return None."""
-        from mata.core.types import VisionResult, Instance
+        from mata.core.types import Instance, VisionResult
 
         r = VisionResult(instances=[Instance(bbox=(0, 0, 10, 10), score=0.5, label=0)])
         with patch("mata.notebook.render_vision_html", side_effect=RuntimeError("crash")):
@@ -570,9 +558,8 @@ class TestGracefulDegradation:
 
 class TestXssPrevention:
     def test_vision_label_escaped(self):
-        from mata.notebook import render_vision_html
-
         from mata.core.types import Instance, VisionResult
+        from mata.notebook import render_vision_html
 
         evil = '<script>alert("xss")</script>'
         r = VisionResult(instances=[Instance(bbox=(0, 0, 10, 10), score=0.9, label=0, label_name=evil)])
@@ -581,20 +568,18 @@ class TestXssPrevention:
         assert "&lt;script&gt;" in html
 
     def test_barcode_data_escaped(self):
+        from mata.core.types import BarcodeRegion, BarcodeResult
         from mata.notebook import render_barcode_html
 
-        from mata.core.types import BarcodeRegion, BarcodeResult
-
-        evil = '<img src=x onerror=alert(1)>'
+        evil = "<img src=x onerror=alert(1)>"
         r = BarcodeResult(barcodes=[BarcodeRegion(data=evil, type="QR_CODE", score=1.0)])
         html = render_barcode_html(r)
         assert "<img src=x" not in html
         assert "&lt;img" in html
 
     def test_ocr_text_escaped(self):
-        from mata.notebook import render_ocr_html
-
         from mata.core.types import OCRResult, TextRegion
+        from mata.notebook import render_ocr_html
 
         evil = '<b>bold & "quoted"</b>'
         r = OCRResult(regions=[TextRegion(text=evil, score=0.9)])
@@ -603,11 +588,10 @@ class TestXssPrevention:
         assert "&lt;b&gt;" in html
 
     def test_classify_label_escaped(self):
+        from mata.core.types import Classification, ClassifyResult
         from mata.notebook import render_classify_html
 
-        from mata.core.types import Classification, ClassifyResult
-
-        evil = '<svg onload=alert(1)>'
+        evil = "<svg onload=alert(1)>"
         r = ClassifyResult(predictions=[Classification(label=0, label_name=evil, score=0.9)])
         html = render_classify_html(r)
         assert "<svg onload" not in html

@@ -418,9 +418,7 @@ class If(Node):
             ctx.record_metric(self.name, "error", 1.0)
             raise
 
-    def _resolve_branch_inputs(
-        self, ctx: ExecutionContext, branch: "Node", passed_inputs: dict
-    ) -> dict:
+    def _resolve_branch_inputs(self, ctx: ExecutionContext, branch: Node, passed_inputs: dict) -> dict:
         """Resolve a branch node's inputs, filling gaps from the execution context.
 
         When the scheduler calls ``If.run()`` with no kwargs (because ``If.inputs``

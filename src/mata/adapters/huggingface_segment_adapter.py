@@ -518,7 +518,9 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
             # segment retains pixels in the merged map.
             target_sizes = [(orig_height, orig_width)]
             results = self.processor.post_process_instance_segmentation(
-                outputs, target_sizes=target_sizes, threshold=conf_threshold,
+                outputs,
+                target_sizes=target_sizes,
+                threshold=conf_threshold,
                 return_binary_maps=True,
             )[0]
 

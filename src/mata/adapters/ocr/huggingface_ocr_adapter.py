@@ -167,9 +167,7 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
                     load_kwargs["device_map"] = "auto"
                 with suppress_third_party_logs():
                     self._processor = tf.AutoProcessor.from_pretrained(self.model_id, **self._extra_kwargs)
-                    self._model = tf.AutoModelForImageTextToText.from_pretrained(
-                        self.model_id, **load_kwargs
-                    )
+                    self._model = tf.AutoModelForImageTextToText.from_pretrained(self.model_id, **load_kwargs)
                 if not use_device_map:
                     self._model = self._model.to(self.device).eval()
                 else:
