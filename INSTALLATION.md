@@ -221,7 +221,52 @@ brew install zbar
 
 ---
 
-## Development Installation
+### GGUF Models (llama-cpp-python)
+
+For loading `.gguf` quantized models (`vlm`, `embed`, `classify` tasks):
+
+```bash
+# CPU-only (default — no CUDA required)
+pip install datamata[gguf]
+
+# GPU offloading (requires CUDA toolkit + cmake; see llama-cpp-python docs)
+CMAKE_ARGS="-DLLAMA_CUDA=on" pip install llama-cpp-python --force-reinstall --no-cache-dir
+```
+
+**Platform notes:**
+
+- **Windows**: CPU build works with the default pip wheel. GPU build requires Visual Studio Build Tools.
+- **macOS**: Apple Silicon Metal acceleration is enabled automatically when using the default wheel.
+- **Linux**: CPU build is straightforward. GPU build requires `nvidia-cuda-toolkit`.
+
+See the [llama-cpp-python installation docs](https://llama-cpp-python.readthedocs.io/en/latest/#installation) for full GPU setup instructions.
+
+---
+
+### Notebook / JupyterLab Rich Display
+
+For interactive display of MATA results in Jupyter notebooks and JupyterLab:
+
+```bash
+pip install datamata[notebook]
+```
+
+This installs `ipython` and `matplotlib`. Results then auto-render as rich HTML
+tables (or colourised PNG for depth maps) when evaluated in a notebook cell:
+
+```python
+import mata
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+result  # ← rich HTML table displays automatically
+```
+
+Use `mata.show()` for explicit display with additional options:
+
+```python
+mata.show(result, image="image.jpg")  # adds image overlay
+```
+
+---
 
 If you want to contribute or modify MATA:
 

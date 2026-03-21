@@ -1,7 +1,10 @@
-# OCR Implementation Summary — MATA v1.9.0
+# OCR Implementation Summary — MATA v1.9.4
 
 > Introduced in **v1.9.0**. Optical Character Recognition is a first-class task alongside
 > detection, classification, segmentation, depth, and tracking.
+>
+> **v1.9.4:** Added **GLM-OCR** (`zai-org/GLM-OCR`) as a third HuggingFace backend,
+> delivering state-of-the-art document OCR via the chat-template inference pattern.
 
 ---
 
@@ -23,7 +26,8 @@ mata.load("ocr", ...) / mata.run("ocr", ...)
         │          ┌──────────────────┼──────────────────────┐
         ▼          ▼                  ▼                       ▼
   HuggingFaceOCRAdapter    EasyOCRAdapter   PaddleOCRAdapter  TesseractAdapter
-  (GOT-OCR2 / TrOCR)     (80+ languages)  (80+ languages)   (system binary)
+  (GLM-OCR / GOT-OCR2     (80+ languages)  (80+ languages)   (system binary)
+   / TrOCR)
         │                       │                │                  │
         └───────────────────────┴────────────────┴──────────────────┘
                                          │
@@ -47,19 +51,23 @@ mata.load("ocr", ...) / mata.run("ocr", ...)
 
 ## Supported Backends
 
-| Backend       | Class                   | Models / Source               | Runtime                             | Bbox support         | GPU                   | Notes                                                      |
-| ------------- | ----------------------- | ----------------------------- | ----------------------------------- | -------------------- | --------------------- | ---------------------------------------------------------- |
-| **GOT-OCR2**  | `HuggingFaceOCRAdapter` | `stepfun-ai/GOT-OCR-2.0-hf`   | PyTorch (AutoModelForCausalLM)      | ❌ (whole-image)     | ✅ via `device`       | ⚠️ Known hallucination issues — avoid until further notice |
-| **TrOCR**     | `HuggingFaceOCRAdapter` | `microsoft/trocr-*`           | PyTorch (VisionEncoderDecoderModel) | ❌ (whole-image)     | ✅ via `device`       | Single text-line crops only                                |
-| **EasyOCR**   | `EasyOCRAdapter`        | local engine (80+ languages)  | PyTorch (internal)                  | ✅ xyxy polygon→bbox | ✅ via `gpu=True`     |                                                            |
-| **PaddleOCR** | `PaddleOCRAdapter`      | local engine (80+ languages)  | PaddlePaddle (internal)             | ✅ xyxy polygon→bbox | ✅ via `use_gpu=True` | paddleocr + paddlepaddle major versions must match         |
-| **Tesseract** | `TesseractAdapter`      | system binary via pytesseract | External process                    | ✅ xyxy (x+w, y+h)   | ❌                    |                                                            |
+| Backend       | Class                   | Models / Source               | Runtime                                      | Bbox support         | GPU                   | Notes                                                      |
+| ------------- | ----------------------- | ----------------------------- | -------------------------------------------- | -------------------- | --------------------- | ---------------------------------------------------------- |
+| **GLM-OCR**   | `HuggingFaceOCRAdapter` | `zai-org/GLM-OCR`             | PyTorch (AutoModelForImageTextToText + chat) | ❌ (whole-image)     | ✅ via `device_map`   | State-of-the-art doc OCR; chat-template API (v1.9.4+)      |
+| **GOT-OCR2**  | `HuggingFaceOCRAdapter` | `stepfun-ai/GOT-OCR-2.0-hf`   | PyTorch (AutoModelForCausalLM)               | ❌ (whole-image)     | ✅ via `device`       | ⚠️ Known hallucination issues — avoid until further notice |
+| **TrOCR**     | `HuggingFaceOCRAdapter` | `microsoft/trocr-*`           | PyTorch (VisionEncoderDecoderModel)          | ❌ (whole-image)     | ✅ via `device`       | Single text-line crops only                                |
+| **EasyOCR**   | `EasyOCRAdapter`        | local engine (80+ languages)  | PyTorch (internal)                           | ✅ xyxy polygon→bbox | ✅ via `gpu=True`     |                                                            |
+| **PaddleOCR** | `PaddleOCRAdapter`      | local engine (80+ languages)  | PaddlePaddle (internal)                      | ✅ xyxy polygon→bbox | ✅ via `use_gpu=True` | paddleocr + paddlepaddle major versions must match         |
+| **Tesseract** | `TesseractAdapter`      | system binary via pytesseract | External process                             | ✅ xyxy (x+w, y+h)   | ❌                    |                                                            |
 
 ### Installation
 
 ```bash
-# HuggingFace models (TrOCR)  — see GOT-OCR2 warning in Known Limitations
+# HuggingFace models (GLM-OCR, TrOCR)  — see GOT-OCR2 warning in Known Limitations
 pip install transformers accelerate
+
+# GLM-OCR (zai-org/GLM-OCR) — no extra install needed beyond transformers
+# Loads automatically via AutoProcessor + AutoModelForImageTextToText.
 
 # EasyOCR
 pip install easyocr
@@ -310,16 +318,27 @@ surface as clear `ImportError` messages with `pip install` instructions only at
 All adapters normalize spatial output to **xyxy absolute pixel coordinates**
 regardless of the backend's native format:
 
-| Backend          | Native format                  | Conversion                     |
-| ---------------- | ------------------------------ | ------------------------------ |
-| EasyOCR          | 4-point polygon `[[x,y], ...]` | `min/max` of all points → xyxy |
-| PaddleOCR        | 4-point polygon `[[x,y], ...]` | `min/max` of all points → xyxy |
-| Tesseract        | `(x, y, width, height)`        | `(x, y, x+w, y+h)`             |
-| TrOCR / GOT-OCR2 | none                           | `bbox=None`                    |
+| Backend                    | Native format                  | Conversion                     |
+| -------------------------- | ------------------------------ | ------------------------------ |
+| EasyOCR                    | 4-point polygon `[[x,y], ...]` | `min/max` of all points → xyxy |
+| PaddleOCR                  | 4-point polygon `[[x,y], ...]` | `min/max` of all points → xyxy |
+| Tesseract                  | `(x, y, width, height)`        | `(x, y, x+w, y+h)`             |
+| TrOCR / GOT-OCR2 / GLM-OCR | none                           | `bbox=None`                    |
 
 ---
 
 ## Known Limitations
+
+### GLM-OCR — transformer-based, no spatial output
+
+GLM-OCR (`zai-org/GLM-OCR`) performs whole-image OCR via the chat-template API and
+produces clean, structured text. Like TrOCR and GOT-OCR2, it returns `bbox=None`
+(no per-region spatial coordinates). If bounding-box output is required, combine a
+text-detection model (`Detect` node) with a per-crop `OCR` node on the `ROIs`.
+
+GLM-OCR requires transformers 4.45+ (`AutoModelForImageTextToText` with
+`apply_chat_template` support). Upgrade with `pip install -U transformers` if you
+encounter `AttributeError: 'AutoProcessor' object has no attribute 'apply_chat_template'`.
 
 ### TrOCR — single-line focus
 

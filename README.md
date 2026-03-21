@@ -110,9 +110,36 @@ pip install datamata[redis]    # redis-py client (alternative)
 pip install datamata[barcode]         # pyzbar (libzbar, recommended)
 pip install datamata[barcode-zxing]   # zxing-cpp (Apache 2.0, broader symbologies)
 pip install datamata[barcode-all]     # both engines
+
+# Jupyter/JupyterLab rich display (v1.9.4)
+pip install datamata[notebook]        # IPython + matplotlib for inline result rendering
 ```
 
-## 🚀 Quick Start
+## 📓 Notebook Support
+
+MATA results display automatically in Jupyter notebooks and JupyterLab:
+
+```python
+import mata
+
+# Just evaluate the result in a cell — rich HTML table renders inline
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+result
+
+# Or use mata.show() for explicit display with image overlay
+mata.show(result, image="image.jpg")
+```
+
+| Result Type | Display | What you see |
+|-------------|---------|-------------|
+| `VisionResult` | `_repr_html_()` | Table: label / score / bbox / track ID |
+| `ClassifyResult` | `_repr_html_()` | SVG bar chart + score table |
+| `DepthResult` | `_repr_png_()` | Colormap PNG (magma) |
+| `OCRResult` | `_repr_html_()` | Text region table |
+| `BarcodeResult` | `_repr_html_()` | Decoded barcode table |
+| `Embeddings` | `_repr_html_()` | Shape / dtype / normalized summary |
+
+See [`examples/notebooks/`](examples/notebooks/) for ready-to-run starter notebooks.
 
 ### Object Detection
 

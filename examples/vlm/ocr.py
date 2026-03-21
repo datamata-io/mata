@@ -1,25 +1,27 @@
 """OCR Examples — MATA Framework
 
-Demonstrates four OCR backends and common result workflows:
+Demonstrates five OCR backends and common result workflows:
     - EasyOCR         (80+ languages, polygon bboxes)
     - PaddleOCR       (multilingual, strong on non-Latin scripts)
     - Tesseract       (classic open-source engine)
     - HuggingFace GOT-OCR2 / TrOCR (transformer-based)
+    - HuggingFace GLM-OCR (state-of-the-art document OCR, v1.9.4+)
 
 Plus utilities: load-once, export, confidence filtering, config aliases.
 
 Run a specific backend:
     python examples/vlm/ocr.py easyocr
-    python examples/vlm/ocr.py paddleocr
-    python examples/vlm/ocr.py tesseract
     python examples/vlm/ocr.py trocr
+    python examples/vlm/ocr.py glm-ocr
+    python examples/vlm/ocr.py paddleocr (still have an issue with latest paddlepaddle version)
+    python examples/vlm/ocr.py tesseract  (still need more testing with latest pytesseract version)
     python examples/vlm/ocr.py           # runs all sections
 
 Requirements (install the backends you want to test):
     pip install easyocr
     pip install paddlepaddle paddleocr
     pip install pytesseract              # also needs Tesseract binary on PATH
-    pip install transformers torch       # for HuggingFace models
+    pip install transformers torch       # for HuggingFace models (TrOCR, GLM-OCR)
 """
 
 from __future__ import annotations
@@ -33,7 +35,8 @@ import mata
 IMAGE_DIR = Path(__file__).parent.parent / "images"
 STOCKS_IMAGE = IMAGE_DIR / "ocr" / "stocks.png"
 RECEIPT_IMAGE = IMAGE_DIR / "ocr" / "receipt.png"
-LINE_CROP_IMAGE = IMAGE_DIR / "ocr" / "a01-122-02.jpg"
+LINE_CROP_IMAGE = IMAGE_DIR / "ocr" / "ocr_test_mata.png"
+OCR_DOCUMENT_IMAGE = IMAGE_DIR / "ocr" / "ocr_document.png"
 ROI_TEST_IMAGE = IMAGE_DIR / "license_plate" / "inst_0001.png"
 
 
@@ -96,6 +99,29 @@ def demo_got_ocr2():
     print("\n=== HuggingFace GOT-OCR2 ===")
     print("  [skip] GOT-OCR2 hallucinates with current transformers version — skipping.")
     print("  See: https://huggingface.co/stepfun-ai/GOT-OCR-2.0-hf")
+
+
+# === Section 5: HuggingFace GLM-OCR ===
+
+def demo_glm_ocr():
+    """GLM-OCR — state-of-the-art document OCR via chat-template API (v1.9.4+)."""
+    print("\n=== HuggingFace GLM-OCR ===")
+    image = OCR_DOCUMENT_IMAGE if OCR_DOCUMENT_IMAGE.exists() else STOCKS_IMAGE
+    if not _check_image(image):
+        return
+
+    # Load once, predict many
+    adapter = mata.load("ocr", "zai-org/GLM-OCR")
+    result = adapter.predict(image)
+    print(f"Full text:\n{result.full_text}\n")
+
+    # One-shot via mata.run()
+    result2 = mata.run("ocr", image, model="zai-org/GLM-OCR")
+    print(f"One-shot result (first 200 chars): {result2.full_text[:200]!r}")
+
+    # Custom prompt
+    result3 = adapter.predict(image, prompt="Extract all numbers and dates:")
+    print(f"Custom prompt result: {result3.full_text[:200]!r}")
 
 
 # === Section 5: HuggingFace TrOCR ===
@@ -200,6 +226,7 @@ _DEMOS = {
     "paddleocr": demo_paddleocr,
     "tesseract": demo_tesseract,
     "got-ocr2":  demo_got_ocr2,
+    "glm-ocr":   demo_glm_ocr,
     "trocr":     demo_trocr,
     "load-once": demo_load_once,
     "export":    demo_export,

@@ -435,7 +435,28 @@ result = mata.infer("frame.jpg", graph=load_graph, providers={})
 
 See the [Graph API Reference](docs/GRAPH_API_REFERENCE.md#storage-nodes) for full parameter documentation.
 
-## Next Steps
+## Notebook Display
+
+MATA results render automatically in Jupyter notebooks:
+
+```python
+import mata
+
+# Evaluate in a cell — rich HTML table renders inline
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+result
+
+# Explicit display with image overlay
+mata.show(result, image="image.jpg")
+```
+
+Install notebook extras:
+
+```bash
+pip install datamata[notebook]
+```
+
+See [`examples/notebooks/`](examples/notebooks/) for ready-to-run starter notebooks.
 
 1. **Read the full documentation**: [README.md](README.md)
 2. **Understand the architecture**: [MATA_architecture_and_code_structure.md](MATA_architecture_and_code_structure.md)

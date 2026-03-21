@@ -1,6 +1,8 @@
 """HuggingFace OCR adapter for MATA framework.
 
-Supports two OCR architectures:
+Supports three OCR architectures:
+- GLM-OCR (zai-org/GLM-OCR): Full-image end-to-end OCR via AutoModelForImageTextToText
+  with chat-template inference (apply_chat_template). State-of-the-art document OCR.
 - GOT-OCR2 (stepfun-ai/GOT-OCR-2.0-hf): Full-image end-to-end OCR via AutoModelForCausalLM.
   Requires ``trust_remote_code=True``.
 - TrOCR (microsoft/trocr-*): Sequence-to-sequence OCR via VisionEncoderDecoderModel.
@@ -49,12 +51,19 @@ def _ensure_transformers() -> Any:
 
 
 class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
-    """OCR adapter for HuggingFace models (GOT-OCR2, TrOCR).
+    """OCR adapter for HuggingFace models (GLM-OCR, GOT-OCR2, TrOCR).
 
     Architecture is auto-detected from the model ID:
-    - IDs containing ``trocr`` → TrOCR (VisionEncoderDecoderModel)
+    - IDs containing ``glm-ocr``, ``glm_ocr``, or ``glmocr`` → GLM-OCR
+      (AutoModelForImageTextToText + chat-template API)
     - IDs containing ``got-ocr``, ``gotocr``, or ``got_ocr`` → GOT-OCR2 (AutoModelForCausalLM)
+    - IDs containing ``trocr`` → TrOCR (VisionEncoderDecoderModel)
     - All others fall back to TrOCR pattern.
+
+    .. note::
+        GLM-OCR (``zai-org/GLM-OCR``) uses the chat-template inference pattern
+        (``apply_chat_template``) and delivers strong document OCR with a single
+        ``"Text Recognition:"`` prompt. Pass ``prompt=`` to override.
 
     .. warning::
         GOT-OCR2 (``stepfun-ai/GOT-OCR-2.0-hf``) is known to hallucinate with some
@@ -63,8 +72,8 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
 
     .. warning::
         TrOCR is designed for single text-line crops. It underperforms significantly
-        on full-page or multi-line documents. Use GOT-OCR2 or an external engine
-        (EasyOCR / PaddleOCR / Tesseract) for full-page document OCR.
+        on full-page or multi-line documents. Use GLM-OCR, GOT-OCR2, or an external
+        engine (EasyOCR / PaddleOCR / Tesseract) for full-page document OCR.
 
     .. note::
         GOT-OCR2 requires ``trust_remote_code=True``, which executes model-specific
@@ -74,12 +83,18 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
 
         from mata.adapters.ocr import HuggingFaceOCRAdapter
 
-        adapter = HuggingFaceOCRAdapter("microsoft/trocr-base-handwritten")
-        result = adapter.predict("handwritten_note.jpg")
+        # GLM-OCR — state-of-the-art document OCR (v1.9.4+)
+        adapter = HuggingFaceOCRAdapter("zai-org/GLM-OCR")
+        result = adapter.predict("document.png")
         print(result.full_text)
 
-        adapter2 = HuggingFaceOCRAdapter("stepfun-ai/GOT-OCR-2.0-hf")
-        result2 = adapter2.predict("document.png")
+        # TrOCR — single text-line crops
+        adapter2 = HuggingFaceOCRAdapter("microsoft/trocr-base-handwritten")
+        result2 = adapter2.predict("handwritten_note.jpg")
+        print(result2.full_text)
+
+        adapter3 = HuggingFaceOCRAdapter("stepfun-ai/GOT-OCR-2.0-hf")
+        result3 = adapter3.predict("document.png")
     """
 
     name = "huggingface_ocr"
@@ -116,9 +131,11 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
             model_id: HuggingFace model ID.
 
         Returns:
-            ``"trocr"`` or ``"got_ocr"``.
+            ``"glm_ocr"``, ``"trocr"``, or ``"got_ocr"``.
         """
         mid = model_id.lower()
+        if "glm-ocr" in mid or "glm_ocr" in mid or "glmocr" in mid:
+            return "glm_ocr"
         if "trocr" in mid:
             return "trocr"
         if "got-ocr" in mid or "gotocr" in mid or "got_ocr" in mid:
@@ -141,7 +158,27 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
         try:
             from mata.core.logging import suppress_third_party_logs
 
-            if self._arch == "trocr":
+            if self._arch == "glm_ocr":
+                logger.info(f"Loading GLM-OCR model: {self.model_id}")
+                load_kwargs = dict(self._extra_kwargs)
+                load_kwargs.setdefault("torch_dtype", "auto")
+                use_device_map = str(self.device) != "cpu" and load_kwargs.pop("device_map", None) != "disabled"
+                if use_device_map:
+                    load_kwargs["device_map"] = "auto"
+                with suppress_third_party_logs():
+                    self._processor = tf.AutoProcessor.from_pretrained(self.model_id, **self._extra_kwargs)
+                    self._model = tf.AutoModelForImageTextToText.from_pretrained(
+                        self.model_id, **load_kwargs
+                    )
+                if not use_device_map:
+                    self._model = self._model.to(self.device).eval()
+                else:
+                    self._model = self._model.eval()
+                    # When device_map is used the model spans potentially multiple
+                    # devices; record the primary device for input tensor placement.
+                    self._infer_device = next(self._model.parameters()).device
+
+            elif self._arch == "trocr":
                 logger.info(f"Loading TrOCR model: {self.model_id}")
                 with suppress_third_party_logs():
                     self._processor = tf.TrOCRProcessor.from_pretrained(self.model_id, **self._extra_kwargs)
@@ -177,6 +214,9 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
                    MATA ``Image`` artifact).
             **kwargs: Architecture-specific options forwarded to generation:
 
+                - **GLM-OCR**: ``prompt`` (str, default ``"Text Recognition:"``),
+                  ``max_new_tokens`` (int, default ``8192``),
+                  ``skip_special_tokens`` (bool, default ``True``).
                 - **TrOCR**: ``max_new_tokens`` (int), any ``generate()`` kwarg.
                 - **GOT-OCR2**: ``ocr_type`` (``"ocr"`` | ``"format"``, default ``"ocr"``),
                   ``max_new_tokens`` (int), any ``generate()`` kwarg.
@@ -189,10 +229,74 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
         if input_path:
             meta_base["input_path"] = input_path
 
-        if self._arch == "trocr":
+        if self._arch == "glm_ocr":
+            return self._predict_glm_ocr(pil_image, meta=meta_base, **kwargs)
+        elif self._arch == "trocr":
             return self._predict_trocr(pil_image, meta=meta_base, **kwargs)
         else:  # got_ocr
             return self._predict_got_ocr(pil_image, meta=meta_base, **kwargs)
+
+    def _predict_glm_ocr(self, pil_image: Any, meta: dict[str, Any], **kwargs: Any) -> OCRResult:
+        """Run GLM-OCR inference using the chat-template API.
+
+        GLM-OCR follows the VLM chat pattern: it builds a user message containing
+        the image and a text prompt, applies the processor's chat template, then
+        decodes only the newly generated tokens.
+
+        Args:
+            pil_image: PIL Image in RGB format.
+            meta: Base metadata dict to include in result.
+            **kwargs: Supported options:
+
+                - ``prompt`` (str): Text instruction (default ``"Text Recognition:"``).
+                - ``max_new_tokens`` (int): Max tokens to generate (default ``8192``).
+                - ``skip_special_tokens`` (bool): Strip special tokens from output
+                  (default ``True``).
+
+        Returns:
+            :class:`OCRResult` with a single region and ``bbox=None``.
+        """
+        prompt = kwargs.pop("prompt", "Text Recognition:")
+        max_new_tokens = kwargs.pop("max_new_tokens", 8192)
+        skip_special_tokens = kwargs.pop("skip_special_tokens", True)
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": pil_image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+        # Determine the device for input tensor placement (device_map vs explicit device)
+        target_device = getattr(self, "_infer_device", self.device)
+
+        inputs = self._processor.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(target_device)
+        # GLM-OCR does not use token_type_ids; drop if present to avoid
+        # unexpected keyword argument errors in model.generate().
+        inputs.pop("token_type_ids", None)
+
+        input_len = inputs["input_ids"].shape[1]
+        with self.torch.no_grad():
+            generated_ids = self._model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                **kwargs,
+            )
+        text = self._processor.decode(
+            generated_ids[0][input_len:],
+            skip_special_tokens=skip_special_tokens,
+        )
+        region = TextRegion(text=text, score=1.0, bbox=None, label="glm-ocr")
+        return OCRResult(regions=[region], meta={**meta})
 
     def _predict_trocr(self, pil_image: Any, meta: dict[str, Any], **kwargs: Any) -> OCRResult:
         """Run TrOCR inference.

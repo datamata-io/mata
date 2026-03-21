@@ -577,6 +577,15 @@ class VisionResult:
         else:
             raise ValueError(f"Unknown format: '{format}'")
 
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            from mata.notebook import render_vision_html
+
+            return render_vision_html(self)
+        except Exception:
+            return None
+
 
 @dataclass(frozen=True)
 class DepthResult:
@@ -687,6 +696,15 @@ class DepthResult:
             export_image(self, output_path, image=image, **kwargs)
         else:
             raise ValueError(f"Unknown format: '{format}'")
+
+    def _repr_png_(self) -> bytes | None:
+        """Rich PNG display for Jupyter notebooks (colormap visualization)."""
+        try:
+            from mata.notebook import render_depth_png
+
+            return render_depth_png(self)
+        except Exception:
+            return None
 
 
 @dataclass(frozen=True)
@@ -833,6 +851,15 @@ class OCRResult:
         else:
             raise ValueError(f"Unsupported OCR save format: '{suffix}'. " "Use .json, .csv, .txt, or .png/.jpg")
 
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            from mata.notebook import render_ocr_html
+
+            return render_ocr_html(self)
+        except Exception:
+            return None
+
 
 @dataclass(frozen=True)
 class BarcodeRegion:
@@ -939,6 +966,15 @@ class BarcodeResult:
         else:
             raise ValueError(f"Unsupported barcode save format: '{suffix}'. Use .json or .csv")
 
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            from mata.notebook import render_barcode_html
+
+            return render_barcode_html(self)
+        except Exception:
+            return None
+
 
 class ModelType(str, Enum):
     """Supported model source types for explicit loading.
@@ -1026,6 +1062,11 @@ class ModelType(str, Enum):
     # Barcode engines (v1.9.3+)
     PYZBAR = "pyzbar"
     ZXING = "zxing"
+    # GGUF quantized model file (.gguf) — llama-cpp-python runtime (v1.9.4+)
+    # Source: Local file path to GGUF file
+    # Valid kwargs: model_path, n_gpu_layers, n_ctx, mmproj (VLM), text_prompts (classify), max_tokens, verbose
+    # Requires: llama-cpp-python installed (pip install datamata[gguf])
+    GGUF = "gguf"
 
     @classmethod
     def normalize(cls, value: str | ModelType | None) -> ModelType | None:
@@ -1770,6 +1811,15 @@ class ClassifyResult:
         """
         filtered = [p for p in self.predictions if p.score >= threshold]
         return ClassifyResult(predictions=filtered, meta=self.meta)
+
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            from mata.notebook import render_classify_html
+
+            return render_classify_html(self)
+        except Exception:
+            return None
 
 
 @dataclass(frozen=True)

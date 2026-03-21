@@ -7,6 +7,10 @@ from .huggingface_classify_adapter import HuggingFaceClassifyAdapter
 from .huggingface_depth_adapter import HuggingFaceDepthAdapter
 from .huggingface_segment_adapter import HuggingFaceSegmentAdapter
 from .huggingface_zeroshot_segment_adapter import HuggingFaceZeroShotSegmentAdapter
+from .llamacpp_base import LlamaCppBaseAdapter
+from .llamacpp_classify_adapter import LlamaCppClassifyAdapter
+from .llamacpp_embed_adapter import LlamaCppEmbedAdapter
+from .llamacpp_vlm_adapter import LlamaCppVLMAdapter
 from .ocr.easyocr_adapter import EasyOCRAdapter
 from .ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
 from .ocr.paddleocr_adapter import PaddleOCRAdapter
@@ -51,4 +55,9 @@ __all__ = [
     "EasyOCRAdapter",
     "PaddleOCRAdapter",
     "TesseractAdapter",
+    # GGUF / llama-cpp-python adapters (v1.9.4+)
+    "LlamaCppBaseAdapter",
+    "LlamaCppVLMAdapter",
+    "LlamaCppEmbedAdapter",
+    "LlamaCppClassifyAdapter",
 ]

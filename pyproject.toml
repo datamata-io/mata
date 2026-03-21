@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamata"
-version = "1.9.3"
+version = "1.9.4"
 description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -119,6 +119,19 @@ barcode-all = [
     "zxing-cpp>=2.0.0",
 ]
 
+# Notebook / JupyterLab rich display
+notebook = [
+    "ipython>=7.0",
+    "matplotlib>=3.5.0",
+]
+
+# GGUF quantized model files — llama-cpp-python runtime (CPU build)
+# For GPU offloading: install llama-cpp-python with CUDA support manually
+# See: https://llama-cpp-python.readthedocs.io/en/latest/#installation
+gguf = [
+    "llama-cpp-python>=0.3.0",
+]
+
 # Valkey/Redis result storage
 valkey = [
     "valkey>=6.0.0",
@@ -132,7 +145,7 @@ redis = [
 
 # Full installation (all optional features except GPU ONNX)
 all = [
-    "datamata[onnx,classification,eval,viz,segmentation,ocr]",
+    "datamata[onnx,classification,eval,viz,segmentation,ocr,notebook]",
 ]
 
 dev = [

@@ -94,3 +94,12 @@ class Embeddings(Artifact):
             normalized=data.get("normalized", True),
             meta=data.get("meta", {}),
         )
+
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            from mata.notebook import render_embeddings_html
+
+            return render_embeddings_html(self)
+        except Exception:
+            return None

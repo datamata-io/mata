@@ -28,8 +28,29 @@ def _patch_transformers(arch: str = "trocr"):
     mock_model = MagicMock()
     mock_model.to.return_value = mock_model
     mock_model.to.return_value.eval.return_value = mock_model
+    mock_model.eval.return_value = mock_model
 
-    if arch == "trocr":
+    if arch == "glm_ocr":
+        # apply_chat_template returns a dict-like mock with input_ids tensor shape
+        mock_inputs = MagicMock()
+        mock_inputs.__getitem__ = MagicMock(return_value=MagicMock())
+        mock_inputs.__contains__ = MagicMock(return_value=False)  # no token_type_ids
+        mock_inputs.pop = MagicMock(return_value=None)
+        mock_inputs["input_ids"] = MagicMock()
+        mock_inputs["input_ids"].shape = (1, 5)  # batch=1, seq_len=5
+        mock_inputs.to.return_value = mock_inputs
+        mock_processor.apply_chat_template.return_value = mock_inputs
+        mock_processor.decode.return_value = "Recognized document text"
+        mock_model.generate.return_value = [MagicMock()]
+        # Simulate parameters() for _infer_device (device_map path)
+        mock_param = MagicMock()
+        mock_param.device = "cpu"
+        mock_model.parameters.return_value = iter([mock_param])
+        tf_module = MagicMock()
+        tf_module.AutoProcessor.from_pretrained.return_value = mock_processor
+        tf_module.AutoModelForImageTextToText.from_pretrained.return_value = mock_model
+
+    elif arch == "trocr":
         mock_processor.batch_decode.return_value = ["Hello World"]
         mock_model.generate.return_value = MagicMock()
         # pixel_values attribute used in _predict_trocr
@@ -93,6 +114,19 @@ class TestArchitectureDetection:
         # but 'trocr' check runs first; real-world IDs won't have both
         arch = self.detect("org/trocr-got-ocr")
         assert arch in ("trocr", "got_ocr")  # deterministic, just must not crash
+
+    def test_glm_ocr_hyphen(self):
+        assert self.detect("zai-org/GLM-OCR") == "glm_ocr"
+
+    def test_glm_ocr_underscore(self):
+        assert self.detect("org/glm_ocr_v2") == "glm_ocr"
+
+    def test_glm_ocr_no_separator(self):
+        assert self.detect("org/GlmOCR") == "glm_ocr"
+
+    def test_glm_ocr_takes_priority_over_fallback(self):
+        # GLM-OCR check is first, so it should not fall to trocr
+        assert self.detect("zai-org/GLM-OCR") != "trocr"
 
 
 # ---------------------------------------------------------------------------
@@ -354,6 +388,213 @@ class TestInfo:
 
         info = adapter.info()
         assert info["arch"] == "got_ocr"
+
+
+# ---------------------------------------------------------------------------
+# Initialization — GLM-OCR
+# ---------------------------------------------------------------------------
+
+
+class TestGLMOCRInit:
+    """Tests for GLM-OCR adapter construction."""
+
+    def test_glm_ocr_init(self):
+        patcher, mock_proc, mock_model = _patch_transformers("glm_ocr")
+        with patcher:
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            adapter = HuggingFaceOCRAdapter("zai-org/GLM-OCR", device="cpu")
+
+        assert adapter.model_id == "zai-org/GLM-OCR"
+        assert adapter._arch == "glm_ocr"
+        assert adapter.task == "ocr"
+        assert adapter.name == "huggingface_ocr"
+
+    def test_glm_ocr_model_load_error(self):
+        from mata.core.exceptions import ModelLoadError
+
+        patcher, _, _ = _patch_transformers("glm_ocr")
+        with patcher as mock_ensure:
+            tf = mock_ensure.return_value
+            tf.AutoProcessor.from_pretrained.side_effect = OSError("model not found")
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            with pytest.raises(ModelLoadError):
+                HuggingFaceOCRAdapter("zai-org/GLM-OCR", device="cpu")
+
+    def test_glm_ocr_info_arch(self):
+        patcher, _, _ = _patch_transformers("glm_ocr")
+        with patcher:
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            adapter = HuggingFaceOCRAdapter("zai-org/GLM-OCR", device="cpu")
+
+        info = adapter.info()
+        assert info["arch"] == "glm_ocr"
+        assert info["model_id"] == "zai-org/GLM-OCR"
+        assert info["backend"] == "transformers"
+
+
+# ---------------------------------------------------------------------------
+# Prediction — GLM-OCR
+# ---------------------------------------------------------------------------
+
+
+class TestGLMOCRPredict:
+    """Tests for _predict_glm_ocr()."""
+
+    def _make_adapter(self):
+        patcher, mock_proc, mock_model = _patch_transformers("glm_ocr")
+        with patcher:
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            adapter = HuggingFaceOCRAdapter("zai-org/GLM-OCR", device="cpu")
+        adapter._processor = mock_proc
+        adapter._model = mock_model
+        return adapter, mock_proc, mock_model
+
+    def _make_mock_inputs(self, seq_len: int = 5):
+        """Build a mock inputs dict that simulates processor.apply_chat_template output."""
+        mock_id_tensor = MagicMock()
+        mock_id_tensor.shape = (1, seq_len)
+        mock_inputs = MagicMock()
+        mock_inputs.__getitem__ = lambda self, k: mock_id_tensor if k == "input_ids" else MagicMock()
+        mock_inputs.pop = MagicMock(return_value=None)
+        mock_inputs.to.return_value = mock_inputs
+        return mock_inputs, mock_id_tensor
+
+    def test_predict_returns_ocr_result(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "Invoice total: $42.00"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert isinstance(result, OCRResult)
+        assert len(result.regions) == 1
+
+    def test_predict_returns_correct_text(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "Hello GLM-OCR!"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert result.regions[0].text == "Hello GLM-OCR!"
+
+    def test_predict_region_score_is_one(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert result.regions[0].score == 1.0
+
+    def test_predict_region_has_no_bbox(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert result.regions[0].bbox is None
+
+    def test_predict_meta_contains_arch_and_model_id(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert result.meta["arch"] == "glm_ocr"
+        assert result.meta["model_id"] == "zai-org/GLM-OCR"
+
+    def test_predict_uses_default_prompt(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        adapter.predict(_make_pil_image())
+
+        call_args = mock_proc.apply_chat_template.call_args
+        messages = call_args[0][0]
+        user_content = messages[0]["content"]
+        text_parts = [p for p in user_content if p.get("type") == "text"]
+        assert text_parts[0]["text"] == "Text Recognition:"
+
+    def test_predict_custom_prompt(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        adapter.predict(_make_pil_image(), prompt="Extract all numbers:")
+
+        call_args = mock_proc.apply_chat_template.call_args
+        messages = call_args[0][0]
+        user_content = messages[0]["content"]
+        text_parts = [p for p in user_content if p.get("type") == "text"]
+        assert text_parts[0]["text"] == "Extract all numbers:"
+
+    def test_predict_pops_token_type_ids(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        adapter.predict(_make_pil_image())
+
+        mock_inputs.pop.assert_called_with("token_type_ids", None)
+
+    def test_predict_accepts_numpy_array(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        img_array = np.zeros((4, 4, 3), dtype=np.uint8)
+        result = adapter.predict(img_array)
+
+        assert isinstance(result, OCRResult)
+
+    def test_predict_custom_max_new_tokens(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        adapter.predict(_make_pil_image(), max_new_tokens=512)
+
+        gen_kwargs = mock_model.generate.call_args[1]
+        assert gen_kwargs["max_new_tokens"] == 512
+
+    def test_predict_region_label_is_glm_ocr(self):
+        adapter, mock_proc, mock_model = self._make_adapter()
+        mock_inputs, _ = self._make_mock_inputs()
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "text"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert result.regions[0].label == "glm-ocr"
 
 
 # ---------------------------------------------------------------------------
