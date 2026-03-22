@@ -347,11 +347,9 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                     self.is_thing_map = {int(k): v for k, v in config.is_thing_map.items()}
                     logger.info(f"Loaded is_thing_map with {len(self.is_thing_map)} classes")
                 else:
-                    warnings.warn(
+                    logger.warning(
                         "Model config missing 'is_thing_map' for panoptic segmentation. "
-                        "All classes will be treated as instances (is_stuff=False).",
-                        UserWarning,
-                        stacklevel=2,
+                        "All classes will be treated as instances (is_stuff=False)."
                     )
 
             logger.info(
@@ -517,12 +515,21 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
             # later segments blindly overwrite earlier ones, so only the last
             # segment retains pixels in the merged map.
             target_sizes = [(orig_height, orig_width)]
-            results = self.processor.post_process_instance_segmentation(
-                outputs,
-                target_sizes=target_sizes,
-                threshold=conf_threshold,
-                return_binary_maps=True,
-            )[0]
+            try:
+                results = self.processor.post_process_instance_segmentation(
+                    outputs,
+                    target_sizes=target_sizes,
+                    threshold=conf_threshold,
+                    return_binary_maps=True,
+                )[0]
+            except TypeError:
+                # Older transformers versions (<4.38) don't support return_binary_maps.
+                # Fall back to the merged 2D map (may have segment overwrite issues).
+                results = self.processor.post_process_instance_segmentation(
+                    outputs,
+                    target_sizes=target_sizes,
+                    threshold=conf_threshold,
+                )[0]
 
         # Convert to Instance objects
         masks = self._process_results(results, conf_threshold, orig_width, orig_height)

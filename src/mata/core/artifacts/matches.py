@@ -77,3 +77,12 @@ class Matches(Artifact):
             for e in data.get("entries", [])
         ]
         return cls(entries=entries, meta=data.get("meta", {}))
+
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            from mata.notebook import render_matches_html
+
+            return render_matches_html(self)
+        except Exception:
+            return None

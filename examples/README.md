@@ -91,6 +91,19 @@ Notable graph example:
 | [`config_aliases.py`](tools/config_aliases.py) | Define and use model aliases via `.mata/models.yaml`                         |
 | [`onnx_inference.py`](tools/onnx_inference.py) | Detection & classification with local `.onnx` files, explicit ModelType, GPU |
 
+## CLI Examples ([`cli/`](cli/)) _(v1.9.5)_
+
+Shell and PowerShell scripts for every `mata` subcommand. See [cli/README.md](cli/README.md) for the full guide.
+
+| Bash                                                     | PowerShell                                                 | Covers                                           |
+| -------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| [`cli/getting_started.sh`](cli/getting_started.sh)       | [`cli/getting_started.ps1`](cli/getting_started.ps1)       | First steps: version, help, detect, classify     |
+| [`cli/run_examples.sh`](cli/run_examples.sh)             | [`cli/run_examples.ps1`](cli/run_examples.ps1)             | `mata run` — all tasks                           |
+| [`cli/track_examples.sh`](cli/track_examples.sh)         | [`cli/track_examples.ps1`](cli/track_examples.ps1)         | `mata track` — BotSort/ByteTrack, ReID           |
+| [`cli/val_examples.sh`](cli/val_examples.sh)             | [`cli/val_examples.ps1`](cli/val_examples.ps1)             | `mata val` — dataset evaluation                  |
+| [`cli/recognize_examples.sh`](cli/recognize_examples.sh) | [`cli/recognize_examples.ps1`](cli/recognize_examples.ps1) | `mata recognize` — gallery matching              |
+| [`cli/export_examples.sh`](cli/export_examples.sh)       | [`cli/export_examples.ps1`](cli/export_examples.ps1)       | `mata export` — ONNX / TorchScript _(v2.0 stub)_ |
+
 ## Validation
 
 [`validation.py`](validation.py) — Evaluate models against COCO, ImageNet, and custom datasets.

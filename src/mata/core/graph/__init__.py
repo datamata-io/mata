@@ -7,7 +7,19 @@ multi-task computer vision workflows.
 # Re-export observability for convenience
 from mata.core.observability import ExecutionTracer, MetricsCollector, ProvenanceTracker, Span
 
-from .conditionals import CountAbove, HasLabel, If, Pass, ScoreAbove, count_above, has_label, score_above
+from .conditionals import (
+    CountAbove,
+    EarlyExit,
+    EarlyExitException,
+    HasLabel,
+    If,
+    Pass,
+    ScoreAbove,
+    While,
+    count_above,
+    has_label,
+    score_above,
+)
 from .context import ExecutionContext
 from .dsl import NodePipe, bind, out, parallel_tasks, pipeline, sequential
 from .graph import CompiledGraph, Graph
@@ -44,6 +56,9 @@ __all__ = [
     # Conditional execution
     "If",
     "Pass",
+    "While",
+    "EarlyExit",
+    "EarlyExitException",
     "HasLabel",
     "CountAbove",
     "ScoreAbove",

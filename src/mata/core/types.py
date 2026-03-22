@@ -1024,7 +1024,9 @@ class EmbedResult:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
-            "embeddings": self.embeddings.tolist() if NUMPY_AVAILABLE and hasattr(self.embeddings, "tolist") else self.embeddings,
+            "embeddings": (
+                self.embeddings.tolist() if NUMPY_AVAILABLE and hasattr(self.embeddings, "tolist") else self.embeddings
+            ),
             "labels": self.labels,
             "meta": self.meta,
         }
@@ -1038,6 +1040,7 @@ class EmbedResult:
         """Create from dictionary representation."""
         if NUMPY_AVAILABLE:
             import numpy as _np
+
             embeddings = _np.array(data["embeddings"], dtype=_np.float32)
         else:
             embeddings = data["embeddings"]

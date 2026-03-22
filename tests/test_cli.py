@@ -7,7 +7,6 @@ Run independently: pytest tests/test_cli.py -v
 from __future__ import annotations
 
 import json
-import sys
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
@@ -15,12 +14,12 @@ import numpy as np
 import pytest
 
 import mata.cli as cli_module
-from mata.cli import main, _build_parser
-
+from mata.cli import _build_parser, main
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(args: list[str]) -> int:
     """Invoke main() with explicit argv; return exit code."""
@@ -39,6 +38,7 @@ def _capture(args: list[str]) -> tuple[int, str, str]:
 # ---------------------------------------------------------------------------
 # TestParser
 # ---------------------------------------------------------------------------
+
 
 class TestParser:
     def test_run_subcommand_parsed(self):
@@ -163,6 +163,7 @@ class TestParser:
 # TestCmdRun
 # ---------------------------------------------------------------------------
 
+
 class TestCmdRun:
     def _mock_detect_result(self):
         inst = MagicMock()
@@ -177,7 +178,7 @@ class TestCmdRun:
     def test_run_detect_calls_mata_run(self):
         result = self._mock_detect_result()
         with patch("mata.run", return_value=result) as mock_run:
-            code = _run(["run", "detect", "img.jpg", "--model", "my-model"])
+            _run(["run", "detect", "img.jpg", "--model", "my-model"])
         mock_run.assert_called_once()
         call_kwargs = mock_run.call_args
         assert call_kwargs[0][0] == "detect"
@@ -255,6 +256,7 @@ class TestCmdRun:
 # TestCmdTrack
 # ---------------------------------------------------------------------------
 
+
 class TestCmdTrack:
     def _mock_track_result(self, n_instances: int = 2):
         inst = MagicMock()
@@ -265,7 +267,7 @@ class TestCmdTrack:
 
     def test_track_calls_mata_track(self):
         with patch("mata.track", return_value=iter(self._mock_track_result())) as mock_track:
-            code = _run(["track", "video.mp4", "--model", "my-model"])
+            _run(["track", "video.mp4", "--model", "my-model"])
         mock_track.assert_called_once()
 
     def test_track_exits_0(self):
@@ -302,6 +304,7 @@ class TestCmdTrack:
 # ---------------------------------------------------------------------------
 # TestCmdVal
 # ---------------------------------------------------------------------------
+
 
 class TestCmdVal:
     def test_val_calls_mata_val(self):
@@ -345,6 +348,7 @@ class TestCmdVal:
 # TestCmdExport
 # ---------------------------------------------------------------------------
 
+
 class TestCmdExport:
     def test_export_exits_0(self):
         code, stdout, _ = _capture(["export", "detect", "model.pt", "--format", "onnx"])
@@ -364,6 +368,7 @@ class TestCmdExport:
 # TestVersionAndVerbosity
 # ---------------------------------------------------------------------------
 
+
 class TestVersionAndVerbosity:
     def test_version_contains_mata(self):
         ver = cli_module._get_version()
@@ -371,4 +376,5 @@ class TestVersionAndVerbosity:
 
     def test_main_module_importable(self):
         import mata.__main__ as mm
+
         assert mm is not None

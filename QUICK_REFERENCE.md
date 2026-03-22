@@ -1945,7 +1945,193 @@ conn = registry.get_valkey_connection("production")
 
 ---
 
-**Version:** 1.9.4
-**Date:** March 21, 2026
+## 💻 CLI Quick Reference (v1.9.5)
+
+### `mata run` — one-shot inference
+
+```bash
+mata run detect image.jpg --model facebook/detr-resnet-50 --conf 0.4 --save
+mata run classify image.jpg --model microsoft/resnet-50 --json
+mata run classify image.jpg --model openai/clip-vit-base-patch32 --text "cat" --text "dog"
+mata run segment image.jpg --model facebook/mask2former-swin-tiny-coco-instance
+mata run depth image.jpg --model depth-anything/Depth-Anything-V2-Small-hf --save
+mata run embed image.jpg --model openai/clip-vit-base-patch32 --json
+mata run barcode labels.jpg --model pyzbar --json
+mata run vlm image.jpg --model Qwen/Qwen3-VL-2B-Instruct --prompt "Describe this"
+```
+
+### `mata track` — video / stream tracking
+
+```bash
+mata track video.mp4 --model facebook/detr-resnet-50
+mata track video.mp4 --model facebook/detr-resnet-50 --tracker bytetrack --conf 0.3 --save
+mata track video.mp4 --model facebook/detr-resnet-50 --reid-model openai/clip-vit-base-patch32
+mata track rtsp://cam/stream --model facebook/detr-resnet-50 --show
+```
+
+### `mata recognize` — gallery-based identity matching
+
+```bash
+mata recognize person.jpg --gallery gallery.npz
+mata recognize person.jpg --gallery gallery.npz --model openai/clip-vit-base-patch32
+mata recognize person.jpg --gallery gallery.npz --top-k 5 --threshold 0.75 --json
+```
+
+### `mata val` — dataset evaluation
+
+```bash
+mata val detect --data coco.yaml --model facebook/detr-resnet-50 --conf 0.4
+mata val classify --data imagenet.yaml --model microsoft/resnet-50
+mata val segment --data coco.yaml --model facebook/mask2former-swin-tiny-coco-instance
+```
+
+### Common flags
+
+| Flag | Description | Commands |
+|------|-------------|----------|
+| `--model MODEL` | HuggingFace ID, local path, or config alias | all |
+| `--conf FLOAT` | Confidence threshold (default 0.5) | run, track |
+| `--iou FLOAT` | IoU threshold for NMS | track, val |
+| `--save` | Save output to disk | run, track |
+| `--json` | Print JSON to stdout | run, recognize |
+| `--device DEVICE` | `cpu`, `cuda`, `cuda:0` | run, track |
+| `--tracker NAME` | `botsort` (default) or `bytetrack` | track |
+| `--reid-model MODEL` | Appearance ReID model | track |
+| `--top-k INT` | Top-K matches | recognize |
+| `--threshold FLOAT` | Min cosine similarity | recognize |
+
+**Examples:** [examples/cli/](examples/cli/)
+
+---
+
+## 🎯 Gallery / Recognition Quick Reference (v1.9.5)
+
+### Build and save a gallery
+
+```python
+import mata
+
+gallery = mata.Gallery(threshold=0.7)
+gallery.add("alice_1.jpg", label="alice", model="openai/clip-vit-base-patch32")
+gallery.add("alice_2.jpg", label="alice", model="openai/clip-vit-base-patch32")
+gallery.add("bob_1.jpg",   label="bob",   model="openai/clip-vit-base-patch32")
+gallery.save("gallery.npz")
+```
+
+### Recognise a query image
+
+```python
+gallery = mata.Gallery.load("gallery.npz")
+
+matches = mata.run("recognize", "query.jpg",
+    gallery=gallery,
+    model="openai/clip-vit-base-patch32",
+    top_k=3)
+
+print(matches.top1.label)        # best match
+print(matches.top1.similarity)   # cosine similarity [0, 1]
+for entry in matches.entries:
+    print(f"{entry.label}: {entry.similarity:.3f}")
+```
+
+### `Matches` / `MatchEntry` artifacts
+
+```python
+from mata import Matches, MatchEntry
+
+matches.entries          # list[MatchEntry]
+matches.top1             # highest-similarity MatchEntry
+matches.to_json()        # JSON serialisation
+matches.to_dict()        # dict serialisation
+
+entry.label              # gallery label string
+entry.similarity         # float in [0, 1]
+entry.instance_id        # optional source ROI id
+```
+
+### Graph pipeline
+
+```python
+from mata.nodes import Detect, Filter, ExtractROIs, Embed, GalleryMatchNode
+
+graph = (
+    Detect(using="detector", out="dets")
+    >> Filter(src="dets", score_gt=0.5, out="filtered")
+    >> ExtractROIs(src_dets="filtered", out="rois")
+    >> Embed(using="encoder", src="rois", out="embeddings")
+    >> GalleryMatchNode(gallery=gallery, src="embeddings", out="matches")
+)
+```
+
+**Tests:** `tests/test_matches_artifact.py` (39) · `tests/test_recognize_api.py` (34) · `tests/test_cli_recognize.py` (18)
+
+---
+
+## 🔀 Graph Control Flow Quick Reference (v1.9.5)
+
+### `EarlyExit` — halt graph when a condition is met
+
+```python
+from mata.nodes import EarlyExit   # also: from mata import EarlyExit
+from mata import EarlyExitException
+
+graph.add(EarlyExit(
+    predicate=lambda ctx: len(ctx.retrieve("dets").instances) == 0,
+    reason="No detections — skipping downstream steps",
+))
+
+# Catch externally if needed
+try:
+    result = mata.infer(graph, image="image.jpg", providers={...})
+except EarlyExitException as e:
+    print(f"Stopped early: {e.reason}")
+```
+
+### `While` — re-run nodes in a loop
+
+```python
+from mata.nodes import While
+
+graph.add(While(
+    body=[Detect(using="detector", out="dets")],
+    condition=lambda ctx: ctx.retrieve("dets").instances[0].score < 0.9,
+    max_iterations=5,   # always enforced
+))
+```
+
+### `Graph.add(condition=...)` — conditional node guard
+
+```python
+graph.add(
+    Classify(using="classifier", out="cls"),
+    condition=lambda ctx: len(ctx.retrieve("dets").instances) > 0,
+)
+```
+
+### `Graph.conditional()` — if/else branch helper
+
+```python
+graph.conditional(
+    predicate=lambda ctx: len(ctx.retrieve("dets").instances) > 5,
+    then_branch=Annotate(using="drawer", heavy=True,  out="annotated"),
+    else_branch=Annotate(using="drawer", heavy=False, out="annotated"),
+)
+```
+
+### Import paths (all equivalent)
+
+```python
+from mata import EarlyExit, EarlyExitException, While          # top-level
+from mata.nodes import EarlyExit, EarlyExitException, While    # nodes module
+from mata.core.graph import EarlyExit, EarlyExitException, While  # core
+```
+
+**Tests:** `tests/test_graph_control_flow.py`
+**Notebook:** [examples/notebooks/12_graph_control_flow.ipynb](examples/notebooks/12_graph_control_flow.ipynb)
+
+---
+
+**Version:** 1.9.5
+**Date:** March 22, 2026
 **Status:** ✅ Production Ready
 ````

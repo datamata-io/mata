@@ -14,14 +14,14 @@ import numpy as np
 import pytest
 
 import mata
-from mata import Gallery, GalleryMatch, Matches, MatchEntry
+from mata import Gallery, GalleryMatch, MatchEntry, Matches
 from mata.core.artifacts.embeddings import Embeddings
 from mata.core.artifacts.matches import Matches as MatchesArtifact
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _unit(dim: int = 64) -> np.ndarray:
     v = np.random.randn(dim).astype(np.float32)
@@ -65,24 +65,21 @@ class TestRecognizeRouting:
         gallery = _make_gallery(3, 64)
         adapter = _mock_embed_adapter(64)
         with patch("mata.api.load", return_value=adapter):
-            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8),
-                              gallery=gallery)
+            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8), gallery=gallery)
         assert isinstance(result, MatchesArtifact)
 
     def test_run_recognize_one_entry_per_image(self):
         gallery = _make_gallery(3, 64)
         adapter = _mock_embed_adapter(64)
         with patch("mata.api.load", return_value=adapter):
-            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8),
-                              gallery=gallery)
+            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8), gallery=gallery)
         assert len(result.entries) == 1
 
     def test_run_recognize_entry_has_label(self):
         gallery = _make_gallery(3, 64)
         adapter = _mock_embed_adapter(64)
         with patch("mata.api.load", return_value=adapter):
-            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8),
-                              gallery=gallery)
+            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8), gallery=gallery)
         entry = result.entries[0]
         assert isinstance(entry.label, str)
         assert len(entry.label) > 0
@@ -91,8 +88,7 @@ class TestRecognizeRouting:
         gallery = _make_gallery(3, 64)
         adapter = _mock_embed_adapter(64)
         with patch("mata.api.load", return_value=adapter):
-            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8),
-                              gallery=gallery)
+            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8), gallery=gallery)
         entry = result.entries[0]
         assert isinstance(entry.similarity, float)
 
@@ -100,16 +96,19 @@ class TestRecognizeRouting:
         gallery = _make_gallery(3, 64)
         adapter = _mock_embed_adapter(64)
         with patch("mata.api.load", return_value=adapter):
-            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8),
-                              gallery=gallery)
+            result = mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8), gallery=gallery)
         assert result.entries[0].instance_id == "query"
 
     def test_run_recognize_calls_embed_task(self):
         gallery = _make_gallery(3, 64)
         adapter = _mock_embed_adapter(64)
         with patch("mata.api.load", return_value=adapter) as mock_load:
-            mata.run("recognize", np.zeros((64, 64, 3), dtype=np.uint8),
-                     gallery=gallery, model="openai/clip-vit-base-patch32")
+            mata.run(
+                "recognize",
+                np.zeros((64, 64, 3), dtype=np.uint8),
+                gallery=gallery,
+                model="openai/clip-vit-base-patch32",
+            )
         mock_load.assert_called_once()
         call_kwargs = mock_load.call_args
         assert call_kwargs[1].get("task") == "embed" or call_kwargs[0][0] == "embed"
@@ -149,11 +148,16 @@ class TestRecognizeErrors:
 class TestRecognizeWithRealGallery:
     """Integration-style tests using a real Gallery — no model calls."""
 
-    def _run_with_mock(self, gallery: Gallery, query_vec: np.ndarray,
-                        model: str | None = None, top_k: int = 1,
-                        threshold: float | None = None) -> MatchesArtifact:
+    def _run_with_mock(
+        self,
+        gallery: Gallery,
+        query_vec: np.ndarray,
+        model: str | None = None,
+        top_k: int = 1,
+        threshold: float | None = None,
+    ) -> MatchesArtifact:
         """Helper: patch embed adapter to return a fixed query vector."""
-        from mata.core.artifacts.image import Image as ImageArtifact
+
         adapter = MagicMock()
         emb = _make_embed_result(query_vec[np.newaxis, :])
         adapter.embed.return_value = emb
@@ -254,18 +258,19 @@ class TestRecognizeWithRealGallery:
 class TestRecognizePublicAPI:
     def test_gallery_importable_from_mata(self):
         from mata import Gallery
+
         assert Gallery is not None
 
     def test_gallery_match_importable_from_mata(self):
-        from mata import GalleryMatch
+
         assert GalleryMatch is not None
 
     def test_matches_importable_from_mata(self):
-        from mata import Matches
+
         assert Matches is not None
 
     def test_match_entry_importable_from_mata(self):
-        from mata import MatchEntry
+
         assert MatchEntry is not None
 
     def test_run_function_exists(self):
@@ -285,6 +290,7 @@ class TestRecognizePublicAPI:
         assert callable(Gallery.load)
 
     def test_matches_artifact_importable_from_core(self):
-        from mata.core.artifacts import Matches, MatchEntry
+        from mata.core.artifacts import MatchEntry, Matches
+
         assert Matches is not None
         assert MatchEntry is not None

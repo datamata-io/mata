@@ -277,10 +277,10 @@ def _run_recognize(
 
     # Embed using the embed task adapter
     embed_adapter = load(task="embed", model=model, model_type=model_type, **kwargs)
-    embeddings_artifact = embed_adapter.embed(image_artifact)
+    embeddings_ndarray = embed_adapter.embed(image_artifact)  # (N, D) ndarray
 
     # Query the gallery with the first (and only) embedding vector
-    query_vector = embeddings_artifact.vectors[0]
+    query_vector = embeddings_ndarray[0]
     matches = gallery.search(query_vector, top_k=top_k, threshold=threshold)
 
     best = matches[0] if matches else None

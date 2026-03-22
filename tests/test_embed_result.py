@@ -15,10 +15,10 @@ import pytest
 
 from mata.core.types import EmbedResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_embed(n: int = 4, dim: int = 128) -> EmbedResult:
     data = np.random.randn(n, dim).astype(np.float32)
@@ -28,6 +28,7 @@ def _make_embed(n: int = 4, dim: int = 128) -> EmbedResult:
 # ---------------------------------------------------------------------------
 # TestEmbedResultCreation
 # ---------------------------------------------------------------------------
+
 
 class TestEmbedResultCreation:
     def test_basic_2d_creation(self):
@@ -75,6 +76,7 @@ class TestEmbedResultCreation:
 # TestEmbedResultProperties
 # ---------------------------------------------------------------------------
 
+
 class TestEmbedResultProperties:
     def test_embedding_property_returns_first_row(self):
         data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
@@ -98,6 +100,7 @@ class TestEmbedResultProperties:
 # ---------------------------------------------------------------------------
 # TestEmbedResultSerialization
 # ---------------------------------------------------------------------------
+
 
 class TestEmbedResultSerialization:
     def test_to_dict_keys(self):
@@ -144,6 +147,7 @@ class TestEmbedResultSerialization:
 # ---------------------------------------------------------------------------
 # TestEmbedResultSave
 # ---------------------------------------------------------------------------
+
 
 class TestEmbedResultSave:
     def test_save_json(self):

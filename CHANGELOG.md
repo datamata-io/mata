@@ -36,17 +36,29 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Pipeline pattern: `Detect >> ExtractROIs >> Embed >> GalleryMatchNode(gallery=gallery)` — unchanged; `mata.run("recognize", ...)` wraps the single-image case
 - `_run_recognize()` internal helper in `api.py` — handles image loading, adapter dispatch, gallery search, and result assembly
 
+**Graph Control Flow — `EarlyExit`, `While`, and conditional edges**
+
+- `EarlyExit` node — raises `EarlyExitException` when a user-supplied `condition(ctx) → bool` evaluates to `True`; the scheduler catches it and stops graph execution cleanly; optional `message` kwarg for logging; exported from `mata.core.graph` and `mata.nodes`
+- `EarlyExitException` — lightweight sentinel exception; importable from `mata.core.graph` for external `try/except` handling when calling `mata.infer()` directly
+- `While` node — wraps any callable node in a do-while loop; re-executes the inner node while `condition(ctx) → bool` returns `True`; `max_iterations` (default: `100`) is always enforced and cannot be disabled; exported from `mata.core.graph` and `mata.nodes`
+- `Graph.add(node, condition=...)` — attaches a node with a guard predicate; when `condition(ctx)` returns `False` the node is silently skipped and its output artifacts are not written; downstream nodes that read those artifacts must guard themselves or accept missing values
+- `Graph.conditional(condition, if_true, if_false=None)` — high-level helper that wires `EarlyExit` / branch nodes based on a predicate; sugar over `Graph.add(condition=...)`
+- `SyncScheduler` and `ParallelScheduler` both respect `EarlyExitException` and `condition=` edge guards — no behavioral difference between execution modes
+- `CompiledGraph.edge_conditions` — internal mapping of `node_name → condition_callable`; populated at compile time; used by scheduler during execution
+- `examples/notebooks/12_graph_control_flow.ipynb` — demo notebook covering all three primitives with mock nodes (no model download required); includes a multi-scenario triage pipeline and matplotlib execution-path visualizations
+
 ### Notes
 
 - `mata.run("recognize", ...)` is the single-image convenience form; for per-ROI recognition in graphs, use `GalleryMatchNode` directly
-- Zero regressions; all 5279+ pre-existing tests pass
+- **Graph control-flow primitives are intentionally minimal** — `EarlyExit`, `While`, and `Graph.add(condition=...)` are small, composable building blocks. Their use cases are deliberately broader than what the examples or documentation cover: quality gates, cost-aware routing, adaptive multi-pass pipelines, frame-level triage, feedback loops, confidence-threshold branching, A/B model selection, and more. Users are encouraged to compose these primitives freely; the provided examples illustrate mechanics, not the full solution space.
+- Zero regressions; all 5346+ pre-existing tests pass
 
 ### Tests
 
 - `tests/test_matches_artifact.py` — 39 new tests for `Matches` and `MatchEntry` artifacts
 - `tests/test_recognize_api.py` — 34 new tests for `mata.run("recognize", ...)` API
 - `tests/test_cli_recognize.py` — 18 new tests for `mata recognize` CLI subcommand
-- Total: **5201 + 78 new tests = 5279+ passing**
+- `tests/test_graph_control_flow.py` — tests for `EarlyExit`, `EarlyExitException`, `While`, and `Graph.add(condition=...)` covering standalone behaviour, scheduler integration, `max_iterations` cap, and nested composition
 
 ---
 

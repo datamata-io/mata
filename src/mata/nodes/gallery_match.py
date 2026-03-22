@@ -13,9 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from mata.core.artifacts.embeddings import Embeddings
-    from mata.core.artifacts.matches import Matches
-    from mata.recognition.gallery import Gallery
+    pass
 
 
 class GalleryMatchNode:
@@ -97,16 +95,13 @@ class GalleryMatchNode:
         emb_artifact = artifacts.get(self._src)
         if emb_artifact is None:
             raise ValueError(
-                f"GalleryMatchNode: missing input artifact '{self._src}'. "
-                f"Available keys: {list(artifacts.keys())}"
+                f"GalleryMatchNode: missing input artifact '{self._src}'. " f"Available keys: {list(artifacts.keys())}"
             )
 
         vectors = emb_artifact.vectors  # (N, D) float32
         instance_ids = emb_artifact.instance_ids  # tuple[str, ...]
 
-        all_batch_matches = self._gallery.search_batch(
-            vectors, top_k=self._top_k, threshold=self._threshold
-        )
+        all_batch_matches = self._gallery.search_batch(vectors, top_k=self._top_k, threshold=self._threshold)
 
         entries: list[MatchEntry] = []
         for i, matches in enumerate(all_batch_matches):
@@ -125,6 +120,5 @@ class GalleryMatchNode:
 
     def __repr__(self) -> str:
         return (
-            f"GalleryMatchNode(gallery_size={self._gallery.size}, "
-            f"top_k={self._top_k}, threshold={self._threshold})"
+            f"GalleryMatchNode(gallery_size={self._gallery.size}, " f"top_k={self._top_k}, threshold={self._threshold})"
         )

@@ -6,12 +6,9 @@ Run independently: pytest tests/test_matches_artifact.py -v
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from mata.core.artifacts.matches import MatchEntry, Matches
-
 
 # ---------------------------------------------------------------------------
 # TestMatchEntry
@@ -185,9 +182,7 @@ class TestMatchesFromDict:
     def test_from_dict_entry_all_matches_preserved(self):
         raw = [{"label": "alice", "similarity": 0.9, "index": 0}]
         d = {
-            "entries": [
-                {"instance_id": "q", "label": "alice", "similarity": 0.9, "all_matches": raw}
-            ],
+            "entries": [{"instance_id": "q", "label": "alice", "similarity": 0.9, "all_matches": raw}],
             "meta": {},
         }
         m = Matches.from_dict(d)
@@ -196,16 +191,19 @@ class TestMatchesFromDict:
 
 class TestMatchesPublicAPI:
     def test_importable_from_mata_core_artifacts(self):
-        from mata.core.artifacts import Matches, MatchEntry
+        from mata.core.artifacts import MatchEntry, Matches
+
         assert Matches is not None
         assert MatchEntry is not None
 
     def test_importable_from_mata(self):
-        from mata import Matches, MatchEntry
+        from mata import MatchEntry, Matches
+
         assert Matches is not None
         assert MatchEntry is not None
 
     def test_matches_in_mata_all(self):
         import mata
+
         assert "Matches" in mata.__all__
         assert "MatchEntry" in mata.__all__

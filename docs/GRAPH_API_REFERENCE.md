@@ -1,6 +1,6 @@
 # MATA Graph System — API Reference
 
-> **Version**: 1.9.2 | **Last Updated**: March 19, 2026
+> **Version**: 1.9.5 | **Last Updated**: March 22, 2026
 
 ---
 
@@ -10,16 +10,17 @@
 2. [Artifacts](#artifacts)
 3. [Built-in Nodes](#built-in-nodes)
 4. [Storage Nodes](#storage-nodes)
-5. [Graph Builder](#graph-builder)
-6. [Schedulers](#schedulers)
-7. [Execution Context](#execution-context)
-8. [Providers & Protocols](#providers--protocols)
-9. [Conditional Execution](#conditional-execution)
-10. [Temporal / Video](#temporal--video)
-11. [Observability](#observability)
-12. [DSL Helpers](#dsl-helpers)
-13. [Presets](#presets)
-14. [Converters & Utilities](#converters--utilities)
+5. [Recognition Nodes (v1.9.5)](#recognition-nodes-v195)
+6. [Graph Builder](#graph-builder)
+7. [Schedulers](#schedulers)
+8. [Execution Context](#execution-context)
+9. [Providers & Protocols](#providers--protocols)
+10. [Conditional Execution](#conditional-execution)
+11. [Temporal / Video](#temporal--video)
+12. [Observability](#observability)
+13. [DSL Helpers](#dsl-helpers)
+14. [Presets](#presets)
+15. [Converters & Utilities](#converters--utilities)
 
 ---
 
@@ -1401,6 +1402,93 @@ conn = registry.get_valkey_connection("production")  # resolves password from en
 
 ---
 
+## Recognition Nodes (v1.9.5)
+
+Recognition nodes connect embedding pipelines to a pre-populated `Gallery` for cosine-similarity nearest-neighbour search. They are the graph-layer counterpart of the `mata.recognition` module.
+
+```python
+from mata.nodes import GalleryMatchNode
+```
+
+---
+
+### `GalleryMatchNode`
+
+Wraps a `Gallery` as a composable graph node. Accepts an `Embeddings` artifact and returns a `Matches` artifact, preserving per-instance ID linkage.
+
+```python
+GalleryMatchNode(
+    gallery: Gallery,
+    top_k: int = 1,
+    threshold: float | None = None,
+    src: str = "embeddings",
+    out: str = "matches",
+    name: str | None = None,
+)
+```
+
+**Parameters:**
+
+| Parameter   | Type            | Default        | Description                                                        |
+| ----------- | --------------- | -------------- | ------------------------------------------------------------------ |
+| `gallery`   | `Gallery`       | _required_     | Pre-populated `Gallery` instance                                   |
+| `top_k`     | `int`           | `1`            | Maximum gallery matches to return per embedding                    |
+| `threshold` | `float \| None` | `None`         | Minimum cosine similarity; overrides gallery default when set      |
+| `src`       | `str`           | `"embeddings"` | Input artifact key for the `Embeddings` artifact                   |
+| `out`       | `str`           | `"matches"`    | Output artifact key for the `Matches` artifact                     |
+| `name`      | `str \| None`   | `None`         | Optional human-readable node name (defaults to `GalleryMatchNode`) |
+
+**I/O:**
+
+| I/O    | Name         | Type         | Notes                      |
+| ------ | ------------ | ------------ | -------------------------- |
+| Input  | `embeddings` | `Embeddings` | Key configurable via `src` |
+| Output | `matches`    | `Matches`    | Key configurable via `out` |
+
+**Note:** `GalleryMatchNode` does _not_ require a provider entry in the `providers` dict — the gallery is injected at construction time.
+
+**Example:**
+
+```python
+import mata
+from mata import Gallery
+from mata.nodes import Detect, GalleryMatchNode
+from mata.nodes.embed import Embed
+from mata.nodes.extract_rois import ExtractROIs
+from mata.core.graph import Graph
+
+# 1. Build the gallery once
+gallery = Gallery()
+gallery.add("alice", alice_embedding)
+gallery.add("bob",   bob_embedding)
+gallery.save("gallery.npz")
+
+# 2. Wire the recognition pipeline
+detector = mata.load("detect", "facebook/detr-resnet-50")
+encoder  = mata.load("embed",  "openai/clip-vit-base-patch32")
+
+graph = (
+    Graph("recognition")
+    .then(Detect(using="detector", out="dets"))
+    .then(ExtractROIs(src_dets="dets", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(GalleryMatchNode(gallery=gallery, top_k=1, threshold=0.6))
+)
+
+result = mata.infer(
+    "scene.jpg",
+    graph=graph,
+    providers={"detector": detector, "encoder": encoder},
+)
+
+for m in result.matches:
+    print(m.top1.label, m.top1.similarity)  # e.g.  "alice"  0.87
+```
+
+**Related:** `Gallery` class — `mata.recognition.Gallery` | `Matches` artifact — `mata.core.artifacts.Matches`
+
+---
+
 ## Graph Builder
 
 ### `Graph`
@@ -1726,6 +1814,172 @@ If(
 ### `Pass` Node
 
 No-op node for else branches that should do nothing.
+
+---
+
+### `EarlyExit` Node (v1.9.5)
+
+```python
+from mata.nodes import EarlyExit, EarlyExitException
+# also available at:
+# from mata import EarlyExit, EarlyExitException
+# from mata.core.graph import EarlyExit, EarlyExitException
+```
+
+Halts graph execution cleanly when a user-supplied predicate returns `True`. Both `SyncScheduler` and `ParallelScheduler` catch `EarlyExitException`, stop processing remaining nodes, and return the partial `MultiResult` accumulated so far. This is **not** an error — it is a first-class control-flow signal.
+
+```python
+EarlyExit(
+    predicate: Callable[[ExecutionContext], bool],
+    reason: str = "EarlyExit condition met",
+    name: str | None = None,
+)
+```
+
+| Parameter   | Type                                 | Default                     | Description                                    |
+| ----------- | ------------------------------------ | --------------------------- | ---------------------------------------------- |
+| `predicate` | `Callable[[ExecutionContext], bool]` | _required_                  | Raises `EarlyExitException` when `True`        |
+| `reason`    | `str`                                | `"EarlyExit condition met"` | Logged message and `EarlyExitException.reason` |
+| `name`      | `str \| None`                        | `"EarlyExit"`               | Human-readable node name                       |
+
+**I/O:** No declared inputs or outputs (`inputs = {}`, `outputs = {}`).
+
+**`EarlyExitException`** — lightweight sentinel; catchable when calling `mata.infer()` directly:
+
+```python
+from mata import EarlyExitException
+
+try:
+    result = mata.infer(graph, image="image.jpg", providers={...})
+except EarlyExitException as e:
+    print(f"Stopped: {e.reason} (node: {e.node_name})")
+```
+
+| Attribute   | Type  | Description                 |
+| ----------- | ----- | --------------------------- |
+| `reason`    | `str` | Message from `EarlyExit`    |
+| `node_name` | `str` | Name of the triggering node |
+
+**Example:**
+
+```python
+from mata.nodes import Detect, EarlyExit
+
+graph = (Graph("triage")
+    .then(Detect(using="detector", out="dets"))
+    .then(EarlyExit(
+        predicate=lambda ctx: len(ctx.retrieve("dets").instances) == 0,
+        reason="No detections — skipping segmentation",
+        name="quality_gate",
+    ))
+    .then(SegmentImage(using="sam", out="masks"))  # skipped on early exit
+)
+```
+
+---
+
+### `While` Node (v1.9.5)
+
+```python
+from mata.nodes import While
+# also available at:
+# from mata import While
+# from mata.core.graph import While
+```
+
+Wraps a list of nodes in a do-while loop. The body executes at least once, then repeats while `condition(ctx)` returns `True`. `max_iterations` is always enforced and **cannot be disabled**.
+
+```python
+While(
+    body: list[Node],
+    condition: Callable[[ExecutionContext], bool],
+    max_iterations: int = 10,
+    name: str | None = None,
+)
+```
+
+| Parameter        | Type                                 | Default    | Description                                 |
+| ---------------- | ------------------------------------ | ---------- | ------------------------------------------- |
+| `body`           | `list[Node]`                         | _required_ | One or more nodes to execute each iteration |
+| `condition`      | `Callable[[ExecutionContext], bool]` | _required_ | Continue looping while returns `True`       |
+| `max_iterations` | `int`                                | `10`       | Hard iteration cap; always enforced         |
+| `name`           | `str \| None`                        | `"While"`  | Human-readable node name                    |
+
+**I/O:** Inherits inputs from `body[0]`; outputs are the union of all effective body-node outputs.
+
+**Metrics recorded:** `iterations` (int), `max_iterations_reached` (bool).
+
+**Example:**
+
+```python
+from mata.nodes import Detect, While
+
+# Retry detect up to 3 times, zooming in each iteration
+graph.add(While(
+    body=[Detect(using="detector", out="dets")],
+    condition=lambda ctx: len(ctx.retrieve("dets").instances) == 0,
+    max_iterations=3,
+))
+```
+
+---
+
+### `Graph.add(condition=...)` — Conditional Node Guard (v1.9.5)
+
+Attaches a guard predicate to a node. When `condition(ctx)` returns `False` the node is silently skipped and its output artifacts are not written. Downstream nodes that consume those artifacts must also guard themselves or accept missing values.
+
+```python
+graph.add(
+    node,
+    inputs=None,
+    condition: Callable[[ExecutionContext], bool] | None = None,
+)
+```
+
+| Parameter   | Type                                         | Description                                  |
+| ----------- | -------------------------------------------- | -------------------------------------------- |
+| `condition` | `Callable[[ExecutionContext], bool] \| None` | Guard predicate; `None` means always execute |
+
+`CompiledGraph.edge_conditions` — `dict[str, Callable]` mapping `node_name → condition_callable`; populated at compile time and respected by all schedulers.
+
+**Example:**
+
+```python
+graph.add(
+    Classify(using="classifier", out="cls"),
+    condition=lambda ctx: len(ctx.retrieve("dets").instances) > 0,
+)
+```
+
+---
+
+### `Graph.conditional()` — Branch Helper (v1.9.5)
+
+High-level sugar that wraps both branches in a single `If` node for correct mutual-exclusion semantics.
+
+```python
+graph.conditional(
+    predicate: Callable[[ExecutionContext], bool],
+    then_branch: Node,
+    else_branch: Node | None = None,
+) -> Graph
+```
+
+| Parameter     | Type                                 | Description                                                                 |
+| ------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| `predicate`   | `Callable[[ExecutionContext], bool]` | Branch predicate                                                            |
+| `then_branch` | `Node`                               | Executed when predicate returns `True`                                      |
+| `else_branch` | `Node \| None`                       | Executed when predicate returns `False`; if `None`, a `Pass()` node is used |
+
+**Example:**
+
+```python
+graph.conditional(
+    predicate=lambda ctx: len(ctx.retrieve("dets").instances) > 5,
+    then_branch=Annotate(using="drawer", heavy=True,  out="annotated"),
+    else_branch=Annotate(using="drawer", heavy=False, out="annotated"),
+)
+```
 
 ---
 

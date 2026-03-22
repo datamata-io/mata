@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.4-green?style=flat-square" alt="v1.9.4" />
-  <img src="https://img.shields.io/badge/tests-5%2C082%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-1.9.5-green?style=flat-square" alt="v1.9.5" />
+  <img src="https://img.shields.io/badge/tests-5%2C346%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -32,6 +32,9 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 - **Feature Embedding** (v1.9.2 Beta Release 2): `mata.run("embed", ...)` — extract L2-normalised appearance embeddings with CLIP, DINOv2, OSNet, or any ViT model; `Embed` graph node for `Detect → ExtractROIs → Embed` pipelines
 - **Barcode & QR Code Decoding** (v1.9.3): `mata.run("barcode", ...)` — decode barcodes and QR codes with pyzbar or zxing-cpp; `Barcode` graph node for `Detect → ExtractROIs → Barcode` pipelines; 12+ symbologies
 - **Notebook Integration** (v1.9.4): Rich display in Jupyter — results auto-render as HTML tables, SVG charts, and colormapped depth images; `mata.show()` utility; `pip install datamata[notebook]`
+- **Command-Line Interface** (v1.9.5): `mata` CLI — `run`, `track`, `recognize`, `val`, `export` subcommands with Ultralytics-parity DX; `mata --version`
+- **Gallery Matching / Recognition** (v1.9.5): `mata.run("recognize", ...)` — identity matching from a pre-built `Gallery`; cosine similarity search returns `Matches` + `MatchEntry` artifacts
+- **Graph Control Flow** (v1.9.5): `EarlyExit`, `While`, `Graph.add(condition=...)`, `Graph.conditional()` — composable primitives for quality gates, feedback loops, and adaptive pipelines
 - **Valkey/Redis Result Storage** (v1.9): persist any result to Valkey/Redis with `result.save("valkey://host/key")` or via `ValkeyStore`/`ValkeyLoad` graph nodes — enables distributed pipelines and cross-process result sharing
 - **Validation & Evaluation**: `mata.val()` — mAP/accuracy/depth metrics against COCO, ImageNet, or custom datasets
 - **Export & Visualization**: Save as JSON/CSV/image overlays/crops with dual backends (PIL/matplotlib)
@@ -142,6 +145,36 @@ mata.show(result, image="image.jpg")
 
 See [`examples/notebooks/`](examples/notebooks/) for ready-to-run starter notebooks.
 
+## 💻 Command-Line Interface (New in v1.9.5)
+
+MATA ships a first-class `mata` CLI — call any task directly without writing Python:
+
+```bash
+# One-shot inference
+mata run detect image.jpg --model facebook/detr-resnet-50 --conf 0.4 --save
+mata run classify image.jpg --model microsoft/resnet-50 --json
+mata run embed image.jpg --model openai/clip-vit-base-patch32
+mata run vlm image.jpg --model Qwen/Qwen3-VL-2B-Instruct --prompt "Describe this image"
+mata run barcode labels.jpg --model pyzbar --json
+
+# Object tracking
+mata track video.mp4 --model facebook/detr-resnet-50 --tracker botsort --save
+mata track video.mp4 --model facebook/detr-resnet-50 --reid-model openai/clip-vit-base-patch32
+
+# Gallery-based recognition
+mata recognize person.jpg --gallery gallery.npz --model openai/clip-vit-base-patch32
+mata recognize person.jpg --gallery gallery.npz --top-k 5 --threshold 0.75 --json
+
+# Dataset evaluation
+mata val detect --data coco.yaml --model facebook/detr-resnet-50 --conf 0.4
+mata val classify --data imagenet.yaml --model microsoft/resnet-50
+
+# Version
+mata --version
+```
+
+All subcommands support `--help` for full option reference. See [CLI Examples](examples/cli/) for shell and PowerShell scripts covering every subcommand.
+
 ### Object Detection
 
 ```python
@@ -211,9 +244,9 @@ result = mata.run("depth", "image.jpg",
 result.save("depth.png", colormap="magma")
 ```
 
-### Multi-Task Graph System (New in v1.6)
+### Multi-Task Graph System (New in v1.6 · Control Flow in v1.9.5)
 
-Execute complex multi-task vision workflows with strongly-typed graphs:
+Execute complex multi-task vision workflows with strongly-typed graphs. v1.9.5 adds `EarlyExit`, `While`, and `Graph.add(condition=...)` for adaptive pipeline control:
 
 ```python
 import mata
@@ -274,7 +307,38 @@ result = mata.infer("image.jpg", grounding_dino_sam(), providers={...})
 
 **Backward Compatible**: All existing `mata.load()` and `mata.run()` APIs work unchanged.
 
-See [Graph System Guide](docs/GRAPH_SYSTEM_GUIDE.md) | [API Reference](docs/GRAPH_API_REFERENCE.md) | [Cookbook](docs/GRAPH_COOKBOOK.md) | [Examples](examples/graph/)
+**Graph Control Flow (v1.9.5)** — `EarlyExit`, `While`, and `Graph.add(condition=...)` are composable primitives for building adaptive pipelines:
+
+```python
+from mata.nodes import Detect, EarlyExit, While
+from mata.core.graph import Graph
+
+# Stop the graph early when a condition is met
+graph = Graph()
+graph.add(Detect(using="detector", out="dets"))
+graph.add(EarlyExit(predicate=lambda ctx: len(ctx.retrieve("dets").instances) == 0,
+                    reason="No detections — skipping downstream steps"))
+
+# Run nodes in a loop until a condition clears
+graph.add(While(
+    body=[Detect(using="detector", out="dets")],
+    condition=lambda ctx: ctx.retrieve("dets").instances[0].score < 0.9,
+    max_iterations=5,
+))
+
+# Conditional guard — skip a node when predicate is False
+graph.add(Classify(using="classifier", out="cls"),
+          condition=lambda ctx: len(ctx.retrieve("dets").instances) > 0)
+
+# High-level branch helper
+graph.conditional(
+    predicate=lambda ctx: len(ctx.retrieve("dets").instances) > 5,
+    then_branch=Annotate(using="drawer", heavy=True, out="annotated"),
+    else_branch=Annotate(using="drawer", heavy=False, out="annotated"),
+)
+```
+
+See [Graph API Reference](docs/GRAPH_API_REFERENCE.md) | [Cookbook](docs/GRAPH_COOKBOOK.md) | [Notebook 12](examples/notebooks/12_graph_control_flow.ipynb) | [Examples](examples/graph/)
 
 ### Real-World Industry Scenarios
 
@@ -614,6 +678,54 @@ result = mata.infer(graph, image="shelf.jpg", providers={
 **Supported symbologies (pyzbar):** QR_CODE, EAN_13, EAN_8, UPC_A, UPC_E, CODE_128, CODE_39, CODE_93, ITF, CODABAR, DATA_MATRIX, PDF_417, AZTEC
 
 See [Barcode Examples](examples/barcode/)
+
+### Gallery Matching / Recognition (New in v1.9.5)
+
+Match an image against a pre-built gallery of labelled embeddings:
+
+```python
+import mata
+
+# Build a gallery
+gallery = mata.Gallery(threshold=0.7)
+gallery.add("alice_1.jpg", label="alice", model="openai/clip-vit-base-patch32")
+gallery.add("alice_2.jpg", label="alice", model="openai/clip-vit-base-patch32")
+gallery.add("bob_1.jpg",   label="bob",   model="openai/clip-vit-base-patch32")
+gallery.save("gallery.npz")
+
+# Load and recognise
+gallery = mata.Gallery.load("gallery.npz")
+matches = mata.run("recognize", "query.jpg",
+    gallery=gallery,
+    model="openai/clip-vit-base-patch32",
+    top_k=3)
+
+for entry in matches.entries:
+    print(f"{entry.label}: {entry.similarity:.3f}")
+
+# CLI equivalent
+# mata recognize query.jpg --gallery gallery.npz --top-k 3 --json
+```
+
+**Graph pipeline: Detect → ExtractROIs → Embed → GalleryMatchNode:**
+
+```python
+from mata.nodes import Detect, Filter, ExtractROIs, Embed, GalleryMatchNode
+
+graph = (
+    Detect(using="detector", out="dets")
+    >> Filter(src="dets", score_gt=0.5, out="filtered")
+    >> ExtractROIs(src_dets="filtered", out="rois")
+    >> Embed(using="encoder", src="rois", out="embeddings")
+    >> GalleryMatchNode(gallery=gallery, src="embeddings", out="matches")
+)
+
+result = mata.infer(graph, image="crowd.jpg", providers={
+    "detector": mata.load("detect", "facebook/detr-resnet-50"),
+    "encoder":  mata.load("embed", "openai/clip-vit-base-patch32"),
+})
+print(result["matches"])  # Matches artifact: label / similarity / instance_id
+```
 
 ### Vision-Language Understanding
 

@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. As of v1.9.4, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, and a `barcode` task for QR/barcode decoding.
+MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. As of v1.9.5, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, a `barcode` task for QR/barcode decoding, a `recognize` task for gallery-based identity matching, a CLI (`mata` command), and graph control-flow primitives (`EarlyExit`, `While`, `Graph.add(condition=...)`).
 
 **Embed task — recommended backends (HuggingFace and ONNX are first-class):**
 
@@ -30,6 +30,10 @@ mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16") # 🆕 v1.9.3 VL
 mata.load("vlm", "LiquidAI/LFM2.5-VL-1.6B", dtype="bfloat16")  # 🆕 v1.9.3 VLM lightweight
 mata.load("vlm", "florence-community/Florence-2-large")          # 🆕 v1.9.3 VLM encoder-decoder
 mata.load("vlm", "google/paligemma2-3b-pt-224", dtype="bfloat16") # 🆕 v1.9.3 VLM document
+# 🆕 v1.9.5 — Recognition / CLI
+result = mata.run("recognize", "image.jpg",
+                  gallery=gallery,
+                  model="openai/clip-vit-base-patch32")          # one-liner gallery matching
 ```
 
 **Object Tracking (v1.8.0+):**
@@ -121,6 +125,18 @@ Image/Crops)   ↓                      Validator (detect/segment/classify/depth
                ↓              ↓
                BarcodeResult  BarcodeData artifact
                (frozen)       (graph wiring + ROI correlation)
+               ↓
+               Recognition Layer (🆕 v1.9.5)
+               ↓                ↓
+               Gallery          GalleryMatchNode
+               (npz store)      (graph node wrapping Gallery)
+               ↓
+               Matches artifact (label + similarity per instance)
+               ↓
+               Control Flow Layer (🆕 v1.9.5)
+               ↓             ↓              ↓
+               EarlyExit     While          Graph.add(condition=)
+               (halt signal) (do-while loop) (per-node guard)
 ```
 
 **Key Design Pattern:** Task contracts over model specifics - all adapters implement the same `predict()` interface returning task-specific results (VisionResult for detect/segment, ClassifyResult, DepthResult).
@@ -245,7 +261,7 @@ Built-in Tools (zoom, crop) + Provider Tools (detect, classify, etc.)
 ALWAYS USE VIRTUAL ENVIRONMENT BEFORE RUNNING TESTS TO ENSURE ALL TEST DEPENDENCIES ARE AVAILABLE
 
 ```bash
-# All tests (5082+ total, all must pass)
+# All tests (5346+ total, all must pass)
 pytest tests/ -v
 
 # Task-specific test suites
@@ -294,6 +310,19 @@ pytest tests/test_barcode_integration.py -v  # Barcode integration (25+ tests)
 
 # Notebook display test suite (v1.9.4)
 pytest tests/test_notebook.py -v             # Notebook rich display (50+ tests)
+
+# Recognition test suites (v1.9.5)
+pytest tests/test_recognize_api.py -v        # mata.run("recognize") API (34 tests)
+pytest tests/test_matches_artifact.py -v     # Matches artifact (39 tests)
+pytest tests/test_gallery.py -v              # Gallery build/load/save (50+ tests)
+pytest tests/test_gallery_match_node.py -v   # GalleryMatchNode graph node (40+ tests)
+
+# Graph control flow test suites (v1.9.5)
+pytest tests/test_graph_control_flow.py -v   # EarlyExit, While, conditional edges (80+ tests)
+
+# CLI test suites (v1.9.5)
+pytest tests/test_cli_recognize.py -v        # mata recognize CLI (18 tests)
+pytest tests/test_cli.py -v                  # CLI core commands (50+ tests)
 
 # With coverage (target: >80%)
 pip install pytest-cov

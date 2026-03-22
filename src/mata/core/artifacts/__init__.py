@@ -38,10 +38,10 @@ from mata.core.artifacts.embeddings import Embeddings
 from mata.core.artifacts.image import Image
 from mata.core.artifacts.keypoints import Keypoints
 from mata.core.artifacts.masks import Masks
+from mata.core.artifacts.matches import MatchEntry, Matches
 from mata.core.artifacts.ocr_text import OCRText, TextBlock
 from mata.core.artifacts.result import MultiResult
 from mata.core.artifacts.rois import ROIs
-from mata.core.artifacts.matches import MatchEntry, Matches
 from mata.core.artifacts.tracks import Track, Tracks
 
 __all__ = [

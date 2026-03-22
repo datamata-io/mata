@@ -55,9 +55,10 @@ from .core import (
     get_config,
     set_config,
 )
-from .recognition import Gallery, GalleryMatch
 from .core.artifacts.matches import MatchEntry, Matches
+from .core.graph.conditionals import EarlyExit, EarlyExitException, While
 from .eval import ClassifyMetrics, DepthMetrics, DetMetrics, OCRMetrics, SegmentMetrics
+from .recognition import Gallery, GalleryMatch
 
 # Visualization (lazy import to avoid hard dependency)
 try:
@@ -126,6 +127,10 @@ __all__ = [
     "GalleryMatch",
     "Matches",
     "MatchEntry",
+    # Graph control flow
+    "EarlyExit",
+    "EarlyExitException",
+    "While",
     # Exceptions
     "MATAError",
     "TaskNotSupportedError",

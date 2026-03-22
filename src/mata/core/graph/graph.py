@@ -746,11 +746,6 @@ class CompiledGraph:
         if self.execution_order is None:
             self.execution_order = self._compute_order()
 
-    def __post_init__(self):
-        """Compute execution order after initialization."""
-        if self.execution_order is None:
-            self.execution_order = self._compute_order()
-
     def _compute_order(self) -> list[list[Node]]:
         """Compute execution order with parallelization opportunities.
 

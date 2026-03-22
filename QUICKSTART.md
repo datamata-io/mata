@@ -29,6 +29,28 @@ pip install -e .
 python verify_install.py  # Shows GPU/CPU status and runs test detection
 ```
 
+## Command-Line Interface
+
+Once installed, the `mata` CLI is available immediately:
+
+```bash
+# Run a task directly — no Python required
+mata run detect image.jpg --model facebook/detr-resnet-50 --conf 0.4
+mata run classify image.jpg --model microsoft/resnet-50 --json
+mata run vlm image.jpg --model Qwen/Qwen3-VL-2B-Instruct --prompt "Describe this"
+
+# Track objects in a video
+mata track video.mp4 --model facebook/detr-resnet-50 --save
+
+# Evaluate a model
+mata val detect --data coco.yaml --model facebook/detr-resnet-50
+
+# Show version
+mata --version
+```
+
+See [CLI Examples](examples/cli/) for shell and PowerShell scripts covering every subcommand, and [QUICK_REFERENCE.md](QUICK_REFERENCE.md#-cli-quick-reference-v195) for the full flags reference.
+
 Or check programmatically:
 
 ```python
@@ -457,6 +479,35 @@ pip install datamata[notebook]
 ```
 
 See [`examples/notebooks/`](examples/notebooks/) for ready-to-run starter notebooks.
+
+## Gallery Matching / Recognition
+
+Build a gallery of known identities, then match query images against it with cosine similarity:
+
+```python
+import mata
+
+# Build once
+gallery = mata.Gallery(threshold=0.7)
+gallery.add("alice_photo.jpg", label="alice", model="openai/clip-vit-base-patch32")
+gallery.add("bob_photo.jpg",   label="bob",   model="openai/clip-vit-base-patch32")
+gallery.save("gallery.npz")
+
+# Recognise later
+gallery = mata.Gallery.load("gallery.npz")
+matches = mata.run("recognize", "query.jpg",
+    gallery=gallery,
+    model="openai/clip-vit-base-patch32",
+    top_k=3)
+
+print(matches.top1.label)        # best match
+print(matches.top1.similarity)   # cosine similarity score
+
+# Or use CLI:
+# mata recognize query.jpg --gallery gallery.npz --top-k 3
+```
+
+See [QUICK_REFERENCE.md](QUICK_REFERENCE.md#-gallery--recognition-quick-reference-v195) for the full API and graph pipeline pattern.
 
 1. **Read the full documentation**: [README.md](README.md)
 2. **Understand the architecture**: [MATA_architecture_and_code_structure.md](MATA_architecture_and_code_structure.md)

@@ -15,10 +15,10 @@ import pytest
 
 from mata.recognition.gallery import Gallery, GalleryMatch
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _unit(dim: int = 64) -> np.ndarray:
     """Return a random L2-normalised vector."""
@@ -40,6 +40,7 @@ def _make_gallery(n: int = 3, dim: int = 64) -> tuple[Gallery, np.ndarray]:
 # ---------------------------------------------------------------------------
 # TestGalleryMatch
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryMatch:
     def test_creation(self):
@@ -68,6 +69,7 @@ class TestGalleryMatch:
 # ---------------------------------------------------------------------------
 # TestGalleryAdd
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryAdd:
     def test_add_returns_index_zero(self):
@@ -112,6 +114,7 @@ class TestGalleryAdd:
 # TestGalleryAddMany
 # ---------------------------------------------------------------------------
 
+
 class TestGalleryAddMany:
     def test_add_many_returns_indices(self):
         g = Gallery()
@@ -144,6 +147,7 @@ class TestGalleryAddMany:
 # ---------------------------------------------------------------------------
 # TestGallerySearch
 # ---------------------------------------------------------------------------
+
 
 class TestGallerySearch:
     def test_search_empty_gallery_returns_empty(self):
@@ -205,6 +209,7 @@ class TestGallerySearch:
 # TestGallerySearchBatch
 # ---------------------------------------------------------------------------
 
+
 class TestGallerySearchBatch:
     def test_search_batch_same_len_as_queries(self):
         g, vecs = _make_gallery(5)
@@ -231,6 +236,7 @@ class TestGallerySearchBatch:
 # ---------------------------------------------------------------------------
 # TestGalleryRemove
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryRemove:
     def test_remove_existing_label(self):
@@ -264,6 +270,7 @@ class TestGalleryRemove:
 # ---------------------------------------------------------------------------
 # TestGalleryPersistence
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryPersistence:
     def test_save_and_load(self):
@@ -305,6 +312,7 @@ class TestGalleryPersistence:
 # TestGallerySerialization
 # ---------------------------------------------------------------------------
 
+
 class TestGallerySerialization:
     def test_to_dict_keys(self):
         g = Gallery()
@@ -345,18 +353,22 @@ class TestGallerySerialization:
 # TestGalleryPublicAPI
 # ---------------------------------------------------------------------------
 
+
 class TestGalleryPublicAPI:
     def test_importable_from_mata(self):
         from mata import Gallery
+
         assert Gallery is not None
 
     def test_importable_from_recognition(self):
         from mata.recognition import Gallery, GalleryMatch
+
         assert Gallery is not None
         assert GalleryMatch is not None
 
     def test_gallery_match_importable_from_mata(self):
         from mata import GalleryMatch
+
         assert GalleryMatch is not None
 
     def test_size_property_empty(self):

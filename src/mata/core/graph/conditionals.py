@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -616,7 +617,7 @@ ConditionalNode = If
 # =============================================================================
 
 
-class EarlyExitException(Exception):
+class EarlyExitException(Exception):  # noqa: N818
     """Raised by EarlyExit node to halt graph execution gracefully.
 
     This is **not** an error — it signals that the pipeline should stop at
@@ -678,7 +679,7 @@ class EarlyExit(Node):
 
     def __init__(
         self,
-        predicate: "Predicate | Callable",
+        predicate: Predicate | Callable,
         reason: str | None = None,
         name: str | None = None,
     ):
@@ -686,7 +687,7 @@ class EarlyExit(Node):
         self.predicate = predicate
         self.reason = reason or "EarlyExit condition met"
 
-    def run(self, ctx: "ExecutionContext", **inputs: Artifact) -> dict[str, Artifact]:
+    def run(self, ctx: ExecutionContext, **inputs: Artifact) -> dict[str, Artifact]:
         """Evaluate predicate and raise EarlyExitException if True.
 
         Args:
@@ -774,8 +775,8 @@ class While(Node):
 
     def __init__(
         self,
-        body: "list[Node]",
-        condition: "Predicate | Callable",
+        body: list[Node],
+        condition: Predicate | Callable,
         max_iterations: int = 10,
         name: str | None = None,
     ):
@@ -811,8 +812,8 @@ class While(Node):
 
     def _resolve_body_node_inputs(
         self,
-        ctx: "ExecutionContext",
-        node: "Node",
+        ctx: ExecutionContext,
+        node: Node,
         passed_inputs: dict,
     ) -> dict:
         """Resolve a body node's inputs from the execution context.
@@ -876,7 +877,7 @@ class While(Node):
     # Node interface
     # ------------------------------------------------------------------
 
-    def run(self, ctx: "ExecutionContext", **inputs: Artifact) -> dict[str, Artifact]:
+    def run(self, ctx: ExecutionContext, **inputs: Artifact) -> dict[str, Artifact]:
         """Execute loop body repeatedly until condition returns False.
 
         Args:

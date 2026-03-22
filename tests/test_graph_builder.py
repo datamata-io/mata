@@ -280,7 +280,9 @@ class TestFluentAPI:
         assert graph._wiring["segment.detections"] == "filter.filtered"
 
     def test_conditional_with_then_branch(self):
-        """Test conditional branching with then branch only."""
+        """Test conditional branching with then branch only: creates an If node."""
+        from mata.core.graph.conditionals import If
+
         graph = Graph()
         detect = MockDetectNode(name="detect")
         segment = MockSegmentNode(name="segment")
@@ -290,11 +292,16 @@ class TestFluentAPI:
 
         graph.then(detect).conditional(predicate=has_detections, then_branch=segment, else_branch=None)
 
+        # conditional() wraps branches inside a single If node
         assert len(graph._nodes) == 2
-        assert segment in graph._nodes
+        if_node = graph._nodes[-1]
+        assert isinstance(if_node, If)
+        assert if_node.then_branch is segment
 
     def test_conditional_with_both_branches(self):
-        """Test conditional branching with then and else branches."""
+        """Test conditional branching with then and else branches: creates a single If node."""
+        from mata.core.graph.conditionals import If
+
         graph = Graph()
         detect = MockDetectNode(name="detect")
         segment = MockSegmentNode(name="segment_then")
@@ -305,9 +312,12 @@ class TestFluentAPI:
 
         graph.then(detect).conditional(predicate=has_detections, then_branch=segment, else_branch=classify)
 
-        assert len(graph._nodes) == 3
-        assert segment in graph._nodes
-        assert classify in graph._nodes
+        # One If node replaces both branch nodes in _nodes
+        assert len(graph._nodes) == 2
+        if_node = graph._nodes[-1]
+        assert isinstance(if_node, If)
+        assert if_node.then_branch is segment
+        assert if_node.else_branch is classify
 
     def test_conditional_chainable(self):
         """Test that conditional() returns self for chaining."""

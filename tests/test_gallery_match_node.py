@@ -12,12 +12,12 @@ import numpy as np
 import pytest
 
 from mata.nodes.gallery_match import GalleryMatchNode
-from mata.recognition.gallery import Gallery, GalleryMatch
-
+from mata.recognition.gallery import Gallery
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _unit(dim: int = 32) -> np.ndarray:
     v = np.random.randn(dim).astype(np.float32)
@@ -46,6 +46,7 @@ def _make_gallery_with_persons(n: int = 3, dim: int = 32) -> Gallery:
 # ---------------------------------------------------------------------------
 # TestGalleryMatchNodeConstruction
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryMatchNodeConstruction:
     def test_default_construction(self):
@@ -76,6 +77,7 @@ class TestGalleryMatchNodeConstruction:
 # ---------------------------------------------------------------------------
 # TestGalleryMatchNodeInputsOutputs
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryMatchNodeInputsOutputs:
     def test_inputs_contains_src_key(self):
@@ -108,6 +110,7 @@ class TestGalleryMatchNodeInputsOutputs:
 # ---------------------------------------------------------------------------
 # TestGalleryMatchNodeRun
 # ---------------------------------------------------------------------------
+
 
 class TestGalleryMatchNodeRun:
     def test_run_produces_matches_artifact(self):
@@ -183,11 +186,14 @@ class TestGalleryMatchNodeRun:
 # TestGalleryMatchNodeImport
 # ---------------------------------------------------------------------------
 
+
 class TestGalleryMatchNodeImport:
     def test_importable_from_nodes(self):
         from mata.nodes import GalleryMatchNode
+
         assert GalleryMatchNode is not None
 
     def test_in_nodes_all(self):
         import mata.nodes as nodes
+
         assert "GalleryMatchNode" in nodes.__all__

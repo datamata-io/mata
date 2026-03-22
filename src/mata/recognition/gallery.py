@@ -117,9 +117,7 @@ class Gallery:
         if arr.ndim == 1:
             arr = arr[np.newaxis, :]
         if len(labels) != arr.shape[0]:
-            raise ValueError(
-                f"labels length {len(labels)} does not match embeddings rows {arr.shape[0]}"
-            )
+            raise ValueError(f"labels length {len(labels)} does not match embeddings rows {arr.shape[0]}")
         return [self.add(label, arr[i]) for i, label in enumerate(labels)]
 
     # ------------------------------------------------------------------
@@ -156,9 +154,7 @@ class Gallery:
             sim = float(similarities[idx])
             if sim < thresh:
                 break
-            results.append(
-                GalleryMatch(label=self._labels[idx], similarity=sim, index=int(idx))
-            )
+            results.append(GalleryMatch(label=self._labels[idx], similarity=sim, index=int(idx)))
         return results
 
     def search_batch(
@@ -241,6 +237,7 @@ class Gallery:
             path: Destination file path (should end with .npz).
         """
         from pathlib import Path
+
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
         if self.size > 0:
@@ -351,6 +348,5 @@ class Gallery:
 
     def __repr__(self) -> str:
         return (
-            f"Gallery(size={self.size}, unique_labels={len(self.unique_labels)}, "
-            f"thresh={self._similarity_thresh})"
+            f"Gallery(size={self.size}, unique_labels={len(self.unique_labels)}, " f"thresh={self._similarity_thresh})"
         )

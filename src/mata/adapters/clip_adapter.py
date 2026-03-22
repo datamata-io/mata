@@ -308,7 +308,7 @@ class HuggingFaceCLIPAdapter(PyTorchBaseAdapter):
     def predict(
         self,
         image: ImageInput,
-        text_prompts: str | list[str],
+        text_prompts: str | list[str] | None = None,
         top_k: int | None = None,
         threshold: float | None = None,
         use_softmax: bool | None = None,
@@ -345,6 +345,14 @@ class HuggingFaceCLIPAdapter(PyTorchBaseAdapter):
             cat: 0.856
             dog: 0.124
         """
+        # Validate text_prompts — CLIP is zero-shot and requires category labels
+        if text_prompts is None:
+            raise InvalidInputError(
+                "CLIP zero-shot classification requires text prompts. "
+                "Provide category names via text_prompts=['cat', 'dog', ...] "
+                "or use --text 'cat,dog,bird' in the CLI."
+            )
+
         # Load image
         pil_image, input_path = self._load_image(image)
 

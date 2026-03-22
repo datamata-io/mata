@@ -153,38 +153,27 @@ class SyncScheduler:
                         try:
                             if not edge_conditions[node.name](context):
                                 skipped_nodes.add(node.name)
-                                logger.debug(
-                                    f"Node '{node.name}' skipped: conditional edge evaluated to False"
-                                )
-                                context.record_metric(node.name, "skipped", True)
-                                context.record_metric(node.name, "skip_reason", "conditional_edge")
+                                logger.debug(f"Node '{node.name}' skipped: conditional edge evaluated to False")
+                                context.record_metric(node.name, "skipped", 1.0)
                                 continue
                         except Exception as cond_err:
-                            logger.warning(
-                                f"Conditional edge for '{node.name}' raised {cond_err!r}; skipping node"
-                            )
+                            logger.warning(f"Conditional edge for '{node.name}' raised {cond_err!r}; skipping node")
                             skipped_nodes.add(node.name)
                             continue
 
                     # Cascade skip — if any direct dependency was skipped, skip this node too
                     if self._is_dependency_skipped(node, graph, skipped_nodes):
                         skipped_nodes.add(node.name)
-                        logger.debug(
-                            f"Node '{node.name}' cascade-skipped: a dependency was skipped"
-                        )
-                        context.record_metric(node.name, "skipped", True)
-                        context.record_metric(node.name, "skip_reason", "cascade")
+                        logger.debug(f"Node '{node.name}' cascade-skipped: a dependency was skipped")
+                        context.record_metric(node.name, "skipped", 1.0)
                         continue
 
                     self._execute_node(node, context, graph.wiring)
 
         except EarlyExitException as early_exit:
             # Expected control-flow — not an error.
-            logger.info(
-                f"Graph '{graph.name}' early-exited at node '{early_exit.node_name}': {early_exit.reason}"
-            )
-            context.record_metric("graph", "early_exit", True)
-            context.record_metric("graph", "early_exit_reason", early_exit.reason)
+            logger.info(f"Graph '{graph.name}' early-exited at node '{early_exit.node_name}': {early_exit.reason}")
+            context.record_metric("graph", "early_exit", 1.0)
             context.tracer.end_span(root_span, status="early_exit")
             context.metrics_collector.stop()
             end_time = time.perf_counter()
@@ -288,9 +277,12 @@ class SyncScheduler:
             return output_artifacts
 
         except Exception as e:
-            # End span with error
+            # End span with error — but let EarlyExitException propagate cleanly
             context.tracer.end_span(span, status="error", error_message=str(e))
-            self._handle_error(node, e)
+            from mata.core.graph.conditionals import EarlyExitException
+
+            if not isinstance(e, EarlyExitException):
+                self._handle_error(node, e)
             raise  # Re-raise after logging
 
     def _resolve_inputs(self, node: Node, context: ExecutionContext, wiring: dict[str, str]) -> dict[str, Artifact]:
@@ -634,12 +626,17 @@ class ParallelScheduler(SyncScheduler):
             the scheduler ensures synchronization by waiting for all nodes
             in a stage to complete before proceeding to the next stage.
         """
+        from mata.core.graph.conditionals import EarlyExitException
+
         start_time = time.perf_counter()
         logger.info(f"Starting parallel execution of graph '{graph.name}' " f"with {self.max_workers} workers")
 
         # Store initial artifacts in context
         for name, artifact in initial_artifacts.items():
             context.store(name, artifact)
+
+        edge_conditions: dict[str, Any] = getattr(graph, "edge_conditions", {}) or {}
+        skipped_nodes: set[str] = set()
 
         # Execute stages in order, parallelizing within each stage
         try:
@@ -649,12 +646,44 @@ class ParallelScheduler(SyncScheduler):
                     f"{len(stage_nodes)} nodes in parallel: {[n.name for n in stage_nodes]}"
                 )
 
-                if len(stage_nodes) == 1:
+                # Filter to nodes that should actually run
+                runnable: list[Node] = []
+                for node in stage_nodes:
+                    if node.name in edge_conditions:
+                        try:
+                            cond_result = edge_conditions[node.name](context)
+                        except Exception:  # noqa: BLE001
+                            cond_result = False
+                        if not cond_result:
+                            logger.debug(f"Node '{node.name}' skipped (conditional edge = False)")
+                            skipped_nodes.add(node.name)
+                            context.record_metric(node.name, "skipped", 1.0)
+                            continue
+
+                    if self._is_dependency_skipped(node, graph, skipped_nodes):
+                        logger.debug(f"Node '{node.name}' cascade-skipped (dependency was skipped)")
+                        skipped_nodes.add(node.name)
+                        context.record_metric(node.name, "skipped", 1.0)
+                        continue
+
+                    runnable.append(node)
+
+                if not runnable:
+                    continue
+
+                if len(runnable) == 1:
                     # Single node - execute directly without thread overhead
-                    self._execute_node(stage_nodes[0], context, graph.wiring)
+                    self._execute_node(runnable[0], context, graph.wiring)
                 else:
                     # Multiple nodes - execute in parallel
-                    self._execute_stage(stage_nodes, context, graph.wiring)
+                    self._execute_stage(runnable, context, graph.wiring)
+
+        except EarlyExitException as ee:
+            logger.info(f"Graph '{graph.name}' terminated early at node '{ee.node_name}': {ee.reason}")
+            context.record_metric("graph", "early_exit", 1.0)
+            end_time = time.perf_counter()
+            total_time_ms = (end_time - start_time) * 1000
+            return self._build_result(graph, context, total_time_ms)
 
         except Exception as e:
             logger.error(f"Graph execution failed: {e}")

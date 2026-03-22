@@ -6,11 +6,9 @@ Run independently: pytest tests/test_cli_recognize.py -v
 
 from __future__ import annotations
 
-import json
 import tempfile
 from io import StringIO
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -18,7 +16,6 @@ import pytest
 from mata import Gallery
 from mata.cli import _build_parser, main
 from mata.core.artifacts.matches import MatchEntry, Matches
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -60,6 +57,7 @@ def _make_matches(label: str = "alice", sim: float = 0.92) -> Matches:
 def _make_image_file() -> str:
     """Save a tiny PNG to a temp file; return path."""
     from PIL import Image as PILImage
+
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         path = f.name
     PILImage.fromarray(np.zeros((8, 8, 3), dtype=np.uint8)).save(path)
@@ -101,8 +99,7 @@ class TestRecognizeParserArguments:
 
     def test_model_flag(self):
         p = _build_parser()
-        ns = p.parse_args(["recognize", "img.jpg", "--gallery", "g.npz",
-                           "--model", "openai/clip-vit-base-patch32"])
+        ns = p.parse_args(["recognize", "img.jpg", "--gallery", "g.npz", "--model", "openai/clip-vit-base-patch32"])
         assert ns.model == "openai/clip-vit-base-patch32"
 
     def test_model_short_flag(self):
@@ -141,40 +138,32 @@ class TestRecognizeCmdSuccess:
         gallery_path = _make_gallery_file()
         image_path = _make_image_file()
         result = _make_matches("alice", 0.95)
-        with patch("mata.run", return_value=result), \
-             patch("mata.Gallery.load", return_value=Gallery()):
-            code, _out, _err = _capture(["recognize", image_path,
-                                          "--gallery", gallery_path])
+        with patch("mata.run", return_value=result), patch("mata.Gallery.load", return_value=Gallery()):
+            code, _out, _err = _capture(["recognize", image_path, "--gallery", gallery_path])
         assert code == 0
 
     def test_stdout_contains_label(self):
         gallery_path = _make_gallery_file()
         image_path = _make_image_file()
         result = _make_matches("alice", 0.95)
-        with patch("mata.run", return_value=result), \
-             patch("mata.Gallery.load", return_value=Gallery()):
-            _code, stdout, _err = _capture(["recognize", image_path,
-                                             "--gallery", gallery_path])
+        with patch("mata.run", return_value=result), patch("mata.Gallery.load", return_value=Gallery()):
+            _code, stdout, _err = _capture(["recognize", image_path, "--gallery", gallery_path])
         assert "alice" in stdout
 
     def test_stdout_contains_similarity(self):
         gallery_path = _make_gallery_file()
         image_path = _make_image_file()
         result = _make_matches("bob", 0.87)
-        with patch("mata.run", return_value=result), \
-             patch("mata.Gallery.load", return_value=Gallery()):
-            _code, stdout, _err = _capture(["recognize", image_path,
-                                             "--gallery", gallery_path])
+        with patch("mata.run", return_value=result), patch("mata.Gallery.load", return_value=Gallery()):
+            _code, stdout, _err = _capture(["recognize", image_path, "--gallery", gallery_path])
         assert "0.87" in stdout or "bob" in stdout
 
     def test_json_flag_outputs_valid_json(self):
         gallery_path = _make_gallery_file()
         image_path = _make_image_file()
         result = _make_matches("carol", 0.91)
-        with patch("mata.run", return_value=result), \
-             patch("mata.Gallery.load", return_value=Gallery()):
-            _code, stdout, _err = _capture(["recognize", image_path,
-                                             "--gallery", gallery_path, "--json"])
+        with patch("mata.run", return_value=result), patch("mata.Gallery.load", return_value=Gallery()):
+            _code, stdout, _err = _capture(["recognize", image_path, "--gallery", gallery_path, "--json"])
         # Should contain serialized dict content
         assert "carol" in stdout or "entries" in stdout
 
@@ -186,18 +175,18 @@ class TestRecognizeCmdSuccess:
 
 class TestRecognizeCmdErrors:
     def test_nonexistent_gallery_exits_nonzero(self):
-        code, _out, err = _capture(["recognize", "image.jpg",
-                                    "--gallery", "/nonexistent/path/gallery.npz"])
+        code, _out, err = _capture(["recognize", "image.jpg", "--gallery", "/nonexistent/path/gallery.npz"])
         assert code != 0
         assert "gallery" in err.lower() or "error" in err.lower()
 
     def test_mata_run_error_exits_nonzero(self):
         gallery_path = _make_gallery_file()
         image_path = _make_image_file()
-        with patch("mata.run", side_effect=RuntimeError("embed failed")), \
-             patch("mata.Gallery.load", return_value=Gallery()):
-            code, _out, err = _capture(["recognize", image_path,
-                                         "--gallery", gallery_path])
+        with (
+            patch("mata.run", side_effect=RuntimeError("embed failed")),
+            patch("mata.Gallery.load", return_value=Gallery()),
+        ):
+            code, _out, err = _capture(["recognize", image_path, "--gallery", gallery_path])
         assert code != 0
         assert "error" in err.lower()
 

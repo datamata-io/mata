@@ -6,7 +6,15 @@ They ensure model-agnostic task execution with consistent input/output types.
 
 from typing import Any, ClassVar, Protocol
 
-from ..core.types import ClassifyResult, DepthResult, DetectResult, EmbedResult, OCRResult, SegmentResult, TrackResult, VisionResult
+from ..core.types import (
+    ClassifyResult,
+    DepthResult,
+    DetectResult,
+    OCRResult,
+    SegmentResult,
+    TrackResult,
+    VisionResult,
+)
 
 
 class TaskAdapter(Protocol):

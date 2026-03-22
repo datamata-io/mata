@@ -34,11 +34,10 @@ Examples:
   mata export detect ./model.pt --format onnx   # coming in v2.0
 """,
     )
+    parser.add_argument("--version", action="version", version=_get_version())
     parser.add_argument(
-        "--version", action="version", version=_get_version()
-    )
-    parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="count",
         default=0,
         help="Increase verbosity (-v = quiet, -vv = verbose)",
@@ -59,6 +58,7 @@ Examples:
 def _get_version() -> str:
     try:
         import mata
+
         return f"mata {mata.__version__}"
     except Exception:
         return "mata (unknown version)"
@@ -69,20 +69,17 @@ def _add_recognize_parser(subparsers: argparse._SubParsersAction) -> None:
         "recognize",
         help="Identify an image against a gallery of known embeddings",
         description="Gallery-based recognition. Embeds the input image and runs cosine "
-                    "similarity search against a pre-built .npz gallery file.",
+        "similarity search against a pre-built .npz gallery file.",
     )
     p.add_argument("input", help="Input image path")
-    p.add_argument("--gallery", "-g", required=True,
-                   help="Path to .npz gallery file (created with Gallery.save())")
-    p.add_argument("--model", "-m", default=None,
-                   help="Embed model ID, path, or alias (default: registry default)")
-    p.add_argument("--top-k", type=int, default=1,
-                   help="Number of top matches to return (default: 1)")
-    p.add_argument("--threshold", type=float, default=None,
-                   help="Minimum cosine similarity threshold (default: gallery default)")
+    p.add_argument("--gallery", "-g", required=True, help="Path to .npz gallery file (created with Gallery.save())")
+    p.add_argument("--model", "-m", default=None, help="Embed model ID, path, or alias (default: registry default)")
+    p.add_argument("--top-k", type=int, default=1, help="Number of top matches to return (default: 1)")
+    p.add_argument(
+        "--threshold", type=float, default=None, help="Minimum cosine similarity threshold (default: gallery default)"
+    )
     p.add_argument("--device", default=None, help="Device: cpu, cuda, cuda:0, mps")
-    p.add_argument("--json", dest="output_json", action="store_true",
-                   help="Output raw JSON to stdout")
+    p.add_argument("--json", dest="output_json", action="store_true", help="Output raw JSON to stdout")
 
 
 def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -91,7 +88,7 @@ def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Run inference on an image",
         description="Run one-shot inference. Wraps mata.run().",
     )
-    p.add_argument("task", help='Task type: detect, segment, classify, depth, embed, ocr, vlm, barcode')
+    p.add_argument("task", help="Task type: detect, segment, classify, depth, embed, ocr, vlm, barcode")
     p.add_argument("input", help="Input image path (file or URL)")
     p.add_argument("--model", "-m", default=None, help="Model ID, path, or config alias")
     p.add_argument("--conf", type=float, default=None, help="Confidence threshold (detect/segment)")
@@ -230,6 +227,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         else:
             # Raw numpy from embed task
             import numpy as np
+
             if isinstance(result, np.ndarray):
                 print(json.dumps({"embeddings": result.tolist()}))
             else:
@@ -442,9 +440,11 @@ def main(argv: list[str] | None = None) -> int:
     # Set verbosity
     if args.verbose == 1:
         import mata
+
         mata.verbose(1)
     elif args.verbose >= 2:
         import mata
+
         mata.verbose(2)
 
     dispatch = {

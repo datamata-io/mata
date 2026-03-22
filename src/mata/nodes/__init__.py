@@ -11,7 +11,6 @@ from mata.nodes.annotate import Annotate
 from mata.nodes.annotate_rt import AnnotateRT
 from mata.nodes.barcode import Barcode
 from mata.nodes.classify import Classify
-from mata.nodes.gallery_match import GalleryMatchNode
 from mata.nodes.depth import EstimateDepth
 
 # Core task nodes (Task 5.1)
@@ -24,6 +23,7 @@ from mata.nodes.filter import Filter
 
 # Fusion nodes (Task 5.6)
 from mata.nodes.fuse import Fuse
+from mata.nodes.gallery_match import GalleryMatchNode
 from mata.nodes.keep_best_mask import KeepBestMask
 from mata.nodes.mask_to_box import MaskToBox
 from mata.nodes.merge import Merge
@@ -47,6 +47,9 @@ from mata.nodes.track import Track
 # Storage nodes (v1.9.2)
 from mata.nodes.valkey_load import ValkeyLoad
 from mata.nodes.valkey_store import ValkeyStore
+
+# Control flow nodes (v1.9.5)
+from mata.core.graph.conditionals import EarlyExit, EarlyExitException, While
 
 # VLM nodes (Task 5.7 - v1.7.0)
 from mata.nodes.vlm_describe import VLMDescribe
@@ -96,4 +99,8 @@ __all__ = [
     "ValkeyLoad",
     # Recognition nodes
     "GalleryMatchNode",
+    # Control flow nodes
+    "EarlyExit",
+    "EarlyExitException",
+    "While",
 ]
