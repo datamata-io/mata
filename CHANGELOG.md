@@ -11,6 +11,45 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.5] - 2026-03-22
+
+### Added
+
+**First-Class CLI — `mata` command-line interface**
+
+- `mata run <task> <image> [--model] [--conf] [--text] [--prompt] [--save] [--json]` — one-shot inference with Ultralytics-parity DX
+- `mata recognize <image> --gallery <file.npz> [--model] [--top-k] [--threshold] [--json]` — gallery-based identity matching from the command line
+- `mata track <video> [--model] [--tracker] [--conf] [--iou] [--reid-model] [--save] [--show]` — multi-object tracking
+- `mata val <task> --data <yaml> [--model] [--conf] [--iou] [--plots] [--json]` — dataset evaluation
+- `mata export <task> <model> [--format] [--quantize]` — stub: full support in v2.0
+- `mata --version` — version display
+- `mata <cmd> --help` — per-command help text
+- `[project.scripts] mata = "mata.cli:main"` entrypoint in `pyproject.toml` (was already registered; now with `recognize` routing)
+
+**Gallery Matching / Recognition — `mata.run("recognize", ...)`**
+
+- `mata.run("recognize", image, gallery=gallery)` — convenience API: embeds the image, runs cosine similarity search against a `Gallery`, returns a `Matches` artifact
+- `gallery` kwarg (required): pre-populated `Gallery` instance
+- `top_k` kwarg (default: 1): maximum number of top matches to return
+- `threshold` kwarg (optional): minimum cosine similarity (overrides gallery default)
+- `Matches` and `MatchEntry` artifacts are now exported from `mata` top-level and from `mata.core.artifacts`
+- Pipeline pattern: `Detect >> ExtractROIs >> Embed >> GalleryMatchNode(gallery=gallery)` — unchanged; `mata.run("recognize", ...)` wraps the single-image case
+- `_run_recognize()` internal helper in `api.py` — handles image loading, adapter dispatch, gallery search, and result assembly
+
+### Notes
+
+- `mata.run("recognize", ...)` is the single-image convenience form; for per-ROI recognition in graphs, use `GalleryMatchNode` directly
+- Zero regressions; all 5279+ pre-existing tests pass
+
+### Tests
+
+- `tests/test_matches_artifact.py` — 39 new tests for `Matches` and `MatchEntry` artifacts
+- `tests/test_recognize_api.py` — 34 new tests for `mata.run("recognize", ...)` API
+- `tests/test_cli_recognize.py` — 18 new tests for `mata recognize` CLI subcommand
+- Total: **5201 + 78 new tests = 5279+ passing**
+
+---
+
 ## [1.9.4] - 2026-03-21
 
 ### Added

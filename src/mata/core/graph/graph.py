@@ -157,9 +157,10 @@ class Graph:
         self._wiring: dict[str, str] = {}  # {node.input: artifact_name}
         self._compiled: CompiledGraph | None = None
         self._last_outputs: dict[str, str] = {}  # Track last node's outputs for auto-wiring
-        self._conditionals: list[tuple[Callable, Node, Node | None]] = []  # For future conditional support
+        self._conditionals: list[tuple[Callable, Node, Node | None]] = []  # Kept for introspection
+        self._edge_conditions: dict[str, Callable] = {}  # {node_name: condition_fn}
 
-    def add(self, node: Node, inputs: dict[str, str] | None = None) -> Graph:
+    def add(self, node: Node, inputs: dict[str, str] | None = None, condition: Callable | None = None) -> Graph:
         """Add node with explicit input wiring.
 
         Adds a node to the graph with explicit specification of where each input
@@ -189,6 +190,13 @@ class Graph:
             # Auto-wiring (if previous node output matches)
             graph.add(Detect(using="detr", out="dets"), inputs={"image": "input.image"})
             graph.add(Filter(src="dets", out="filtered"))  # Auto-wires from Detect.dets
+
+            # Conditional edge — node is skipped when condition returns False
+            graph.add(
+                VLMDetect(using="vlm", out="vlm_dets"),
+                inputs={"image": "input.image"},
+                condition=lambda ctx: ctx.retrieve("dets").max_score < 0.5,
+            )
             ```
         """
         # Check for name collision
@@ -199,6 +207,10 @@ class Graph:
             )
 
         self._nodes.append(node)
+
+        # Register conditional edge if provided
+        if condition is not None:
+            self._edge_conditions[node.name] = condition
 
         # Wire inputs
         if inputs:
@@ -305,18 +317,19 @@ class Graph:
             )
             ```
         """
-        # Store conditional for future implementation
+        # Record for introspection / debugging
         self._conditionals.append((predicate, then_branch, else_branch))
 
-        # For now, add the then_branch unconditionally
-        # TODO: Full conditional support in scheduler (v2.0)
-        self.add(then_branch, inputs=None)
+        # Wrap both branches in a single If node so the scheduler executes
+        # exactly one branch at runtime (correct mutual-exclusion behaviour).
+        from mata.core.graph.conditionals import If, Pass
 
-        if else_branch:
-            # Also add else branch (scheduler should handle exclusivity)
-            self.add(else_branch, inputs=None)
-
-        return self
+        if_node = If(
+            predicate=predicate,
+            then_branch=then_branch,
+            else_branch=else_branch if else_branch is not None else Pass(),
+        )
+        return self.add(if_node, inputs=None)
 
     def compile(self, providers: dict[str, Any]) -> CompiledGraph:
         """Validate and compile to executable DAG.
@@ -361,7 +374,12 @@ class Graph:
 
         # Create compiled graph
         compiled = CompiledGraph(
-            name=self.name, nodes=self._nodes, wiring=self._wiring, dag=dag, validation_result=result
+            name=self.name,
+            nodes=self._nodes,
+            wiring=self._wiring,
+            dag=dag,
+            validation_result=result,
+            edge_conditions=dict(self._edge_conditions),
         )
 
         self._compiled = compiled
@@ -719,6 +737,14 @@ class CompiledGraph:
     dag: Any | None  # nx.DiGraph if networkx available
     validation_result: ValidationResult
     execution_order: list[list[Node]] = None
+    edge_conditions: dict[str, Callable] = None  # {node_name: condition_fn} or None
+
+    def __post_init__(self):
+        """Compute execution order and normalise optional fields."""
+        if self.edge_conditions is None:
+            self.edge_conditions = {}
+        if self.execution_order is None:
+            self.execution_order = self._compute_order()
 
     def __post_init__(self):
         """Compute execution order after initialization."""

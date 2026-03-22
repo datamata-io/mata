@@ -18,6 +18,7 @@ from .types import (
     DepthResult,
     Detection,
     DetectResult,
+    EmbedResult,
     Entity,
     Instance,
     OCRResult,
@@ -59,4 +60,5 @@ __all__ = [
     "BarcodeResult",
     "Track",
     "TrackResult",
+    "EmbedResult",
 ]

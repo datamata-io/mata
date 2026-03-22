@@ -132,6 +132,12 @@ class SyncScheduler:
         for name, artifact in initial_artifacts.items():
             context.store(name, artifact)
 
+        # Import here to avoid circular imports at module level
+        from mata.core.graph.conditionals import EarlyExitException
+
+        # Track nodes that were skipped (conditional edge or cascade skip)
+        skipped_nodes: set[str] = set()
+
         # Execute nodes in topological order (stage by stage)
         try:
             for stage_idx, stage_nodes in enumerate(graph.execution_order):
@@ -141,7 +147,48 @@ class SyncScheduler:
 
                 # Execute each node in the stage sequentially
                 for node in stage_nodes:
+                    # Check conditional edge — skip this node if condition is False
+                    edge_conditions = getattr(graph, "edge_conditions", {})
+                    if node.name in edge_conditions:
+                        try:
+                            if not edge_conditions[node.name](context):
+                                skipped_nodes.add(node.name)
+                                logger.debug(
+                                    f"Node '{node.name}' skipped: conditional edge evaluated to False"
+                                )
+                                context.record_metric(node.name, "skipped", True)
+                                context.record_metric(node.name, "skip_reason", "conditional_edge")
+                                continue
+                        except Exception as cond_err:
+                            logger.warning(
+                                f"Conditional edge for '{node.name}' raised {cond_err!r}; skipping node"
+                            )
+                            skipped_nodes.add(node.name)
+                            continue
+
+                    # Cascade skip — if any direct dependency was skipped, skip this node too
+                    if self._is_dependency_skipped(node, graph, skipped_nodes):
+                        skipped_nodes.add(node.name)
+                        logger.debug(
+                            f"Node '{node.name}' cascade-skipped: a dependency was skipped"
+                        )
+                        context.record_metric(node.name, "skipped", True)
+                        context.record_metric(node.name, "skip_reason", "cascade")
+                        continue
+
                     self._execute_node(node, context, graph.wiring)
+
+        except EarlyExitException as early_exit:
+            # Expected control-flow — not an error.
+            logger.info(
+                f"Graph '{graph.name}' early-exited at node '{early_exit.node_name}': {early_exit.reason}"
+            )
+            context.record_metric("graph", "early_exit", True)
+            context.record_metric("graph", "early_exit_reason", early_exit.reason)
+            context.tracer.end_span(root_span, status="early_exit")
+            context.metrics_collector.stop()
+            end_time = time.perf_counter()
+            return self._build_result(graph, context, (end_time - start_time) * 1000)
 
         except Exception as e:
             logger.error(f"Graph execution failed: {e}")
@@ -414,6 +461,41 @@ class SyncScheduler:
         # Compute hash
         hash_obj = hashlib.sha256(graph_repr.encode())
         return hash_obj.hexdigest()[:8]
+
+    def _is_dependency_skipped(
+        self,
+        node: Node,
+        graph: CompiledGraph,
+        skipped_nodes: set[str],
+    ) -> bool:
+        """Return True if any direct wiring-dependency of *node* was skipped.
+
+        Examines ``graph.wiring`` to find the source nodes for every input
+        declared by *node*.  If any source node is in *skipped_nodes* the
+        downstream node should be cascade-skipped too.
+
+        Args:
+            node: The node to check.
+            graph: The compiled graph (provides wiring).
+            skipped_nodes: Set of already-skipped node names.
+
+        Returns:
+            ``True`` if a dependency was skipped, ``False`` otherwise.
+        """
+        if not skipped_nodes:
+            return False
+
+        prefix = f"{node.name}."
+        for wiring_key, source in graph.wiring.items():
+            if not wiring_key.startswith(prefix):
+                continue
+            if "." not in source:
+                continue
+            source_node, _ = source.rsplit(".", 1)
+            if source_node != "input" and source_node in skipped_nodes:
+                return True
+
+        return False
 
     def _build_result(self, graph: CompiledGraph, context: ExecutionContext, total_time_ms: float) -> MultiResult:
         """Package execution results into MultiResult.

@@ -123,7 +123,8 @@ def run(
     creating adapters. For repeated inference, use load() instead.
 
     Args:
-        task: Task type ("detect", "segment", "classify", "depth", "vlm", "ocr", "barcode")
+        task: Task type ("detect", "segment", "classify", "depth", "vlm", "ocr",
+            "barcode", "embed", "recognize")
         input: Input image (path, PIL Image, or numpy array)
         model: Optional model source (path, HF ID, or alias)
         model_type: Optional explicit model type (see load() for details)
@@ -135,12 +136,18 @@ def run(
                 - temperature (float, optional): Sampling temperature (default: 0.7)
                 - top_p (float, optional): Nucleus sampling threshold (default: 0.8)
                 - top_k (int, optional): Top-k sampling parameter (default: 20)
+            For "recognize" task:
+                - gallery (Gallery, required): Pre-populated Gallery instance
+                - top_k (int, optional): Number of top matches to return (default: 1)
+                - threshold (float, optional): Minimum cosine similarity (default: gallery default)
 
     Returns:
-        Task result (DetectResult, SegmentResult, ClassifyResult, DepthResult, or VisionResult)
+        Task result (DetectResult, SegmentResult, ClassifyResult, DepthResult,
+        VisionResult, EmbedResult, or Matches for "recognize")
 
     Raises:
         ValueError: If task is "track" (tracking requires stateful pipeline)
+        ValueError: If task is "recognize" but no gallery is provided
         TaskNotSupportedError: If task is not supported
 
     Examples:
@@ -167,14 +174,13 @@ def run(
         ... )
         >>> print(result.text)
 
-        >>> # VLM with custom system prompt
-        >>> result = mata.run(
-        ...     "vlm",
-        ...     "product.jpg",
-        ...     model="Qwen/Qwen3-VL-2B-Instruct",
-        ...     prompt="Describe any defects.",
-        ...     system_prompt="You are a quality inspector."
-        ... )
+        >>> # Gallery recognition (embed + cosine search)
+        >>> gallery = mata.Gallery()
+        >>> gallery.add("alice", alice_embedding)
+        >>> result = mata.run("recognize", "image.jpg",
+        ...                   model="openai/clip-vit-base-patch32",
+        ...                   gallery=gallery, top_k=1)
+        >>> print(result.entries[0].label)
     """
     # Track task is stateful and requires pipeline
     if task == "track":
@@ -182,6 +188,10 @@ def run(
             "Track task is stateful and cannot be used with run(). "
             "Use load('track', ...) and call update() in a loop instead."
         )
+
+    # Recognize task: embed + gallery cosine search (no model adapter required)
+    if task == "recognize":
+        return _run_recognize(input, model=model, model_type=model_type, **kwargs)
 
     # Load adapter
     adapter = load(task=task, model=model, model_type=model_type, **kwargs)
@@ -207,8 +217,80 @@ def run(
     else:
         # Should not reach here due to earlier checks
         raise TaskNotSupportedError(
-            task, ["detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "barcode", "embed"]
+            task, ["detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "barcode", "embed", "recognize"]
         )
+
+
+def _run_recognize(
+    input: Any,
+    model: str | None = None,
+    model_type: Any = None,
+    gallery: Any = None,
+    top_k: int = 1,
+    threshold: float | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Internal implementation for mata.run('recognize', ...).
+
+    Embeds the input image and performs cosine similarity search against a Gallery.
+
+    Args:
+        input: Image path, PIL Image, or numpy array.
+        model: Optional embed model (HuggingFace ID, local path, or alias).
+            Defaults to registry default for 'embed' task.
+        model_type: Optional explicit model type (passed through to embed adapter).
+        gallery: Required :class:`~mata.recognition.Gallery` with enrolled embeddings.
+        top_k: Number of top gallery matches to return per image.
+        threshold: Minimum cosine similarity. When None, uses the gallery's default.
+        **kwargs: Additional arguments passed to the embed adapter constructor.
+
+    Returns:
+        :class:`~mata.core.artifacts.matches.Matches` with one entry per image.
+
+    Raises:
+        ValueError: If ``gallery`` is not provided or input type is unsupported.
+    """
+    from .core.artifacts.image import Image as ImageArtifact
+    from .core.artifacts.matches import MatchEntry, Matches
+
+    if gallery is None:
+        raise ValueError(
+            "mata.run('recognize', ...) requires a 'gallery' keyword argument.\n"
+            "Create a Gallery and add embeddings before searching:\n"
+            "    gallery = mata.Gallery()\n"
+            "    gallery.add('alice', embedding)\n"
+            "    result = mata.run('recognize', image, gallery=gallery)"
+        )
+
+    # Build embed image artifact
+    if isinstance(input, (str, Path)):
+        image_artifact = ImageArtifact.from_path(str(input))
+    elif isinstance(input, Image.Image):
+        image_artifact = ImageArtifact.from_pil(input)
+    elif isinstance(input, np.ndarray):
+        image_artifact = ImageArtifact.from_numpy(input)
+    else:
+        raise ValueError(
+            f"Unsupported input type for recognize task: {type(input).__name__}. "
+            "Expected file path, PIL Image, or numpy array."
+        )
+
+    # Embed using the embed task adapter
+    embed_adapter = load(task="embed", model=model, model_type=model_type, **kwargs)
+    embeddings_artifact = embed_adapter.embed(image_artifact)
+
+    # Query the gallery with the first (and only) embedding vector
+    query_vector = embeddings_artifact.vectors[0]
+    matches = gallery.search(query_vector, top_k=top_k, threshold=threshold)
+
+    best = matches[0] if matches else None
+    entry = MatchEntry(
+        instance_id="query",
+        label=best.label if best is not None else "unknown",
+        similarity=best.similarity if best is not None else 0.0,
+        all_matches=[m.to_dict() for m in matches],
+    )
+    return Matches(entries=[entry], meta={"model": str(model), "top_k": top_k})
 
 
 def track(

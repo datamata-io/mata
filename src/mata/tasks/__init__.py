@@ -4,6 +4,7 @@ from .base import (
     ClassifyAdapter,
     DepthAdapter,
     DetectAdapter,
+    EmbedAdapter,
     SegmentAdapter,
     TaskAdapter,
     TrackAdapter,
@@ -16,4 +17,5 @@ __all__ = [
     "ClassifyAdapter",
     "DepthAdapter",
     "TrackAdapter",
+    "EmbedAdapter",
 ]

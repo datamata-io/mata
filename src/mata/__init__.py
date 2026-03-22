@@ -24,7 +24,7 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "1.9.4"
+__version__ = "1.9.5"
 
 from .api import get_model_info, infer, list_models, load, register_model, run, track, val, verbose
 from .core import (
@@ -35,6 +35,7 @@ from .core import (
     # Types
     Detection,
     DetectResult,
+    EmbedResult,
     Entity,
     Instance,
     InvalidInputError,
@@ -54,6 +55,8 @@ from .core import (
     get_config,
     set_config,
 )
+from .recognition import Gallery, GalleryMatch
+from .core.artifacts.matches import MatchEntry, Matches
 from .eval import ClassifyMetrics, DepthMetrics, DetMetrics, OCRMetrics, SegmentMetrics
 
 # Visualization (lazy import to avoid hard dependency)
@@ -112,11 +115,17 @@ __all__ = [
     "TextRegion",
     "BarcodeRegion",
     "BarcodeResult",
+    "EmbedResult",
     "Track",
     "TrackResult",
     "Entity",
     "Instance",
     "VisionResult",
+    # Recognition
+    "Gallery",
+    "GalleryMatch",
+    "Matches",
+    "MatchEntry",
     # Exceptions
     "MATAError",
     "TaskNotSupportedError",

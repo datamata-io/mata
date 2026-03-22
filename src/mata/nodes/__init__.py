@@ -11,6 +11,7 @@ from mata.nodes.annotate import Annotate
 from mata.nodes.annotate_rt import AnnotateRT
 from mata.nodes.barcode import Barcode
 from mata.nodes.classify import Classify
+from mata.nodes.gallery_match import GalleryMatchNode
 from mata.nodes.depth import EstimateDepth
 
 # Core task nodes (Task 5.1)
@@ -93,4 +94,6 @@ __all__ = [
     # Storage nodes
     "ValkeyStore",
     "ValkeyLoad",
+    # Recognition nodes
+    "GalleryMatchNode",
 ]

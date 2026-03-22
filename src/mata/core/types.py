@@ -976,6 +976,121 @@ class BarcodeResult:
             return None
 
 
+@dataclass(frozen=True)
+class EmbedResult:
+    """Result of feature embedding extraction.
+
+    Attributes:
+        embeddings: (N, D) float32 array of L2-normalised embedding vectors.
+            N=1 for single image input; N=len(crops) for batch input.
+        labels: Optional identity labels aligned with embeddings rows.
+        meta: Optional metadata (model, extraction_layer, etc.)
+
+    Examples:
+        >>> result = mata.run("embed", "image.jpg", model="openai/clip-vit-base-patch32")
+        >>> result.dim          # embedding dimensionality
+        512
+        >>> result.embeddings.shape
+        (1, 512)
+        >>> result.save("embeddings.npz")
+    """
+
+    embeddings: Any  # np.ndarray (N, D) float32
+    labels: list[str] | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if NUMPY_AVAILABLE and np is not None and self.embeddings is not None:
+            emb = np.asarray(self.embeddings, dtype=np.float32)
+            if emb.ndim == 1:
+                emb = emb[np.newaxis, :]  # (D,) -> (1, D)
+            object.__setattr__(self, "embeddings", emb)
+
+    def __len__(self) -> int:
+        return len(self.embeddings)
+
+    @property
+    def embedding(self) -> Any:
+        """First embedding vector, shape (D,)."""
+        return self.embeddings[0]
+
+    @property
+    def dim(self) -> int:
+        """Embedding dimensionality D."""
+        if NUMPY_AVAILABLE and isinstance(self.embeddings, np.ndarray):
+            return self.embeddings.shape[1] if self.embeddings.ndim > 1 else self.embeddings.shape[0]
+        return 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            "embeddings": self.embeddings.tolist() if NUMPY_AVAILABLE and hasattr(self.embeddings, "tolist") else self.embeddings,
+            "labels": self.labels,
+            "meta": self.meta,
+        }
+
+    def to_json(self, **kwargs: Any) -> str:
+        """Serialize to JSON string."""
+        return json.dumps(self.to_dict(), **kwargs)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> EmbedResult:
+        """Create from dictionary representation."""
+        if NUMPY_AVAILABLE:
+            import numpy as _np
+            embeddings = _np.array(data["embeddings"], dtype=_np.float32)
+        else:
+            embeddings = data["embeddings"]
+        return cls(
+            embeddings=embeddings,
+            labels=data.get("labels"),
+            meta=data.get("meta", {}),
+        )
+
+    @classmethod
+    def from_json(cls, json_str: str) -> EmbedResult:
+        """Deserialize from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def save(self, output_path: str, **kwargs: Any) -> None:
+        """Save embeddings to file.
+
+        Supported formats:
+            .json: JSON with embeddings as nested lists
+            .npz:  NumPy archive (recommended for large batches)
+
+        Args:
+            output_path: Destination file path.
+        """
+        from pathlib import Path
+
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        suffix = out.suffix.lower()
+        if suffix == ".json":
+            out.write_text(self.to_json(), encoding="utf-8")
+        elif suffix == ".npz":
+            if not NUMPY_AVAILABLE:
+                raise ImportError("numpy is required to save .npz files")
+            save_kwargs: dict[str, Any] = {"embeddings": self.embeddings}
+            if self.labels is not None:
+                save_kwargs["labels"] = np.array(self.labels)
+            np.savez(str(out), **save_kwargs)
+        else:
+            raise ValueError(f"Unsupported embed save format: '{suffix}'. Use .json or .npz")
+
+    def _repr_html_(self) -> str | None:
+        """Rich HTML display for Jupyter notebooks."""
+        try:
+            shape = self.embeddings.shape if hasattr(self.embeddings, "shape") else ("?", "?")
+            return (
+                f"<b>EmbedResult</b> — {shape[0]} vector(s), dim={self.dim}"
+                f"<br><small>dtype=float32 | labels={self.labels}</small>"
+            )
+        except Exception:
+            return None
+
+
 class ModelType(str, Enum):
     """Supported model source types for explicit loading.
 
