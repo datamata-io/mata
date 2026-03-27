@@ -38,11 +38,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 **Graph Control Flow — `EarlyExit`, `While`, and conditional edges**
 
-- `EarlyExit` node — raises `EarlyExitException` when a user-supplied `condition(ctx) → bool` evaluates to `True`; the scheduler catches it and stops graph execution cleanly; optional `message` kwarg for logging; exported from `mata.core.graph` and `mata.nodes`
-- `EarlyExitException` — lightweight sentinel exception; importable from `mata.core.graph` for external `try/except` handling when calling `mata.infer()` directly
-- `While` node — wraps any callable node in a do-while loop; re-executes the inner node while `condition(ctx) → bool` returns `True`; `max_iterations` (default: `100`) is always enforced and cannot be disabled; exported from `mata.core.graph` and `mata.nodes`
+- `EarlyExit` node — raises `EarlyExitException` when a user-supplied `predicate(ctx) → bool` evaluates to `True`; the scheduler catches it and stops graph execution cleanly; optional `reason` kwarg for logging; exported from `mata`, `mata.nodes`, and `mata.core.graph`
+- `EarlyExitException` — lightweight sentinel exception; importable from `mata`, `mata.nodes`, and `mata.core.graph` for external `try/except` handling when calling `mata.infer()` directly
+- `While` node — wraps a list of nodes (`body`) in a do-while loop; re-executes the body while `condition(ctx) → bool` returns `True`; `max_iterations` (default: `10`) is always enforced and cannot be disabled; exported from `mata`, `mata.nodes`, and `mata.core.graph`
 - `Graph.add(node, condition=...)` — attaches a node with a guard predicate; when `condition(ctx)` returns `False` the node is silently skipped and its output artifacts are not written; downstream nodes that read those artifacts must guard themselves or accept missing values
-- `Graph.conditional(condition, if_true, if_false=None)` — high-level helper that wires `EarlyExit` / branch nodes based on a predicate; sugar over `Graph.add(condition=...)`
+- `Graph.conditional(predicate, then_branch, else_branch=None)` — high-level helper that wraps both branches in a single `If` node for correct mutual-exclusion semantics; sugar over `Graph.add(condition=...)`
 - `SyncScheduler` and `ParallelScheduler` both respect `EarlyExitException` and `condition=` edge guards — no behavioral difference between execution modes
 - `CompiledGraph.edge_conditions` — internal mapping of `node_name → condition_callable`; populated at compile time; used by scheduler during execution
 - `examples/notebooks/12_graph_control_flow.ipynb` — demo notebook covering all three primitives with mock nodes (no model download required); includes a multi-scenario triage pipeline and matplotlib execution-path visualizations
@@ -62,6 +62,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `EarlyExit`, `EarlyExitException`, and `While` were missing from `mata.nodes` and top-level `mata` exports — they were only reachable via `mata.core.graph`; users following the documentation would hit `ImportError`; exports added to both `src/mata/nodes/__init__.py` and `src/mata/__init__.py`
 - `LICENSE`: removed `Copyright 2026 MATA Contributors` line from the license body — this line caused GitHub's Licensee tool to classify the project license as "Other" instead of Apache-2.0; copyright attribution remains in `NOTICE`
 - `huggingface_segment_adapter.py`, `huggingface_sam_adapter.py`, `huggingface_zeroshot_segment_adapter.py`: changed `use_rle` default from `True` to `False` — the previous default triggered a spurious `pycocotools not available` warning on every model load for users who hadn't installed `datamata[eval]`
 - `src/mata/core/exporters/image_exporter.py`: `ImportError` messages for matplotlib now reference `pip install datamata[viz]` instead of bare `pip install matplotlib`
@@ -72,6 +73,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `docs/GRAPH_API_REFERENCE.md`: version bumped to 1.9.5; new **Recognition Nodes** section with full `GalleryMatchNode` parameter table and pipeline example; new subsections for `EarlyExit`, `While`, `Graph.add(condition=...)`, and `Graph.conditional()` in the Conditional Execution section; ToC updated
+- `docs/GRAPH_COOKBOOK.md`: 3 new recipes — Quality Gate with `EarlyExit`, Iterative Detection with `While`, Gallery Recognition Pipeline; Common Patterns table updated with `EarlyExit`, `While`, and Recognition rows
+- `README.md`: CLI section, Gallery/Recognition section, and Graph Control Flow code block added; 3 new Key Features bullets
+- `QUICK_REFERENCE.md`: version header updated to v1.9.5; 3 new cheatsheet sections (CLI, Gallery/Recognition, Graph Control Flow)
+- `QUICKSTART.md`: CLI quick-start section and Gallery Matching section added
 - `pyproject.toml`: `torchvision>=0.15.0` promoted to core dependency — was missing, causing `ModuleNotFoundError` on fresh installs
 - `pyproject.toml`: `timm>=1.0.24` promoted to core dependency — `transformers>=5.0` refactored DETR backbone to `TimmBackbone`, making `timm` a hard transitive requirement
 - `pyproject.toml`: `scipy>=1.10.0` promoted to core dependency — required by the vendored tracker (Kalman filter + Hungarian matching); was incorrectly listed under the `segmentation` optional extra
