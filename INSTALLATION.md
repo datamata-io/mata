@@ -10,46 +10,54 @@ This guide covers installing MATA with GPU or CPU support.
 
 ## Quick Install
 
-### Option 1: CPU-Only (Recommended for testing)
+### Option 1: PyPI — CPU-Only (Recommended for most users)
 
 Best for: Laptops, systems without NVIDIA GPU, or when you don't need maximum speed.
 
 ```bash
-# Clone repository
-git clone https://github.com/datamata-io/mata.git
-cd MATA
-
-# Install PyTorch CPU version
+# Install PyTorch CPU version first
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-# Install MATA
-pip install -e .
+# Then install MATA from PyPI
+pip install datamata
 ```
 
-**Pros**: Smaller download, works on any system  
+**Pros**: Smallest download, works on any system, no Git required  
 **Cons**: Slower inference (~500-800ms per image)
 
-### Option 2: GPU (Recommended for production)
+### Option 2: PyPI — GPU (Recommended for production)
 
 Best for: Systems with NVIDIA GPU, production deployments, high-throughput processing.
 
 ```bash
-# Clone repository
-git clone https://github.com/datamata-io/mata.git
-cd MATA
-
 # Check your CUDA version first
 nvidia-smi
 
 # Install PyTorch with CUDA support (example for CUDA 12.6)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
-# Install MATA
-pip install -e .
+# Then install MATA from PyPI
+pip install datamata
 ```
 
 **Pros**: 5-10x faster inference (~50-100ms per image)  
 **Cons**: Larger download (~2GB), requires NVIDIA GPU
+
+### Option 3: From source (for contributors)
+
+Best for: Making changes to MATA itself or running the latest unreleased code.
+
+```bash
+# Clone repository
+git clone https://github.com/datamata-io/mata.git
+cd mata
+
+# Install PyTorch (CPU or GPU — see options above)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install MATA in editable mode with dev dependencies
+pip install -e ".[dev]"
+```
 
 ## Choosing the Right PyTorch Version
 
@@ -150,7 +158,7 @@ detector_cpu = mata.load("detect", "rtdetr", device="cpu")   # CPU only
 
 # Run detection
 result = detector.predict("image.jpg")
-print(f"Found {len(result.detections)} objects")
+print(f"Found {len(result.instances)} objects")
 ```
 
 ## Troubleshooting
@@ -194,6 +202,46 @@ Possible causes:
    ```
 
 ## Optional Features
+
+### ONNX Runtime
+
+To run models in `.onnx` format (faster CPU inference, no PyTorch overhead):
+
+```bash
+pip install datamata[onnx]      # CPU ONNX Runtime
+pip install datamata[onnx-gpu]  # GPU ONNX Runtime (requires CUDA)
+```
+
+---
+
+### Evaluation & Metrics — `datamata[eval]`
+
+To run `mata.val()` dataset evaluation and use RLE mask encoding:
+
+```bash
+pip install datamata[eval]
+```
+
+This installs `pycocotools` (COCO-format AP metrics) and `matplotlib` (PR/F1 curve plots).
+
+> **Windows note:** `pycocotools` requires C compilation. You may need
+> [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+> before running this command.
+
+---
+
+### Visualisation — `datamata[viz]`
+
+For depth map colourisation (`colormap="magma"` etc.) and enhanced overlays:
+
+```bash
+pip install datamata[viz]
+```
+
+This installs `matplotlib`. Without it, depth maps are saved as greyscale PNG and
+detection overlays use the built-in PIL renderer.
+
+---
 
 ### Barcode & QR Code Decoding
 
@@ -246,11 +294,22 @@ mata.show(result, image="image.jpg")  # adds image overlay
 
 ---
 
+### All optional extras
+
+```bash
+pip install datamata[all]  # onnx + eval + viz + ocr + notebook
+```
+
+---
+
+## Contributing
+
 If you want to contribute or modify MATA:
 
 ```bash
-# Install with dev dependencies (includes pytest, black, etc.)
-pip install -e ".[dev]"
+git clone https://github.com/datamata-io/mata.git
+cd mata
+pip install -e ".[dev]"  # includes pytest, black, ruff, mypy, and all extras
 ```
 
 ## Virtual Environment (Recommended)
@@ -267,9 +326,11 @@ venv\Scripts\activate
 # Linux/Mac:
 source venv/bin/activate
 
-# Now install as normal
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip install -e .
+# Install PyTorch first (CPU or GPU — see the table above)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Then install MATA
+pip install datamata
 ```
 
 ## Package Sizes
