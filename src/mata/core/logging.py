@@ -42,6 +42,10 @@ def get_logger(name: str = "mata") -> logging.Logger:
         _logger.addHandler(handler)
         _logger.propagate = False
 
+        # Suppress common third-party warnings that don't need user attention
+        # (tqdm Jupyter widget warning, etc.)
+        warnings.filterwarnings("ignore", message=".*IProgress not found.*")
+
     return _logger
 
 
@@ -178,6 +182,8 @@ def suppress_third_party_logs():
         warnings.filterwarnings("ignore", message=".*fast processor.*", category=FutureWarning)
         warnings.filterwarnings("ignore", message=".*ViTImageProcessor.*")
         warnings.filterwarnings("ignore", message=".*Torch was not compiled.*")
+        # Suppress tqdm Jupyter widget warning (IProgress not found)
+        warnings.filterwarnings("ignore", message=".*IProgress not found.*", category=Warning)
 
         # --- stdlib loggers for tqdm, matplotlib, urllib3, etc. ---
         noisy_loggers = [

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -609,3 +610,325 @@ def score_above(src: str, threshold: float) -> ScoreAbove:
 
 # Type alias for backwards compatibility and convenience
 ConditionalNode = If
+
+
+# =============================================================================
+# EarlyExit — halt graph execution when a condition is met
+# =============================================================================
+
+
+class EarlyExitException(Exception):  # noqa: N818
+    """Raised by EarlyExit node to halt graph execution gracefully.
+
+    This is **not** an error — it signals that the pipeline should stop at
+    this point because a user-defined stopping condition was satisfied.  The
+    scheduler catches this exception, records the early-exit in metrics, and
+    returns the results accumulated so far.
+
+    Attributes:
+        reason: Human-readable description of why the exit was triggered.
+        node_name: Name of the EarlyExit node that triggered the halt.
+    """
+
+    def __init__(self, reason: str = "EarlyExit condition met", node_name: str = "EarlyExit"):
+        self.reason = reason
+        self.node_name = node_name
+        super().__init__(f"[{node_name}] {reason}")
+
+
+class EarlyExit(Node):
+    """Node that halts graph execution when a predicate is satisfied.
+
+    When the predicate returns ``True``, raises :class:`EarlyExitException`
+    to signal the scheduler to stop processing remaining nodes. This is an
+    expected control-flow mechanism, not an error.
+
+    Useful for:
+
+    - **Quality gates**: stop before expensive inference if image quality is too
+      low.
+    - **Triage pipelines**: skip downstream steps when a fast classifier
+      already determined the outcome.
+    - **Alert pipelines**: stop after dispatching an alert so no further
+      inference is wasted.
+
+    Args:
+        predicate: Callable ``(ctx: ExecutionContext) → bool``.  When the
+            callable returns ``True`` the pipeline halts.
+        reason: Optional human-readable reason recorded in metrics and logs.
+        name: Optional node name (defaults to ``"EarlyExit"``).
+
+    Example:
+        ```python
+        from mata.core.graph.conditionals import EarlyExit
+
+        # Stop pipeline if the classifier rejects the image
+        graph = (Graph("triage")
+            .then(Classify(using="classifier", out="cls"))
+            .then(EarlyExit(
+                predicate=lambda ctx: ctx.retrieve("cls").top1.label == "rejected",
+                reason="Image rejected by quality classifier",
+            ))
+            .then(Detect(using="detector", out="dets"))  # Skipped on early exit
+        )
+        ```
+    """
+
+    inputs: dict[str, Any] = {}
+    outputs: dict[str, Any] = {}
+
+    def __init__(
+        self,
+        predicate: Predicate | Callable,
+        reason: str | None = None,
+        name: str | None = None,
+    ):
+        super().__init__(name=name or "EarlyExit")
+        self.predicate = predicate
+        self.reason = reason or "EarlyExit condition met"
+
+    def run(self, ctx: ExecutionContext, **inputs: Artifact) -> dict[str, Artifact]:
+        """Evaluate predicate and raise EarlyExitException if True.
+
+        Args:
+            ctx: Execution context.
+            **inputs: Unused (EarlyExit accepts any inputs).
+
+        Returns:
+            Empty dict if predicate is False (pipeline continues normally).
+
+        Raises:
+            EarlyExitException: If predicate returns True.
+        """
+        predicate_start = time.time()
+        try:
+            condition = self.predicate(ctx)
+        finally:
+            predicate_time = (time.time() - predicate_start) * 1000
+            ctx.record_metric(self.name, "predicate_latency_ms", predicate_time)
+
+        ctx.record_metric(self.name, "condition_result", condition)
+        ctx.record_metric(self.name, "early_exit_triggered", condition)
+
+        if condition:
+            raise EarlyExitException(reason=self.reason, node_name=self.name)
+
+        return {}
+
+    def __repr__(self) -> str:
+        return f"EarlyExit(name='{self.name}', reason='{self.reason}')"
+
+
+# =============================================================================
+# While — bounded loop that re-executes body nodes until a condition is False
+# =============================================================================
+
+
+class While(Node):
+    """Loop node that repeatedly executes a body subgraph.
+
+    Runs a list of body nodes in sequence for each iteration.  After each
+    complete pass through the body the *continuation condition* is evaluated:
+    if it returns ``False`` (or raises ``KeyError`` / ``AttributeError``
+    because the referenced artifact does not yet exist) the loop stops.
+    Execution is bounded by ``max_iterations`` as a safety cap.
+
+    **Semantics:** *do-while* — the body always runs at least once before the
+    condition is checked.  This is natural for refinement loops where the
+    output of the body is what the condition inspects.
+
+    The ``While`` node is a single :class:`~mata.core.graph.node.Node` from the
+    outer graph's perspective, so the outer DAG constraint is preserved.
+
+    Args:
+        body: Ordered list of :class:`~mata.core.graph.node.Node` instances to
+            execute each iteration.  Must not be empty.
+        condition: ``Callable[[ExecutionContext], bool]``.  Return ``True`` to
+            continue iterating, ``False`` (or raise ``KeyError``) to stop.
+        max_iterations: Hard cap on the number of iterations (default ``10``).
+            The loop stops when either the condition returns ``False`` *or*
+            this limit is reached.
+        name: Optional node name (defaults to ``"While"``).
+
+    Example:
+        ```python
+        from mata.core.graph.conditionals import While
+
+        # Iterative SAM refinement until mask quality threshold is met
+        graph = (Graph("refinement")
+            .then(Detect(using="detector", out="dets"))
+            .then(While(
+                body=[
+                    SegmentImage(using="sam", out="masks"),
+                    RefineMask(src="masks", out="masks"),
+                ],
+                condition=lambda ctx: ctx.retrieve("masks").quality_score < 0.9,
+                max_iterations=5,
+                name="refine_loop",
+            ))
+        )
+        ```
+    """
+
+    inputs: dict[str, Any] = {}
+    outputs: dict[str, Any] = {}
+
+    def __init__(
+        self,
+        body: list[Node],
+        condition: Predicate | Callable,
+        max_iterations: int = 10,
+        name: str | None = None,
+    ):
+        if not body:
+            raise ValueError("While node requires at least one body node")
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be >= 1")
+
+        super().__init__(name=name or "While")
+        self.body = list(body)
+        self.condition = condition
+        self.max_iterations = max_iterations
+
+        # Derive output signature from body nodes (union of all effective outputs)
+        self.outputs = self._compute_body_outputs()
+        # Inherit inputs from the first body node so auto-wiring can connect them
+        self.inputs = dict(self.body[0].inputs) if self.body else {}
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _compute_body_outputs(self) -> dict:
+        """Compute effective output signature — union of all body node outputs."""
+        combined: dict = {}
+        for node in self.body:
+            dynamic_name = getattr(node, "output_name", None) or getattr(node, "out", None)
+            if dynamic_name is not None and len(node.outputs) == 1:
+                combined[dynamic_name] = next(iter(node.outputs.values()))
+            else:
+                combined.update(node.outputs)
+        return combined
+
+    def _resolve_body_node_inputs(
+        self,
+        ctx: ExecutionContext,
+        node: Node,
+        passed_inputs: dict,
+    ) -> dict:
+        """Resolve a body node's inputs from the execution context.
+
+        Uses multi-strategy resolution identical to
+        :meth:`If._resolve_branch_inputs`:
+
+        1. Direct context look-up by input name.
+        2. ``node.src`` attribute.
+        3. ``*_src`` attributes with runtime type check.
+        4. ``input.<name>`` namespace fall-back.
+        """
+        resolved = dict(passed_inputs)
+
+        for input_name, input_type in node.inputs.items():
+            if input_name in resolved:
+                continue
+
+            # Strategy 1: direct context lookup by input name
+            try:
+                resolved[input_name] = ctx.retrieve(input_name)
+                continue
+            except (KeyError, AttributeError):
+                pass
+
+            # Strategy 2: node has a 'src' attribute pointing to the context key
+            src = getattr(node, "src", None)
+            if isinstance(src, str):
+                try:
+                    resolved[input_name] = ctx.retrieve(src)
+                    continue
+                except (KeyError, AttributeError):
+                    pass
+
+            # Strategy 3: scan *_src attributes with runtime type check
+            for attr, val in vars(node).items():
+                if not isinstance(val, str):
+                    continue
+                if not (attr == "src" or attr.endswith("_src")):
+                    continue
+                try:
+                    artifact = ctx.retrieve(val)
+                    if isinstance(artifact, input_type):
+                        resolved[input_name] = artifact
+                        break
+                except (KeyError, AttributeError):
+                    continue
+
+            if input_name in resolved:
+                continue
+
+            # Strategy 4: input namespace fall-back
+            try:
+                resolved[input_name] = ctx.retrieve(f"input.{input_name}")
+            except (KeyError, AttributeError):
+                pass
+
+        return resolved
+
+    # ------------------------------------------------------------------
+    # Node interface
+    # ------------------------------------------------------------------
+
+    def run(self, ctx: ExecutionContext, **inputs: Artifact) -> dict[str, Artifact]:
+        """Execute loop body repeatedly until condition returns False.
+
+        Args:
+            ctx: Execution context (shared with outer graph).
+            **inputs: Input artifacts forwarded to the first body node.
+
+        Returns:
+            Dict of the last-produced output artifacts from body nodes.
+        """
+        # Make passed-in inputs available in context so body nodes can find them
+        for k, v in inputs.items():
+            ctx.store(k, v)
+
+        actual_iterations = 0
+
+        for iteration in range(self.max_iterations):
+            actual_iterations = iteration + 1
+
+            # Execute each body node in order
+            for node in self.body:
+                node_inputs = self._resolve_body_node_inputs(ctx, node, inputs)
+                node.validate_inputs(node_inputs)
+                node_outputs = node.run(ctx, **node_inputs)
+                node.validate_outputs(node_outputs)
+                for out_name, artifact in node_outputs.items():
+                    ctx.store(f"{node.name}.{out_name}", artifact)
+                    ctx.store(out_name, artifact)
+
+            # Check continuation condition after body has run (do-while)
+            try:
+                should_continue = self.condition(ctx)
+            except (KeyError, AttributeError):
+                # Condition references an artifact not yet in context — keep going
+                should_continue = True
+
+            if not should_continue:
+                break
+
+        ctx.record_metric(self.name, "iterations", actual_iterations)
+        ctx.record_metric(self.name, "max_iterations_reached", actual_iterations >= self.max_iterations)
+
+        # Collect final state of all declared outputs
+        result: dict[str, Artifact] = {}
+        for out_name in self.outputs:
+            try:
+                result[out_name] = ctx.retrieve(out_name)
+            except (KeyError, AttributeError):
+                pass
+
+        return result
+
+    def __repr__(self) -> str:
+        body_names = [n.name for n in self.body]
+        return f"While(body={body_names}, max_iterations={self.max_iterations})"

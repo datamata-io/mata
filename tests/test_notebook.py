@@ -645,3 +645,110 @@ class TestShowUtility:
         import mata
 
         assert callable(mata.show)
+
+
+# ===========================================================================
+# Phase 11: render_matches_html()
+# ===========================================================================
+
+
+def _matches_result(n=3, top_k=2):
+    from mata.core.artifacts.matches import MatchEntry, Matches
+
+    entries = [
+        MatchEntry(
+            instance_id=f"inst_{i:04d}",
+            label=f"identity_{i}",
+            similarity=round(0.95 - i * 0.05, 3),
+            all_matches=[
+                {"label": f"identity_{i}", "similarity": round(0.95 - i * 0.05, 3), "index": 0},
+                {"label": f"identity_{(i+1) % n}", "similarity": round(0.80 - i * 0.05, 3), "index": 1},
+            ][:top_k],
+        )
+        for i in range(n)
+    ]
+    return Matches(entries=entries, meta={"model": "openai/clip-vit-base-patch32"})
+
+
+class TestRenderMatchesHtml:
+    def test_returns_string(self):
+        from mata.notebook import render_matches_html
+
+        assert isinstance(render_matches_html(_matches_result()), str)
+
+    def test_three_entries_three_rows(self):
+        from mata.notebook import render_matches_html
+
+        html = render_matches_html(_matches_result(3))
+        # 3 data rows + 1 header row
+        assert html.count("<tr>") == 4
+
+    def test_empty_result_returns_string(self):
+        from mata.core.artifacts.matches import Matches
+        from mata.notebook import render_matches_html
+
+        html = render_matches_html(Matches(entries=[]))
+        assert isinstance(html, str)
+        assert "0" in html
+
+    def test_columns_present(self):
+        from mata.notebook import render_matches_html
+
+        html = render_matches_html(_matches_result(1))
+        assert "Instance ID" in html
+        assert "Label" in html
+        assert "Similarity" in html
+        assert "Top-K" in html
+
+    def test_label_is_escaped(self):
+        from mata.core.artifacts.matches import MatchEntry, Matches
+        from mata.notebook import render_matches_html
+
+        evil = '<script>alert("xss")</script>'
+        m = Matches(entries=[MatchEntry(instance_id="q", label=evil, similarity=0.9)])
+        html = render_matches_html(m)
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_instance_id_is_escaped(self):
+        from mata.core.artifacts.matches import MatchEntry, Matches
+        from mata.notebook import render_matches_html
+
+        evil = "<img src=x onerror=alert(1)>"
+        m = Matches(entries=[MatchEntry(instance_id=evil, label="alice", similarity=0.9)])
+        html = render_matches_html(m)
+        assert "<img src=x" not in html
+
+    def test_similarity_shown_as_percentage(self):
+        from mata.core.artifacts.matches import MatchEntry, Matches
+        from mata.notebook import render_matches_html
+
+        m = Matches(entries=[MatchEntry(instance_id="q", label="alice", similarity=0.85)])
+        html = render_matches_html(m)
+        assert "85.0%" in html
+
+    def test_repr_html_on_matches_returns_string(self):
+        result = _matches_result(2)
+        html = result._repr_html_()
+        assert isinstance(html, str)
+
+    def test_repr_html_on_empty_matches_returns_string(self):
+        from mata.core.artifacts.matches import Matches
+
+        result = Matches(entries=[])
+        html = result._repr_html_()
+        assert isinstance(html, str)
+
+    def test_repr_html_never_raises(self):
+        from unittest.mock import patch as _patch
+
+        result = _matches_result(1)
+        with _patch("mata.notebook.render_matches_html", side_effect=RuntimeError("crash")):
+            val = result._repr_html_()
+        assert val is None
+
+    def test_title_contains_entry_count(self):
+        from mata.notebook import render_matches_html
+
+        html = render_matches_html(_matches_result(5))
+        assert "5" in html

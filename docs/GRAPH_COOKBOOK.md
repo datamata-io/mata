@@ -1379,6 +1379,9 @@ masks = ctx.retrieve("masks")
 | **Early filter**  | Performance boost       | `Detect → Filter → Segment` (not `Detect → Segment → Filter`) |
 | **Frame skip**    | Video performance       | `FramePolicyEveryN(n=5)`                                      |
 | **NMS**           | Dense detections        | `Detect → NMS → Filter`                                       |
+| **EarlyExit**     | Quality gate            | `Detect → EarlyExit(no_objects) → Segment`                    |
+| **While**         | Iterative refinement    | `While([Detect], condition=low_confidence)`                   |
+| **Recognition**   | Identity matching       | `Detect → ExtractROIs → Embed → GalleryMatchNode`             |
 
 ---
 
@@ -1387,3 +1390,160 @@ masks = ctx.retrieve("masks")
 - [Architecture Guide](GRAPH_SYSTEM_GUIDE.md) — System design and concepts
 - [API Reference](GRAPH_API_REFERENCE.md) — Complete API documentation
 - [Migration Guide](MIGRATION_GUIDE.md) — Upgrading from v1.5
+
+---
+
+## Recipe: Quality Gate with `EarlyExit` (v1.9.5)
+
+Stop expensive downstream inference the moment a fast guard determines there is nothing to process — zero wasted compute.
+
+**Scenario:** Run object detection, then skip segmentation and OCR if no objects were found.
+
+```python
+import mata
+from mata.nodes import Detect, EarlyExit, SegmentImage
+from mata.core.graph import Graph
+
+detector  = mata.load("detect",  "facebook/detr-resnet-50")
+segmenter = mata.load("segment", "facebook/sam3")
+
+def no_objects(ctx):
+    """True when detection found nothing."""
+    return len(ctx.retrieve("dets").instances) == 0
+
+graph = (
+    Graph("quality_gate")
+    .then(Detect(using="detector", out="dets"))
+    .then(EarlyExit(
+        predicate=no_objects,
+        reason="No detections — skipping segmentation",
+        name="gate",
+    ))
+    .then(SegmentImage(using="segmenter", dets="dets", out="masks"))
+)
+
+try:
+    result = mata.infer(
+        "frame.jpg",
+        graph=graph,
+        providers={"detector": detector, "segmenter": segmenter},
+    )
+    # result.masks is available only when objects were found
+except Exception:
+    pass  # EarlyExitException is caught inside mata.infer — never raised to caller
+```
+
+**Key points:**
+
+- `EarlyExitException` is caught by the scheduler; `mata.infer()` returns a partial `MultiResult` rather than raising.
+- Nodes **before** the gate always execute; nodes **after** are skipped.
+- Combine with `condition=` guards for fine-grained per-node control.
+
+---
+
+## Recipe: Iterative Detection with `While` (v1.9.5)
+
+Re-run a detection node inside a bounded do-while loop until the result meets a quality threshold — useful when the underlying model supports iterative refinement (e.g., updating the ROI or confidence threshold each pass).
+
+**Scenario:** Re-detect if the highest-confidence detection is below 0.8, up to 4 attempts.
+
+```python
+import mata
+from mata.nodes import Detect, While
+from mata.core.graph import Graph
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+
+def low_confidence(ctx):
+    instances = ctx.retrieve("dets").instances
+    if not instances:
+        return False   # Nothing found; stop looping
+    return max(i.score for i in instances) < 0.8
+
+graph = (
+    Graph("iterative_detect")
+    .then(While(
+        body=[Detect(using="detector", out="dets")],
+        condition=low_confidence,
+        max_iterations=4,
+        name="refine_loop",
+    ))
+)
+
+result = mata.infer(
+    "image.jpg",
+    graph=graph,
+    providers={"detector": detector},
+)
+print(result.dets)          # Final detection result after loop
+```
+
+**Key points:**
+
+- `body` is a `list[Node]` — chain multiple nodes inside the loop by listing them all.
+- The body always executes **at least once** (do-while semantics).
+- `max_iterations` cannot be disabled. If the cap is reached the loop exits cleanly.
+- Per-iteration latency and the `max_iterations_reached` flag are recorded in graph metrics.
+
+---
+
+## Recipe: Gallery Recognition Pipeline (v1.9.5)
+
+Identify known individuals in a scene by comparing their embeddings against a pre-built gallery.
+
+**Scenario:** Detect faces/persons, extract per-ROI embeddings, and match against a known-identity gallery.
+
+```python
+import mata
+from mata import Gallery
+from mata.nodes import Detect, GalleryMatchNode
+from mata.nodes.embed import Embed
+from mata.nodes.extract_rois import ExtractROIs
+from mata.core.graph import Graph
+
+# ── Step 1: Build and save gallery (run once) ──────────────────────────
+encoder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+gallery = Gallery(threshold=0.6)
+for name, image_path in [("alice", "alice.jpg"), ("bob", "bob.jpg")]:
+    emb_result = mata.run("embed", image_path, model="openai/clip-vit-base-patch32")
+    gallery.add(name, emb_result.embeddings[0])
+
+gallery.save("people_gallery.npz")
+
+# ── Step 2: Build recognition graph ────────────────────────────────────
+detector = mata.load("detect", "facebook/detr-resnet-50")
+gallery  = Gallery.load("people_gallery.npz")
+
+graph = (
+    Graph("recognition")
+    .then(Detect(using="detector", out="dets"))
+    .then(ExtractROIs(src_dets="dets", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(GalleryMatchNode(
+        gallery=gallery,
+        top_k=1,
+        threshold=0.6,
+        out="matches",
+    ))
+)
+
+# ── Step 3: Run inference ───────────────────────────────────────────────
+result = mata.infer(
+    "group_photo.jpg",
+    graph=graph,
+    providers={"detector": detector, "encoder": encoder},
+)
+
+for match_entry in result.matches:
+    print(f"Instance {match_entry.instance_id}: {match_entry.top1.label}"
+          f" ({match_entry.top1.similarity:.2f})")
+```
+
+**Key points:**
+
+- `GalleryMatchNode` does **not** need a `providers` entry — the gallery is injected at construction.
+- `top_k=1` returns the single best identity per embedding; increase for top-N ranked results.
+- `threshold` filters out low-confidence matches; unmatched instances have `match_entry.top1 is None`.
+- Use `mata.run("recognize", image, gallery=gallery, model="openai/clip-vit-base-patch32")` for the one-liner equivalent.
+- See [Recognition API Reference](GRAPH_API_REFERENCE.md#recognition-nodes-v195) for full `GalleryMatchNode` docs.

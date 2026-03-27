@@ -46,9 +46,9 @@ Usage (with cross-camera Valkey store):
         --camera-id cam-1
 
 Requirements:
-    pip install datamata transformers torch opencv-python
+    pip install datamata
     # For cross-camera ReID:
-    pip install datamata[valkey] transformers torch opencv-python
+    pip install datamata[valkey]
 """
 from __future__ import annotations
 

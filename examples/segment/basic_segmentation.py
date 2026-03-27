@@ -1,7 +1,7 @@
 """Basic Segmentation Examples — MATA Framework
 
 Instance and panoptic segmentation with Mask2Former.
-Run: python examples/segment/basic_segmentation.py
+Run: python examples/segmentation/basic_segmentation.py
 """
 
 from pathlib import Path
@@ -82,9 +82,9 @@ def save_results():
         model="facebook/mask2former-swin-tiny-coco-instance",
         threshold=0.5,
     )
-    result.save("runs/segment/overlay.png", show_masks=True, show_boxes=True)
-    result.save("runs/segment/result.json")
-    print("  Saved overlay.png and result.json to runs/segment/")
+    result.save("runs/segmentation/overlay.png", show_masks=True, show_boxes=True)
+    result.save("runs/segmentation/result.json")
+    print("  Saved overlay.png and result.json to runs/segmentation/")
 
 
 def main():

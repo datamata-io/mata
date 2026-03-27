@@ -70,9 +70,9 @@ class TestSAMAdapterInitialization:
         adapter = HuggingFaceSAMAdapter(model_id="facebook/sam-vit-base", device="cpu")
 
         assert adapter.model_id == "facebook/sam-vit-base"
-        # RLE state depends on pycocotools mock state
-        # In test environment, pycocotools is mocked successfully so RLE=True
-        assert adapter.use_rle is True
+        # Default is False since v1.9.5 — prevents spurious pycocotools warning
+        # on fresh installs; users who need RLE pass use_rle=True explicitly
+        assert adapter.use_rle is False
         assert adapter.threshold == 0.0  # Default for SAM
         assert adapter.id2label == {0: "object"}  # Class-agnostic
 

@@ -123,7 +123,8 @@ def _rle_to_binary(rle_mask: dict) -> np.ndarray:
     except ImportError:
         # Fallback: Manual RLE decoding (simplified, may not work for all formats)
         warnings.warn(
-            "pycocotools not available. RLE decoding may be incomplete. " "Install with: pip install pycocotools",
+            "pycocotools not available. RLE decoding may be incomplete. "
+            "Install with: pip install datamata[eval]  (or: pip install pycocotools)",
             UserWarning,
             stacklevel=2,
         )
@@ -274,7 +275,8 @@ def visualize_segmentation(
 
     if backend == "matplotlib" and not MATPLOTLIB_AVAILABLE:
         warnings.warn(
-            "matplotlib not available. Falling back to PIL backend. " "Install with: pip install matplotlib",
+            "matplotlib not available. Falling back to PIL backend. "
+            "Install with: pip install datamata[viz]  (or: pip install matplotlib)",
             UserWarning,
             stacklevel=2,
         )

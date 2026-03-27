@@ -63,26 +63,16 @@ def render_vision_html(result: VisionResult) -> str | None:
         if input_path:
             try:
                 import os
-                import tempfile
 
-                from mata.core.exporters import export_image
+                from mata.core.exporters import export_image_to_bytes
 
                 if os.path.isfile(str(input_path)):
-                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                        tmp_path = tmp.name
-                    try:
-                        export_image(result, tmp_path, image=str(input_path))
-                        with open(tmp_path, "rb") as f:
-                            b64 = base64.b64encode(f.read()).decode("ascii")
-                        img_html = (
-                            f'<img src="data:image/png;base64,{b64}" '
-                            f'style="max-width:100%;height:auto;display:block;margin-bottom:6px" />'
-                        )
-                    finally:
-                        try:
-                            os.unlink(tmp_path)
-                        except OSError:
-                            pass
+                    png_bytes = export_image_to_bytes(result, image=str(input_path))
+                    b64 = base64.b64encode(png_bytes).decode("ascii")
+                    img_html = (
+                        f'<img src="data:image/png;base64,{b64}" '
+                        f'style="max-width:100%;height:auto;display:block;margin-bottom:6px" />'
+                    )
             except Exception:
                 pass
 
@@ -294,18 +284,71 @@ def render_embeddings_html(result: Embeddings) -> str | None:
         return None
 
 
+def render_matches_html(result: Any) -> str | None:
+    """Render Matches artifact as an HTML table."""
+    try:
+        entries = result.entries
+        n = len(entries)
+
+        if n == 0:
+            title = '<p style="font-weight:bold;margin:4px 0">Matches \u2014 0 entries</p>'
+            return f"<div>{title}<p style='color:#888;font-size:12px'>No matches found.</p></div>"
+
+        header_html = _th("Instance ID") + _th("Label") + _th("Similarity") + _th("Top-K")
+        display = entries[:_MAX_TABLE_ROWS] if n > _TRUNCATION_THRESHOLD else entries
+        rows = []
+        for e in display:
+            sim_pct = f"{e.similarity:.1%}"
+            k_count = str(len(e.all_matches)) if e.all_matches else "1"
+            rows.append(
+                f"<tr>"
+                f"{_td(e.instance_id)}"
+                f"{_td(e.label)}"
+                f"{_td(sim_pct, numeric=True)}"
+                f"{_td(k_count, numeric=True)}"
+                f"</tr>"
+            )
+        note = f"\u2026and {n - _MAX_TABLE_ROWS} more" if n > _TRUNCATION_THRESHOLD else ""
+        table_html = _table_wrap(header_html, "".join(rows), note)
+        title = f'<p style="font-weight:bold;margin:4px 0">Matches \u2014 {n} entr{"ies" if n != 1 else "y"}</p>'
+        return f"<div>{title}{table_html}</div>"
+
+    except Exception:
+        return None
+
+
 def show(result: Any, image: str | None = None, **kwargs: Any) -> None:
     """Display a MATA result object in the current Jupyter notebook cell.
 
     Args:
         result: Any MATA result type (VisionResult, ClassifyResult, etc.)
         image: Optional path to source image for overlay rendering.
+        save: Optional file path to also save the output to disk.
         **kwargs: Additional arguments passed to the underlying render function.
     """
     try:
         from IPython.display import HTML, Image, display
     except ImportError as exc:
         raise ImportError("Notebook display requires IPython. Install with: pip install datamata[notebook]") from exc
+
+    save_path = kwargs.pop("save", None)
+
+    # If a save path is given, write to disk via export_image
+    if save_path is not None:
+        try:
+            from PIL import Image as _PILImage
+
+            if isinstance(result, _PILImage.Image):
+                from pathlib import Path as _Path
+
+                _Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+                result.save(save_path)
+            else:
+                from mata.core.exporters import export_image
+
+                export_image(result, save_path, image=image, **kwargs)
+        except Exception:
+            pass
 
     # Inject image path into meta so render functions can use it
     if image is not None and hasattr(result, "meta"):

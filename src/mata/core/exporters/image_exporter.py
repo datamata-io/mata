@@ -6,6 +6,7 @@ Supports VisionResult, DetectResult, SegmentResult, ClassifyResult, and DepthRes
 
 from __future__ import annotations
 
+import io
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
@@ -29,6 +30,30 @@ if TYPE_CHECKING:
     )
 
 logger = get_logger(__name__)
+
+
+def export_image_to_bytes(
+    result: VisionResult | DetectResult | SegmentResult,
+    image: str | Path | Image.Image | np.ndarray | None = None,
+    show_boxes: bool = True,
+    show_labels: bool = True,
+    show_scores: bool = True,
+    show_masks: bool = True,
+    show_track_ids: bool = False,
+    alpha: float = 0.5,
+    fmt: str = "PNG",
+) -> bytes:
+    """Render result overlay to bytes without writing to disk.
+
+    Used by notebook auto-display to avoid temp file creation.
+    Only supports VisionResult / DetectResult / SegmentResult.
+    """
+    pil_image = _build_detection_segmentation_pil(
+        result, image, show_boxes, show_labels, show_scores, show_masks, alpha, show_track_ids
+    )
+    buf = io.BytesIO()
+    pil_image.save(buf, format=fmt)
+    return buf.getvalue()
 
 
 def export_image(
@@ -117,9 +142,8 @@ def export_image(
         raise OSError(f"Failed to export image: {e}") from e
 
 
-def _export_detection_segmentation_image(
+def _build_detection_segmentation_pil(
     result: VisionResult | DetectResult | SegmentResult,
-    output_path: Path,
     image: str | Path | Image.Image | np.ndarray | None,
     show_boxes: bool,
     show_labels: bool,
@@ -127,11 +151,8 @@ def _export_detection_segmentation_image(
     show_masks: bool,
     alpha: float,
     show_track_ids: bool = False,
-) -> None:
-    """Export detection/segmentation overlay image.
-
-    Draws bounding boxes and/or masks on the original image.
-    """
+) -> Image.Image:
+    """Build a PIL Image with detection/segmentation overlay (no disk I/O)."""
     # Resolve image path
     if image is None:
         if hasattr(result, "get_input_path"):
@@ -145,7 +166,6 @@ def _export_detection_segmentation_image(
                 "Provide via: export_image(result, output_path, image='path.jpg')"
             )
 
-    # Load image
     pil_image = _load_image(image)
 
     # For segmentation with masks, use existing visualization
@@ -161,15 +181,11 @@ def _export_detection_segmentation_image(
             show_scores=show_scores,
             backend="pil",
         )
-
         if vis_image is not None:
-            vis_image.save(output_path)
-            logger.info(f"Exported segmentation overlay to {output_path}")
-            return
+            return vis_image if isinstance(vis_image, Image.Image) else pil_image
 
     # For detection-only, draw bounding boxes
     if show_boxes:
-        # Get instances with bboxes
         if hasattr(result, "detections"):
             instances = result.detections
         elif hasattr(result, "instances"):
@@ -186,9 +202,30 @@ def _export_detection_segmentation_image(
                 show_track_ids=show_track_ids,
             )
 
-    # Save output
+    return pil_image
+
+
+def _export_detection_segmentation_image(
+    result: VisionResult | DetectResult | SegmentResult,
+    output_path: Path,
+    image: str | Path | Image.Image | np.ndarray | None,
+    show_boxes: bool,
+    show_labels: bool,
+    show_scores: bool,
+    show_masks: bool,
+    alpha: float,
+    show_track_ids: bool = False,
+) -> None:
+    """Export detection/segmentation overlay image.
+
+    Draws bounding boxes and/or masks on the original image.
+    """
+    pil_image = _build_detection_segmentation_pil(
+        result, image, show_boxes, show_labels, show_scores, show_masks, alpha, show_track_ids
+    )
     pil_image.save(output_path)
-    logger.info(f"Exported detection overlay to {output_path}")
+    label = "segmentation" if (show_masks and hasattr(result, "masks") and len(result.masks) > 0) else "detection"
+    logger.debug(f"Exported {label} overlay to {output_path}")
 
 
 def _export_classification_image(
@@ -209,7 +246,8 @@ def _export_classification_image(
         import matplotlib.pyplot as plt
     except ImportError:
         raise ImportError(
-            "Matplotlib required for classification visualization. " "Install with: pip install matplotlib"
+            "Matplotlib is required for classification visualization. "
+            "Install with: pip install datamata[viz]  (or: pip install matplotlib)"
         )
 
     predictions = result.predictions[:top_k] if hasattr(result, "predictions") else []
@@ -274,7 +312,10 @@ def _export_depth_image(result: DepthResult, output_path: Path, colormap: str | 
             colored = (cmap(depth_norm)[:, :, :3] * 255).astype(np.uint8)
             img = Image.fromarray(colored)
         except ImportError:
-            raise ImportError("Matplotlib required for colormap depth export. " "Install with: pip install matplotlib")
+            raise ImportError(
+                "Matplotlib is required for colormap depth export. "
+                "Install with: pip install datamata[viz]  (or: pip install matplotlib)"
+            )
     else:
         depth_uint8 = (depth_norm * 255).astype(np.uint8)
         img = Image.fromarray(depth_uint8, mode="L")

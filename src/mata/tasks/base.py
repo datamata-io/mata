@@ -6,7 +6,15 @@ They ensure model-agnostic task execution with consistent input/output types.
 
 from typing import Any, ClassVar, Protocol
 
-from ..core.types import ClassifyResult, DepthResult, DetectResult, OCRResult, SegmentResult, TrackResult, VisionResult
+from ..core.types import (
+    ClassifyResult,
+    DepthResult,
+    DetectResult,
+    OCRResult,
+    SegmentResult,
+    TrackResult,
+    VisionResult,
+)
 
 
 class TaskAdapter(Protocol):
@@ -209,5 +217,30 @@ class TrackAdapter(TaskAdapter, Protocol):
 
         Returns:
             TrackResult with updated tracks
+        """
+        ...
+
+
+class EmbedAdapter(TaskAdapter, Protocol):
+    """Feature embedding extraction adapter protocol.
+
+    Adapters implementing this protocol must:
+    - Accept single images (PIL, path, numpy) or ROI artifacts
+    - Return (N, D) float32 L2-normalised embedding vectors
+    - Handle preprocessing internally
+    """
+
+    task: str  # Must be "embed"
+
+    def embed(self, input: Any, **kwargs: Any) -> Any:
+        """Extract feature embeddings from input.
+
+        Args:
+            input: Image artifact, PIL.Image, str path, or numpy array.
+                   For batch extraction: ROIs artifact (N crops).
+            **kwargs: Additional inference parameters.
+
+        Returns:
+            np.ndarray of shape (N, D) float32 L2-normalised embeddings.
         """
         ...

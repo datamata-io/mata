@@ -11,6 +11,83 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.5] - 2026-03-22
+
+### Added
+
+**First-Class CLI — `mata` command-line interface**
+
+- `mata run <task> <image> [--model] [--conf] [--text] [--prompt] [--save] [--json]` — one-shot inference with Ultralytics-parity DX
+- `mata recognize <image> --gallery <file.npz> [--model] [--top-k] [--threshold] [--json]` — gallery-based identity matching from the command line
+- `mata track <video> [--model] [--tracker] [--conf] [--iou] [--reid-model] [--save] [--show]` — multi-object tracking
+- `mata val <task> --data <yaml> [--model] [--conf] [--iou] [--plots] [--json]` — dataset evaluation
+- `mata export <task> <model> [--format] [--quantize]` — stub: full support in v2.0
+- `mata --version` — version display
+- `mata <cmd> --help` — per-command help text
+- `[project.scripts] mata = "mata.cli:main"` entrypoint in `pyproject.toml` (was already registered; now with `recognize` routing)
+
+**Gallery Matching / Recognition — `mata.run("recognize", ...)`**
+
+- `mata.run("recognize", image, gallery=gallery)` — convenience API: embeds the image, runs cosine similarity search against a `Gallery`, returns a `Matches` artifact
+- `gallery` kwarg (required): pre-populated `Gallery` instance
+- `top_k` kwarg (default: 1): maximum number of top matches to return
+- `threshold` kwarg (optional): minimum cosine similarity (overrides gallery default)
+- `Matches` and `MatchEntry` artifacts are now exported from `mata` top-level and from `mata.core.artifacts`
+- Pipeline pattern: `Detect >> ExtractROIs >> Embed >> GalleryMatchNode(gallery=gallery)` — unchanged; `mata.run("recognize", ...)` wraps the single-image case
+- `_run_recognize()` internal helper in `api.py` — handles image loading, adapter dispatch, gallery search, and result assembly
+
+**Graph Control Flow — `EarlyExit`, `While`, and conditional edges**
+
+- `EarlyExit` node — raises `EarlyExitException` when a user-supplied `predicate(ctx) → bool` evaluates to `True`; the scheduler catches it and stops graph execution cleanly; optional `reason` kwarg for logging; exported from `mata`, `mata.nodes`, and `mata.core.graph`
+- `EarlyExitException` — lightweight sentinel exception; importable from `mata`, `mata.nodes`, and `mata.core.graph` for external `try/except` handling when calling `mata.infer()` directly
+- `While` node — wraps a list of nodes (`body`) in a do-while loop; re-executes the body while `condition(ctx) → bool` returns `True`; `max_iterations` (default: `10`) is always enforced and cannot be disabled; exported from `mata`, `mata.nodes`, and `mata.core.graph`
+- `Graph.add(node, condition=...)` — attaches a node with a guard predicate; when `condition(ctx)` returns `False` the node is silently skipped and its output artifacts are not written; downstream nodes that read those artifacts must guard themselves or accept missing values
+- `Graph.conditional(predicate, then_branch, else_branch=None)` — high-level helper that wraps both branches in a single `If` node for correct mutual-exclusion semantics; sugar over `Graph.add(condition=...)`
+- `SyncScheduler` and `ParallelScheduler` both respect `EarlyExitException` and `condition=` edge guards — no behavioral difference between execution modes
+- `CompiledGraph.edge_conditions` — internal mapping of `node_name → condition_callable`; populated at compile time; used by scheduler during execution
+- `examples/notebooks/12_graph_control_flow.ipynb` — demo notebook covering all three primitives with mock nodes (no model download required); includes a multi-scenario triage pipeline and matplotlib execution-path visualizations
+
+### Notes
+
+- `mata.run("recognize", ...)` is the single-image convenience form; for per-ROI recognition in graphs, use `GalleryMatchNode` directly
+- **Graph control-flow primitives are intentionally minimal** — `EarlyExit`, `While`, and `Graph.add(condition=...)` are small, composable building blocks. Their use cases are deliberately broader than what the examples or documentation cover: quality gates, cost-aware routing, adaptive multi-pass pipelines, frame-level triage, feedback loops, confidence-threshold branching, A/B model selection, and more. Users are encouraged to compose these primitives freely; the provided examples illustrate mechanics, not the full solution space.
+- Zero regressions; all 5346+ pre-existing tests pass
+
+### Tests
+
+- `tests/test_matches_artifact.py` — 39 new tests for `Matches` and `MatchEntry` artifacts
+- `tests/test_recognize_api.py` — 34 new tests for `mata.run("recognize", ...)` API
+- `tests/test_cli_recognize.py` — 18 new tests for `mata recognize` CLI subcommand
+- `tests/test_graph_control_flow.py` — tests for `EarlyExit`, `EarlyExitException`, `While`, and `Graph.add(condition=...)` covering standalone behaviour, scheduler integration, `max_iterations` cap, and nested composition
+
+### Fixed
+
+- `EarlyExit`, `EarlyExitException`, and `While` were missing from `mata.nodes` and top-level `mata` exports — they were only reachable via `mata.core.graph`; users following the documentation would hit `ImportError`; exports added to both `src/mata/nodes/__init__.py` and `src/mata/__init__.py`
+- `LICENSE`: removed `Copyright 2026 MATA Contributors` line from the license body — this line caused GitHub's Licensee tool to classify the project license as "Other" instead of Apache-2.0; copyright attribution remains in `NOTICE`
+- `huggingface_segment_adapter.py`, `huggingface_sam_adapter.py`, `huggingface_zeroshot_segment_adapter.py`: changed `use_rle` default from `True` to `False` — the previous default triggered a spurious `pycocotools not available` warning on every model load for users who hadn't installed `datamata[eval]`
+- `src/mata/core/exporters/image_exporter.py`: `ImportError` messages for matplotlib now reference `pip install datamata[viz]` instead of bare `pip install matplotlib`
+- `src/mata/visualization.py`: `ImportError`/warning messages for pycocotools and matplotlib now reference `datamata[eval]` and `datamata[viz]` respectively
+- `src/mata/core/mask_utils.py`: `ImportError` for pycocotools now references `pip install datamata[eval]`
+- Segment adapter error messages for pycocotools now reference `datamata[eval]` (was `datamata[segmentation]`, which no longer exists)
+- Example docstrings across 13 files updated to remove redundant or incorrect install instructions (`transformers`, `torch`, `opencv-python` are now core deps and no longer need to be listed separately); OCR example updated to use `datamata[ocr]` / `datamata[ocr-paddle]` / `datamata[ocr-tesseract]` extras instead of bare package names
+
+### Changed
+
+- `docs/GRAPH_API_REFERENCE.md`: version bumped to 1.9.5; new **Recognition Nodes** section with full `GalleryMatchNode` parameter table and pipeline example; new subsections for `EarlyExit`, `While`, `Graph.add(condition=...)`, and `Graph.conditional()` in the Conditional Execution section; ToC updated
+- `docs/GRAPH_COOKBOOK.md`: 3 new recipes — Quality Gate with `EarlyExit`, Iterative Detection with `While`, Gallery Recognition Pipeline; Common Patterns table updated with `EarlyExit`, `While`, and Recognition rows
+- `README.md`: CLI section, Gallery/Recognition section, and Graph Control Flow code block added; 3 new Key Features bullets
+- `QUICK_REFERENCE.md`: version header updated to v1.9.5; 3 new cheatsheet sections (CLI, Gallery/Recognition, Graph Control Flow)
+- `QUICKSTART.md`: CLI quick-start section and Gallery Matching section added
+- `pyproject.toml`: `torchvision>=0.15.0` promoted to core dependency — was missing, causing `ModuleNotFoundError` on fresh installs
+- `pyproject.toml`: `timm>=1.0.24` promoted to core dependency — `transformers>=5.0` refactored DETR backbone to `TimmBackbone`, making `timm` a hard transitive requirement
+- `pyproject.toml`: `scipy>=1.10.0` promoted to core dependency — required by the vendored tracker (Kalman filter + Hungarian matching); was incorrectly listed under the `segmentation` optional extra
+- `pyproject.toml`: removed `classification` optional extra — `timm` is now a core dep, making this extra redundant
+- `pyproject.toml`: removed `segmentation` optional extra — `scipy` is now a core dep; the extra was misnamed (scipy is not used by segment adapters)
+- `pyproject.toml`: `[all]` extras bundle updated to `datamata[onnx,eval,viz,ocr,notebook]`
+- `README.md`: Installation section rewritten with PyPI as the primary install path (`pip install datamata`); GPU path, dev/source path, and optional extras all documented; optional dep examples updated to use `datamata[...]` extras syntax
+
+---
+
 ## [1.9.4] - 2026-03-21
 
 ### Added

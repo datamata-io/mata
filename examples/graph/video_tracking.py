@@ -14,8 +14,7 @@ Usage:
     python examples/graph/video_tracking.py --video_path /path/to/video.mp4
 
 Note:
-    Requires OpenCV for video file processing:
-        pip install opencv-python
+    OpenCV is included with datamata (opencv-python). No extra install needed.
 """
 
 from __future__ import annotations

@@ -197,6 +197,8 @@ class TestGraphConditional:
     """Conditional branching."""
 
     def test_conditional_adds_then_branch(self):
+        from mata.core.graph.conditionals import If
+
         g = (
             Graph()
             .then(MockDetect())
@@ -205,10 +207,13 @@ class TestGraphConditional:
                 then_branch=MockFilter(name="ThenFilter"),
             )
         )
-        names = [n.name for n in g._nodes]
-        assert "ThenFilter" in names
+        # conditional() wraps branches inside a single If node
+        if_node = next(n for n in g._nodes if isinstance(n, If))
+        assert if_node.then_branch.name == "ThenFilter"
 
     def test_conditional_adds_else_branch(self):
+        from mata.core.graph.conditionals import If
+
         g = (
             Graph()
             .then(MockDetect())
@@ -218,9 +223,10 @@ class TestGraphConditional:
                 else_branch=MockFuse(name="ElseFuse"),
             )
         )
-        names = [n.name for n in g._nodes]
-        assert "ThenFilter" in names
-        assert "ElseFuse" in names
+        # Both branches are attached to the single If node
+        if_node = next(n for n in g._nodes if isinstance(n, If))
+        assert if_node.then_branch.name == "ThenFilter"
+        assert if_node.else_branch.name == "ElseFuse"
 
 
 class TestGraphNameCollision:

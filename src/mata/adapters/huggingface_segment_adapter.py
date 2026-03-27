@@ -89,7 +89,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
 
     Mask Format:
     - By default, returns RLE-encoded masks (compact, JSON-serializable)
-    - Requires pycocotools: pip install datamata[segmentation]
+    - Requires pycocotools: pip install datamata[eval]
     - Falls back to binary numpy arrays if pycocotools not available
 
     Segmentation Modes:
@@ -138,7 +138,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
         device: str = "auto",
         threshold: float = 0.5,
         segment_mode: str = "auto",
-        use_rle: bool = True,
+        use_rle: bool = False,
         use_polygon: bool = False,
         polygon_tolerance: float = 2.0,
         id2label: dict[int, str] | None = None,
@@ -163,9 +163,8 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                 - "panoptic": Force panoptic segmentation
                 - "semantic": Force semantic segmentation
             use_rle: Use RLE encoding for masks (requires pycocotools)
-                - True: Compact RLE format (recommended for storage)
-                - False: Binary numpy arrays or polygons
-                - Note: Ignored if use_polygon=True
+                - False: Binary numpy arrays (default, no extra deps)
+                - True: Compact RLE format for storage; requires pip install datamata[eval]
             use_polygon: Use polygon format for masks (requires opencv-python)
                 - True: Polygon coordinates [x1, y1, x2, y2, ...] in COCO format
                 - False: RLE or binary masks (default)
@@ -221,7 +220,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                 if not mask_utils:
                     warnings.warn(
                         "pycocotools not available. Falling back to binary masks. "
-                        "Install with: pip install datamata[segmentation] or pip install pycocotools",
+                        "Install with: pip install datamata[eval]  (or: pip install pycocotools)",
                         UserWarning,
                         stacklevel=2,
                     )
@@ -347,11 +346,9 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                     self.is_thing_map = {int(k): v for k, v in config.is_thing_map.items()}
                     logger.info(f"Loaded is_thing_map with {len(self.is_thing_map)} classes")
                 else:
-                    warnings.warn(
+                    logger.warning(
                         "Model config missing 'is_thing_map' for panoptic segmentation. "
-                        "All classes will be treated as instances (is_stuff=False).",
-                        UserWarning,
-                        stacklevel=2,
+                        "All classes will be treated as instances (is_stuff=False)."
                     )
 
             logger.info(
@@ -517,12 +514,21 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
             # later segments blindly overwrite earlier ones, so only the last
             # segment retains pixels in the merged map.
             target_sizes = [(orig_height, orig_width)]
-            results = self.processor.post_process_instance_segmentation(
-                outputs,
-                target_sizes=target_sizes,
-                threshold=conf_threshold,
-                return_binary_maps=True,
-            )[0]
+            try:
+                results = self.processor.post_process_instance_segmentation(
+                    outputs,
+                    target_sizes=target_sizes,
+                    threshold=conf_threshold,
+                    return_binary_maps=True,
+                )[0]
+            except TypeError:
+                # Older transformers versions (<4.38) don't support return_binary_maps.
+                # Fall back to the merged 2D map (may have segment overwrite issues).
+                results = self.processor.post_process_instance_segmentation(
+                    outputs,
+                    target_sizes=target_sizes,
+                    threshold=conf_threshold,
+                )[0]
 
         # Convert to Instance objects
         masks = self._process_results(results, conf_threshold, orig_width, orig_height)

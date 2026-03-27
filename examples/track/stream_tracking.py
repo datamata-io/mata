@@ -29,7 +29,7 @@ Usage:
     python examples/track/stream_tracking.py --real 0
 
 Requirements:
-    pip install datamata opencv-python
+    pip install datamata
 """
 from __future__ import annotations
 

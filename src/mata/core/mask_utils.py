@@ -134,7 +134,9 @@ def rle_to_polygon(rle: dict[str, Any], tolerance: float = 2.0, min_area: int = 
         >>> polygons = rle_to_polygon(rle)
     """
     if not PYCOCOTOOLS_AVAILABLE:
-        raise ImportError("pycocotools is required for RLE conversion. " "Install with: pip install pycocotools")
+        raise ImportError(
+            "pycocotools is required for RLE conversion. Install with: pip install datamata[eval]  (or: pip install pycocotools)"
+        )
 
     # Decode RLE to binary mask
     binary_mask = mask_utils_coco.decode(rle)

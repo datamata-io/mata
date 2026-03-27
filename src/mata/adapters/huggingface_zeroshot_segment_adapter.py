@@ -140,7 +140,7 @@ class HuggingFaceZeroShotSegmentAdapter(PyTorchBaseAdapter):
         model_id: str,
         device: str = "auto",
         threshold: float = 0.5,
-        use_rle: bool = True,
+        use_rle: bool = False,
         use_polygon: bool = False,
         polygon_tolerance: float = 2.0,
         id2label: dict[int, str] | None = None,
@@ -212,7 +212,7 @@ class HuggingFaceZeroShotSegmentAdapter(PyTorchBaseAdapter):
                 if not mask_utils:
                     warnings.warn(
                         "pycocotools not available. Falling back to binary masks. "
-                        "Install with: pip install datamata[segmentation] or pip install pycocotools",
+                        "Install with: pip install datamata[eval]  (or: pip install pycocotools)",
                         UserWarning,
                         stacklevel=2,
                     )
