@@ -27,8 +27,7 @@ Usage:
     python driving_traffic_tracking.py --real video.mp4 --botsort  # BotSort + GMC
 
 Note:
-    Real video processing requires opencv-python:
-        pip install opencv-python
+    OpenCV is included with datamata (opencv-python). No extra install needed.
 """
 from __future__ import annotations
 
@@ -48,7 +47,7 @@ def main():
             import cv2
         except ImportError:
             print("Error: opencv-python required for video processing")
-            print("Install with: pip install opencv-python")
+            print("OpenCV (opencv-python) is a core datamata dependency. Run: pip install datamata")
             return
 
         # Load models

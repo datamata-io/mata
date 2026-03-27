@@ -17,9 +17,10 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock, patch
 
-import msgpack
 import numpy as np
 import pytest
+
+msgpack = pytest.importorskip("msgpack", reason="msgpack not installed (pip install datamata[valkey])")
 
 # ---------------------------------------------------------------------------
 # Helpers

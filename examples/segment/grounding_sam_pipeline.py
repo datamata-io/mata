@@ -119,7 +119,7 @@ def example_basic_pipeline():
         has_mask = "yes" if instance.mask is not None else "no"
         print(f"   - {instance.label_name}: score={instance.score:.3f}, mask={has_mask}")
 
-    output_path = "examples/images/output_pipeline_basic.jpg"
+    output_path = "runs/segmentation/output_pipeline_basic.jpg"
     visualize_instances(image.copy(), result, output_path)
 
     return result
@@ -149,7 +149,7 @@ def example_custom_thresholds():
     for instance in result.instances:
         print(f"   - {instance.label_name}: {instance.score:.3f}")
 
-    output_path = "examples/images/output_pipeline_thresholds.jpg"
+    output_path = "runs/segmentation/output_pipeline_thresholds.jpg"
     visualize_instances(image.copy(), result, output_path)
 
     return result

@@ -108,7 +108,7 @@ def run_persist_loop(
     except ImportError as exc:
         raise ImportError(
             "OpenCV is required for the persist loop. "
-            "Install with: pip install opencv-python"
+            "OpenCV (opencv-python) is a core dependency: pip install datamata"
         ) from exc
 
     cap = cv2.VideoCapture(video_path)

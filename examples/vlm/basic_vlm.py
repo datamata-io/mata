@@ -16,7 +16,7 @@ Run:
   python examples/vlm/basic_vlm.py
 
 Requirements:
-  pip install transformers torch
+  pip install datamata
 """
 
 from pathlib import Path

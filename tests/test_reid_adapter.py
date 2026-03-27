@@ -389,7 +389,13 @@ class TestHuggingFaceReIDAdapter:
 # TestONNXReIDAdapter
 # ---------------------------------------------------------------------------
 
+pytestmark_onnx = pytest.mark.skipif(
+    __import__("importlib").util.find_spec("onnxruntime") is None,
+    reason="onnxruntime not installed (pip install datamata[onnx])",
+)
 
+
+@pytestmark_onnx
 class TestONNXReIDAdapter:
     """Tests for ONNXReIDAdapter — ONNX session is mocked."""
 

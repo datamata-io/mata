@@ -60,6 +60,26 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `tests/test_cli_recognize.py` — 18 new tests for `mata recognize` CLI subcommand
 - `tests/test_graph_control_flow.py` — tests for `EarlyExit`, `EarlyExitException`, `While`, and `Graph.add(condition=...)` covering standalone behaviour, scheduler integration, `max_iterations` cap, and nested composition
 
+### Fixed
+
+- `LICENSE`: removed `Copyright 2026 MATA Contributors` line from the license body — this line caused GitHub's Licensee tool to classify the project license as "Other" instead of Apache-2.0; copyright attribution remains in `NOTICE`
+- `huggingface_segment_adapter.py`, `huggingface_sam_adapter.py`, `huggingface_zeroshot_segment_adapter.py`: changed `use_rle` default from `True` to `False` — the previous default triggered a spurious `pycocotools not available` warning on every model load for users who hadn't installed `datamata[eval]`
+- `src/mata/core/exporters/image_exporter.py`: `ImportError` messages for matplotlib now reference `pip install datamata[viz]` instead of bare `pip install matplotlib`
+- `src/mata/visualization.py`: `ImportError`/warning messages for pycocotools and matplotlib now reference `datamata[eval]` and `datamata[viz]` respectively
+- `src/mata/core/mask_utils.py`: `ImportError` for pycocotools now references `pip install datamata[eval]`
+- Segment adapter error messages for pycocotools now reference `datamata[eval]` (was `datamata[segmentation]`, which no longer exists)
+- Example docstrings across 13 files updated to remove redundant or incorrect install instructions (`transformers`, `torch`, `opencv-python` are now core deps and no longer need to be listed separately); OCR example updated to use `datamata[ocr]` / `datamata[ocr-paddle]` / `datamata[ocr-tesseract]` extras instead of bare package names
+
+### Changed
+
+- `pyproject.toml`: `torchvision>=0.15.0` promoted to core dependency — was missing, causing `ModuleNotFoundError` on fresh installs
+- `pyproject.toml`: `timm>=1.0.24` promoted to core dependency — `transformers>=5.0` refactored DETR backbone to `TimmBackbone`, making `timm` a hard transitive requirement
+- `pyproject.toml`: `scipy>=1.10.0` promoted to core dependency — required by the vendored tracker (Kalman filter + Hungarian matching); was incorrectly listed under the `segmentation` optional extra
+- `pyproject.toml`: removed `classification` optional extra — `timm` is now a core dep, making this extra redundant
+- `pyproject.toml`: removed `segmentation` optional extra — `scipy` is now a core dep; the extra was misnamed (scipy is not used by segment adapters)
+- `pyproject.toml`: `[all]` extras bundle updated to `datamata[onnx,eval,viz,ocr,notebook]`
+- `README.md`: Installation section rewritten with PyPI as the primary install path (`pip install datamata`); GPU path, dev/source path, and optional extras all documented; optional dep examples updated to use `datamata[...]` extras syntax
+
 ---
 
 ## [1.9.4] - 2026-03-21

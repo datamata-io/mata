@@ -246,7 +246,8 @@ def _export_classification_image(
         import matplotlib.pyplot as plt
     except ImportError:
         raise ImportError(
-            "Matplotlib required for classification visualization. " "Install with: pip install matplotlib"
+            "Matplotlib is required for classification visualization. "
+            "Install with: pip install datamata[viz]  (or: pip install matplotlib)"
         )
 
     predictions = result.predictions[:top_k] if hasattr(result, "predictions") else []
@@ -311,7 +312,10 @@ def _export_depth_image(result: DepthResult, output_path: Path, colormap: str | 
             colored = (cmap(depth_norm)[:, :, :3] * 255).astype(np.uint8)
             img = Image.fromarray(colored)
         except ImportError:
-            raise ImportError("Matplotlib required for colormap depth export. " "Install with: pip install matplotlib")
+            raise ImportError(
+                "Matplotlib is required for colormap depth export. "
+                "Install with: pip install datamata[viz]  (or: pip install matplotlib)"
+            )
     else:
         depth_uint8 = (depth_norm * 255).astype(np.uint8)
         img = Image.fromarray(depth_uint8, mode="L")

@@ -89,7 +89,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
 
     Mask Format:
     - By default, returns RLE-encoded masks (compact, JSON-serializable)
-    - Requires pycocotools: pip install datamata[segmentation]
+    - Requires pycocotools: pip install datamata[eval]
     - Falls back to binary numpy arrays if pycocotools not available
 
     Segmentation Modes:
@@ -138,7 +138,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
         device: str = "auto",
         threshold: float = 0.5,
         segment_mode: str = "auto",
-        use_rle: bool = True,
+        use_rle: bool = False,
         use_polygon: bool = False,
         polygon_tolerance: float = 2.0,
         id2label: dict[int, str] | None = None,
@@ -163,9 +163,8 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                 - "panoptic": Force panoptic segmentation
                 - "semantic": Force semantic segmentation
             use_rle: Use RLE encoding for masks (requires pycocotools)
-                - True: Compact RLE format (recommended for storage)
-                - False: Binary numpy arrays or polygons
-                - Note: Ignored if use_polygon=True
+                - False: Binary numpy arrays (default, no extra deps)
+                - True: Compact RLE format for storage; requires pip install datamata[eval]
             use_polygon: Use polygon format for masks (requires opencv-python)
                 - True: Polygon coordinates [x1, y1, x2, y2, ...] in COCO format
                 - False: RLE or binary masks (default)
@@ -221,7 +220,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
                 if not mask_utils:
                     warnings.warn(
                         "pycocotools not available. Falling back to binary masks. "
-                        "Install with: pip install datamata[segmentation] or pip install pycocotools",
+                        "Install with: pip install datamata[eval]  (or: pip install pycocotools)",
                         UserWarning,
                         stacklevel=2,
                     )

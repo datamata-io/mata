@@ -6,7 +6,11 @@ Run:
   python examples/depth/basic_depth.py
 
 Requirements:
-  pip install transformers torch
+  pip install datamata
+
+Optional (for colormap depth images):
+  pip install datamata[viz]   # adds matplotlib for magma/viridis colormaps
+  Without it, depth maps are saved as grayscale PNG (no colormap argument needed).
 """
 
 from pathlib import Path

@@ -46,65 +46,61 @@ MATA focuses on **stable task contracts** and **pluggable runtimes**, allowing y
 
 ## 📦 Installation
 
-### CPU-Only Installation (Smaller, works everywhere)
+### Quickstart — from PyPI (recommended)
 
 ```bash
-git clone https://github.com/datamata-io/mata.git
-cd MATA
-
-# Install PyTorch CPU version first
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-
-# Then install MATA
-pip install -e .
+pip install datamata
 ```
 
-### GPU Installation (Faster, requires NVIDIA GPU + CUDA)
+This pulls the default PyPI CPU build of PyTorch — which is fine for most users. If you need a specific CUDA version, see below.
+
+### GPU Installation (NVIDIA GPU + CUDA)
+
+Install the matching PyTorch + torchvision build **before** installing MATA so pip does not overwrite it:
 
 ```bash
-git clone https://github.com/datamata-io/mata.git
-cd MATA
-
-# Install PyTorch with CUDA 12.1 support (check your CUDA version)
+# Example: CUDA 12.1
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-
-# Then install MATA
-pip install -e .
+pip install datamata
 ```
 
-**Check your CUDA version**: Run `nvidia-smi` to see your CUDA version, then choose the appropriate PyTorch wheel:
+**Check your CUDA version**: Run `nvidia-smi`, then pick the right wheel:
 
-- CUDA 11.8: `https://download.pytorch.org/whl/cu118`
-- CUDA 12.1: `https://download.pytorch.org/whl/cu121`
-- CUDA 12.4: `https://download.pytorch.org/whl/cu124`
-- CUDA 12.6: `https://download.pytorch.org/whl/cu126`
-- CUDA 13.0: `https://download.pytorch.org/whl/cu130`
-- CPU only: `https://download.pytorch.org/whl/cpu`
+| CUDA | Index URL                                |
+| ---- | ---------------------------------------- |
+| 11.8 | `https://download.pytorch.org/whl/cu118` |
+| 12.1 | `https://download.pytorch.org/whl/cu121` |
+| 12.4 | `https://download.pytorch.org/whl/cu124` |
+| 12.6 | `https://download.pytorch.org/whl/cu126` |
+| 13.0 | `https://download.pytorch.org/whl/cu130` |
+| CPU  | `https://download.pytorch.org/whl/cpu`   |
 
-**📖 Need help choosing?** See [INSTALLATION.md](INSTALLATION.md) for:
-
-- Detailed GPU vs CPU comparison
-- How to switch between GPU and CPU
-- Troubleshooting GPU installation issues
-- Verifying your installation
-
-See also [PyTorch Get Started](https://pytorch.org/get-started/locally/) for more options.
-
-### Development Installation
+### CPU-Only Installation (explicit)
 
 ```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install datamata
+```
+
+### Development / From Source
+
+```bash
+git clone https://github.com/datamata-io/mata.git
+cd mata
 pip install -e ".[dev]"
 ```
+
+**📖 Need help choosing?** See [INSTALLATION.md](INSTALLATION.md) for a detailed GPU vs CPU comparison, switching between builds, and troubleshooting. See also [PyTorch Get Started](https://pytorch.org/get-started/locally/).
 
 ### Optional Dependencies
 
 ```bash
 # For ONNX model support
-pip install onnxruntime  # CPU
-pip install onnxruntime-gpu  # GPU
+pip install datamata[onnx]      # CPU
+pip install datamata[onnx-gpu]  # GPU
 
 # For publication-quality visualizations
-pip install matplotlib
+pip install datamata[viz]
 
 # For Valkey/Redis result storage
 pip install datamata[valkey]   # valkey-py client (recommended)

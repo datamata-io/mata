@@ -6,6 +6,9 @@ for building computer vision processing graphs.
 
 from __future__ import annotations
 
+# Control flow nodes (v1.9.5)
+from mata.core.graph.conditionals import EarlyExit, EarlyExitException, While
+
 # Visualization & Analysis nodes (Task 5.8)
 from mata.nodes.annotate import Annotate
 from mata.nodes.annotate_rt import AnnotateRT
@@ -47,9 +50,6 @@ from mata.nodes.track import Track
 # Storage nodes (v1.9.2)
 from mata.nodes.valkey_load import ValkeyLoad
 from mata.nodes.valkey_store import ValkeyStore
-
-# Control flow nodes (v1.9.5)
-from mata.core.graph.conditionals import EarlyExit, EarlyExitException, While
 
 # VLM nodes (Task 5.7 - v1.7.0)
 from mata.nodes.vlm_describe import VLMDescribe

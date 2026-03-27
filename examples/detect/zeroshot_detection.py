@@ -90,7 +90,7 @@ def example_grounding_dino():
         print(f"   - {instance.label_name}: {instance.score:.3f} at bbox {instance.bbox}")
 
     output_image = draw_detections(image.copy(), result, text_prompts)
-    output_path = "examples/images/output_grounding_dino.jpg"
+    output_path = "runs/zeroshot_detection/output_grounding_dino.jpg"
     output_image.save(output_path)
     print(f"\n Saved visualization to: {output_path}")
 
@@ -121,7 +121,7 @@ def example_owlvit_v2():
         print(f"   - {instance.label_name}: {instance.score:.3f} at bbox {instance.bbox}")
 
     output_image = draw_detections(image.copy(), result, text_prompts)
-    output_path = "examples/images/output_owlvit_v2.jpg"
+    output_path = "runs/zeroshot_detection/output_owlvit_v2.jpg"
     output_image.save(output_path)
     print(f"\n Saved visualization to: {output_path}")
 

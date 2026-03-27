@@ -17,7 +17,7 @@ Usage (real video + model):
     python examples/track/reid_tracking.py --real examples/videos/cup.mp4
 
 Requirements:
-    pip install datamata transformers torch
+    pip install datamata
 """
 from __future__ import annotations
 

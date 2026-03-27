@@ -18,10 +18,10 @@ Run a specific backend:
     python examples/vlm/ocr.py           # runs all sections
 
 Requirements (install the backends you want to test):
-    pip install easyocr
-    pip install paddlepaddle paddleocr
-    pip install pytesseract              # also needs Tesseract binary on PATH
-    pip install transformers torch       # for HuggingFace models (TrOCR, GLM-OCR)
+    pip install datamata[ocr]         # EasyOCR (default)
+    pip install datamata[ocr-paddle]  # PaddleOCR
+    pip install datamata[ocr-tesseract]  # Tesseract (also needs Tesseract binary on PATH)
+    # HuggingFace models (TrOCR, GLM-OCR) — included in core datamata
 """
 
 from __future__ import annotations
