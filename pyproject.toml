@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamata"
-version = "1.9.5"
+version = "1.9.6"
 description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
 requires-python = ">=3.10"
