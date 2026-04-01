@@ -273,6 +273,35 @@ class TestRunEmbed:
 
         assert result.dtype == np.float32
 
+    def test_run_text_kwarg_returns_ndarray(self):
+        """mata.run('embed', None, text='query') returns (1, D) ndarray via predict_text."""
+        mock_enc = _make_mock_hf_reid()
+        mock_enc.predict_text = MagicMock(return_value=np.ones((1, _DIM), dtype=np.float32))
+        with patch(
+            "mata.adapters.reid_adapter.HuggingFaceReIDAdapter",
+            return_value=mock_enc,
+        ):
+            result = mata.run("embed", None, model="org/clip-model", text="red truck")
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1, _DIM)
+        mock_enc.predict_text.assert_called_once_with("red truck")
+
+    def test_run_text_kwarg_does_not_leak_to_load(self):
+        """text= must be popped before load() so it doesn't leak into adapter kwargs."""
+        mock_enc = _make_mock_hf_reid()
+        mock_enc.predict_text = MagicMock(return_value=np.ones((1, _DIM), dtype=np.float32))
+        with patch(
+            "mata.adapters.reid_adapter.HuggingFaceReIDAdapter",
+            return_value=mock_enc,
+        ) as mock_reid:
+            mata.run("embed", None, model="org/clip-model", text="query")
+
+        # Verify 'text' was NOT passed into the adapter constructor
+        if mock_reid.call_args:
+            _, ctor_kwargs = mock_reid.call_args
+            assert "text" not in ctor_kwargs
+
 
 # ---------------------------------------------------------------------------
 # TestEmbedBackwardCompat

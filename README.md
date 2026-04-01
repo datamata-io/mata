@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.5-green?style=flat-square" alt="v1.9.5" />
-  <img src="https://img.shields.io/badge/tests-5%2C346%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-1.9.6-green?style=flat-square" alt="v1.9.6" />
+  <img src="https://img.shields.io/badge/tests-5%2C417%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -56,7 +56,7 @@ result = mata.infer(
 )
 ```
 
-**CLI** — no Python required:
+**CLI** — run from the terminal, no script needed:
 
 ```bash
 mata run detect image.jpg --model facebook/detr-resnet-50 --conf 0.4 --save
@@ -121,7 +121,7 @@ result.save("depth.png", colormap="magma")
 | **VLM**         | `mata.run("vlm", "img.jpg", model="Qwen/Qwen3-VL-2B-Instruct", prompt="...")` | [VLM Guide](docs/VLM_MODEL_SUPPORT.md)           |
 | **Embedding**   | `mata.run("embed", "img.jpg", model="openai/clip-vit-base-patch32")`          | [Embed Example](examples/inference/embedding.py) |
 | **Barcode**     | `mata.run("barcode", "img.jpg", model="pyzbar")`                              | [Barcode Examples](examples/barcode/)            |
-| **Recognition** | `mata.run("recognize", "img.jpg", gallery=gallery, model="...")`              | [Recognition Example](examples/cli/)             |
+| **Recognition** | `mata.run("recognize", "img.jpg", gallery=gallery, model="...")`              | [Recognition Guide](docs/RECOGNITION_GUIDE.md)   |
 
 ## What Makes MATA Different
 

@@ -189,12 +189,12 @@ class TestEmbedAdapterROIs:
 
 class TestEmbedAdapterErrorHandling:
     def test_embed_invalid_type_raises_typeerror(self):
-        """Non-Image/ROIs input must raise TypeError."""
+        """Non-Image/ROIs/list/str input must raise TypeError."""
         from mata.adapters.embed_adapter import EmbedAdapter
 
         adapter = EmbedAdapter(encoder=_make_encoder())
         with pytest.raises(TypeError, match="EmbedAdapter.embed()"):
-            adapter.embed("not_an_image")  # type: ignore[arg-type]
+            adapter.embed(42)  # type: ignore[arg-type]
 
     def test_embed_none_raises_typeerror(self):
         from mata.adapters.embed_adapter import EmbedAdapter
@@ -283,3 +283,168 @@ class TestEmbedAdapterDelegation:
         # Should not raise even when kwargs present
         adapter.embed(_make_image(), normalize=False)
         encoder.predict.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# TestEmbedAdapterXCLIPDispatch
+# ---------------------------------------------------------------------------
+
+
+def _make_xclip_encoder(dim: int = 512) -> MagicMock:
+    """Return a mock encoder that mimics XCLIPAdapter behaviour."""
+    encoder = MagicMock()
+    encoder.embedding_dim = dim
+    encoder.info.return_value = {"model_id": "microsoft/xclip-base-patch32", "device": "cpu"}
+    encoder.predict_video.return_value = np.ones((1, dim), dtype=np.float32)
+    encoder.predict_text.return_value = np.ones((1, dim), dtype=np.float32)
+    encoder.predict.side_effect = lambda crops: np.ones((len(crops), dim), dtype=np.float32)
+    return encoder
+
+
+def _make_non_xclip_encoder() -> MagicMock:
+    """Return a mock encoder with no predict_video / predict_text (e.g. ViT or ONNX)."""
+    encoder = MagicMock(spec=["embedding_dim", "info", "predict"])
+    encoder.embedding_dim = 512
+    encoder.info.return_value = {"model_id": "google/vit-base-patch16-224", "device": "cpu"}
+    encoder.predict.return_value = np.ones((1, 512), dtype=np.float32)
+    return encoder
+
+
+class TestEmbedAdapterXCLIPDispatch:
+    def test_embed_list_dispatches_to_predict_video(self):
+        """embed(list) must call encoder.predict_video, not predict."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        frame = np.zeros((224, 224, 3), dtype=np.uint8)
+        adapter.embed([frame])
+
+        encoder.predict_video.assert_called_once_with([frame])
+        encoder.predict.assert_not_called()
+
+    def test_embed_str_dispatches_to_predict_text(self):
+        """embed(str) must call encoder.predict_text, not predict."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        adapter.embed("red truck")
+
+        encoder.predict_text.assert_called_once_with("red truck")
+        encoder.predict.assert_not_called()
+
+    def test_embed_text_method_same_as_embed_str(self):
+        """embed_text(q) must return the same result as embed(q)."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder(dim=512)
+        adapter = EmbedAdapter(encoder=encoder)
+
+        result_embed = adapter.embed("query text")
+        result_method = adapter.embed_text("query text")
+
+        np.testing.assert_array_equal(result_embed, result_method)
+
+    def test_embed_list_no_predict_video_raises(self):
+        """list input on a non-xclip encoder must raise UnsupportedModelError."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+        from mata.core.exceptions import UnsupportedModelError
+
+        encoder = _make_non_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        frame = np.zeros((224, 224, 3), dtype=np.uint8)
+
+        with pytest.raises(UnsupportedModelError):
+            adapter.embed([frame])
+
+    def test_embed_str_no_predict_text_raises(self):
+        """str input on a non-xclip encoder must raise UnsupportedModelError."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+        from mata.core.exceptions import UnsupportedModelError
+
+        encoder = _make_non_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+
+        with pytest.raises(UnsupportedModelError):
+            adapter.embed("some query")
+
+    def test_embed_list_error_message_mentions_xclip(self):
+        """UnsupportedModelError for list input must name the xclip model."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+        from mata.core.exceptions import UnsupportedModelError
+
+        encoder = _make_non_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        frame = np.zeros((224, 224, 3), dtype=np.uint8)
+
+        with pytest.raises(UnsupportedModelError, match="microsoft/xclip-base-patch32"):
+            adapter.embed([frame])
+
+    def test_embed_str_error_message_mentions_xclip(self):
+        """UnsupportedModelError for str input must name the xclip model."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+        from mata.core.exceptions import UnsupportedModelError
+
+        encoder = _make_non_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+
+        with pytest.raises(UnsupportedModelError, match="microsoft/xclip-base-patch32"):
+            adapter.embed("some query")
+
+    def test_embed_image_unaffected_by_xclip_methods(self):
+        """Normal Image input still routes to predict() on an xclip encoder."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder(dim=512)
+        adapter = EmbedAdapter(encoder=encoder)
+        adapter.embed(_make_image())
+
+        encoder.predict.assert_called_once()
+        encoder.predict_video.assert_not_called()
+        encoder.predict_text.assert_not_called()
+
+    def test_embed_rois_unaffected_by_xclip_methods(self):
+        """Normal ROIs input still routes to predict() on an xclip encoder."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder(dim=512)
+        adapter = EmbedAdapter(encoder=encoder)
+        adapter.embed(_make_rois(n=2))
+
+        encoder.predict.assert_called_once()
+        encoder.predict_video.assert_not_called()
+        encoder.predict_text.assert_not_called()
+
+    def test_embed_list_empty_delegates_empty_to_encoder(self):
+        """Empty list must be passed through to predict_video([])."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        adapter.embed([])
+
+        encoder.predict_video.assert_called_once_with([])
+
+    def test_embed_list_returns_ndarray(self):
+        """embed(list) must return an np.ndarray."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder(dim=512)
+        adapter = EmbedAdapter(encoder=encoder)
+        frame = np.zeros((224, 224, 3), dtype=np.uint8)
+        result = adapter.embed([frame])
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1, 512)
+
+    def test_embed_str_returns_ndarray(self):
+        """embed(str) must return an np.ndarray."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_xclip_encoder(dim=512)
+        adapter = EmbedAdapter(encoder=encoder)
+        result = adapter.embed("fire hydrant")
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1, 512)

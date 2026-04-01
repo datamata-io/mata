@@ -193,6 +193,10 @@ def run(
     if task == "recognize":
         return _run_recognize(input, model=model, model_type=model_type, **kwargs)
 
+    # Pop X-CLIP-specific kwargs before load() to prevent leaking into adapter constructors
+    _embed_frames = kwargs.pop("frames", None) if task == "embed" else None
+    _embed_text = kwargs.pop("text", None) if task == "embed" else None
+
     # Load adapter
     adapter = load(task=task, model=model, model_type=model_type, **kwargs)
 
@@ -200,6 +204,12 @@ def run(
     if task in ("detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "barcode"):
         return adapter.predict(input, **kwargs)
     elif task == "embed":
+        if _embed_frames is not None:
+            return adapter.embed(_embed_frames)
+        if _embed_text is not None:
+            return adapter.embed(_embed_text)
+
+        # Existing image embedding path (unchanged)
         from .core.artifacts.image import Image as ImageArtifact
 
         if isinstance(input, (str, Path)):

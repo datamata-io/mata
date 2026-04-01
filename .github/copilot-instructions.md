@@ -139,7 +139,7 @@ Image/Crops)   ↓                      Validator (detect/segment/classify/depth
                (halt signal) (do-while loop) (per-node guard)
 ```
 
-**Key Design Pattern:** Task contracts over model specifics - all adapters implement the same `predict()` interface returning task-specific results (VisionResult for detect/segment, ClassifyResult, DepthResult).
+**Key Design Pattern:** Task contracts over model specifics - all adapters implement the same `predict()` interface returning task-specific results (VisionResult for detect/segment, ClassifyResult, DepthResult, EmbedResult for embed).
 
 ### VLM Multi-Model Support (v1.9.3)
 
@@ -254,6 +254,8 @@ Built-in Tools (zoom, crop) + Provider Tools (detect, classify, etc.)
 
 **Documentation:** See `docs/VLM_TOOL_CALLING_SUMMARY.md` for complete architecture details, design decisions, limitations, and future roadmap.
 
+**Recognition & Embedding Documentation:** See `docs/RECOGNITION_GUIDE.md` for embed task API, Gallery usage, graph-based recognition pipelines, common patterns (person Re-ID, product recognition), FAISS migration path, and relationship to CLIP zero-shot and tracking ReID.
+
 ## Development Workflows
 
 ### Running Tests
@@ -334,7 +336,7 @@ pytest --cov=mata --cov-report=html
 When implementing new task adapters:
 
 1. Inherit from appropriate base adapter in `adapters/base/`
-2. Implement `predict()` returning task-specific result type (VisionResult, ClassifyResult, DepthResult)
+2. Implement `predict()` returning task-specific result type (VisionResult, ClassifyResult, DepthResult, EmbedResult)
 3. Add comprehensive tests in `tests/test_<task>_adapter.py`
 4. Test all supported runtimes (PyTorch, ONNX, TorchScript where applicable)
 5. Use `NotImplementedError` with helpful messages for incomplete features
@@ -419,6 +421,29 @@ class DepthResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
     def save(self, output_path: str, colormap: str = "magma"): ...
+```
+
+**EmbedResult (🆕 v1.9.6):**
+
+```python
+@dataclass(frozen=True)
+class EmbedResult:
+    embeddings: np.ndarray   # (N, D) float32, L2-normalised
+    labels: list[str] = field(default_factory=list)
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def embedding(self) -> np.ndarray: ...   # first row (D,) — convenience
+    @property
+    def dim(self) -> int: ...               # embedding dimensionality D
+
+    def to_json(self) -> str: ...
+    def to_dict(self) -> dict: ...
+    def save(self, output_path: str): ...  # .json or .npz
+    @classmethod
+    def from_dict(cls, data: dict) -> EmbedResult: ...
+    @classmethod
+    def from_json(cls, json_str: str) -> EmbedResult: ...
 ```
 
 **Type Aliases (Backward Compatibility):**

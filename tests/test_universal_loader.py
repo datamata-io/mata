@@ -954,5 +954,99 @@ class TestOCRTaskRouting:
         assert result == mock_instance
 
 
+class TestUniversalLoaderXCLIPRouting:
+    """Test that model_loader routes embed task correctly for X-CLIP models (Task C3)."""
+
+    @patch("mata.adapters.xclip_adapter.XCLIPAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_xclip_routes_to_xclip_adapter(self, mock_autoconfig_cls, mock_xclip_cls):
+        """model_type='x_clip' → XCLIPAdapter wrapped in EmbedAdapter."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "x_clip"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_xclip_instance = Mock()
+        mock_xclip_cls.return_value = mock_xclip_instance
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "microsoft/xclip-base-patch32")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_xclip_cls.assert_called_once_with("microsoft/xclip-base-patch32")
+
+    @patch("mata.adapters.reid_adapter.HuggingFaceReIDAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_clip_still_routes_to_hf_reid_adapter(self, mock_autoconfig_cls, mock_reid_cls):
+        """model_type='clip' → HuggingFaceReIDAdapter, not XCLIPAdapter (no regression)."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "clip"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_reid_instance = Mock()
+        mock_reid_cls.return_value = mock_reid_instance
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "openai/clip-vit-base-patch32")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_reid_cls.assert_called_once_with("openai/clip-vit-base-patch32")
+
+    @patch("mata.adapters.reid_adapter.HuggingFaceReIDAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_autoconfig_failure_falls_back_to_reid(self, mock_autoconfig_cls, mock_reid_cls):
+        """AutoConfig.from_pretrained raises → falls back to HuggingFaceReIDAdapter, no crash."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_autoconfig_cls.from_pretrained.side_effect = Exception("network error")
+
+        mock_reid_instance = Mock()
+        mock_reid_cls.return_value = mock_reid_instance
+
+        loader = UniversalLoader()
+        # Must not raise
+        result = loader._load_from_huggingface("embed", "microsoft/xclip-base-patch32")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_reid_cls.assert_called_once_with("microsoft/xclip-base-patch32")
+
+    @patch("mata.adapters.xclip_adapter.XCLIPAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_xclip_forwards_n_frames_kwarg(self, mock_autoconfig_cls, mock_xclip_cls):
+        """n_frames=16 kwarg is forwarded to XCLIPAdapter.__init__."""
+        mock_cfg = Mock()
+        mock_cfg.model_type = "x_clip"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_xclip_instance = Mock()
+        mock_xclip_cls.return_value = mock_xclip_instance
+
+        loader = UniversalLoader()
+        loader._load_from_huggingface("embed", "microsoft/xclip-base-patch32", n_frames=16)
+
+        mock_xclip_cls.assert_called_once_with("microsoft/xclip-base-patch32", n_frames=16)
+
+    @patch("mata.adapters.xclip_adapter.XCLIPAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_xclip_returns_embed_adapter_wrapper(self, mock_autoconfig_cls, mock_xclip_cls):
+        """Return type for x_clip model is always EmbedAdapter (not XCLIPAdapter directly)."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "x_clip"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_xclip_cls.return_value = Mock()
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "microsoft/xclip-base-patch32")
+
+        assert isinstance(result, EmbedAdapter)
+        assert not isinstance(result, type(mock_xclip_cls.return_value))
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

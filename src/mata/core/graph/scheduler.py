@@ -598,7 +598,17 @@ class ParallelScheduler(SyncScheduler):
         """
         super().__init__()
         self.max_workers = max_workers
+        # Pre-create the thread pool once so it's reused across stages; avoids
+        # paying the thread-spawning cost (~20-50 ms on Windows) per stage.
+        self._executor = ThreadPoolExecutor(max_workers=max_workers)
         logger.info(f"ParallelScheduler initialized with {max_workers} workers")
+
+    def __del__(self) -> None:
+        """Shut down the persistent executor on GC."""
+        try:
+            self._executor.shutdown(wait=False)
+        except Exception:
+            pass
 
     def execute(
         self, graph: CompiledGraph, context: ExecutionContext, initial_artifacts: dict[str, Artifact]
@@ -724,23 +734,21 @@ class ParallelScheduler(SyncScheduler):
         """
         stage_outputs = {}
 
-        # Use ThreadPoolExecutor for parallel execution
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all nodes
-            future_to_node = {executor.submit(self._execute_node, node, context, wiring): node for node in nodes}
+        # Reuse the persistent thread pool (avoids per-stage thread-spawn overhead)
+        future_to_node = {self._executor.submit(self._execute_node, node, context, wiring): node for node in nodes}
 
-            # Wait for completion and collect results
-            for future in as_completed(future_to_node):
-                node = future_to_node[future]
-                try:
-                    outputs = future.result()
-                    stage_outputs.update(outputs)
-                except Exception as e:
-                    logger.error(f"Node '{node.name}' failed in parallel execution: {e}")
-                    # Cancel remaining futures
-                    for f in future_to_node:
-                        f.cancel()
-                    raise RuntimeError(f"Parallel stage execution failed at node '{node.name}': {e}") from e
+        # Wait for completion and collect results
+        for future in as_completed(future_to_node):
+            node = future_to_node[future]
+            try:
+                outputs = future.result()
+                stage_outputs.update(outputs)
+            except Exception as e:
+                logger.error(f"Node '{node.name}' failed in parallel execution: {e}")
+                # Cancel remaining futures
+                for f in future_to_node:
+                    f.cancel()
+                raise RuntimeError(f"Parallel stage execution failed at node '{node.name}': {e}") from e
 
         return stage_outputs
 
