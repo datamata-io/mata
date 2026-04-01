@@ -59,12 +59,39 @@ class EmbedAdapter:
         """
         if isinstance(input, Image):
             np_image = input.to_numpy()
+            # X-CLIP has no predict(); embed a single frame as a 1-frame video clip
+            # (_resample_frames inside predict_video repeats it to fill n_frames).
+            if hasattr(self._encoder, "predict_video") and not hasattr(self._encoder, "predict"):
+                return self._encoder.predict_video([np_image])
             return self._encoder.predict([np_image])
         elif isinstance(input, ROIs):
             crops = [np.array(roi) for roi in input.roi_images]
             if not crops:
                 return np.empty((0, 0), dtype=np.float32)
             return self._encoder.predict(crops)
+        elif isinstance(input, list):
+            # Video clip: list of BGR numpy frames → (1, D)
+            if not hasattr(self._encoder, "predict_video"):
+                from mata.core.exceptions import UnsupportedModelError
+
+                raise UnsupportedModelError(
+                    "Video clip embedding (list of frames) requires an X-CLIP encoder. "
+                    f"The current encoder ({type(self._encoder).__name__}) does not support predict_video(). "
+                    "Load with: mata.load('embed', 'microsoft/xclip-base-patch32')"
+                )
+            return self._encoder.predict_video(input)
+        elif isinstance(input, str):
+            # Text query → (1, D) in same space as video/image embeddings
+            if not hasattr(self._encoder, "predict_text"):
+                from mata.core.exceptions import UnsupportedModelError
+
+                raise UnsupportedModelError(
+                    "Text embedding requires a CLIP or X-CLIP encoder. "
+                    f"The current encoder ({type(self._encoder).__name__}) does not support predict_text(). "
+                    "Load with: mata.load('embed', 'openai/clip-vit-base-patch32') or "
+                    "mata.load('embed', 'microsoft/xclip-base-patch32')"
+                )
+            return self._encoder.predict_text(input)
         else:
             raise TypeError(f"EmbedAdapter.embed() expects Image or ROIs, got {type(input).__name__}")
 
@@ -72,6 +99,19 @@ class EmbedAdapter:
     def embedding_dim(self) -> int | None:
         """Embedding dimensionality (available after first embed call)."""
         return self._encoder.embedding_dim
+
+    def embed_text(self, text: str) -> np.ndarray:
+        """Embed a text query into the model's vector space.
+
+        Requires an encoder that supports predict_text() (e.g. X-CLIP).
+
+        Args:
+            text: Natural-language query string.
+
+        Returns:
+            np.ndarray: (1, D) float32, L2-normalized.
+        """
+        return self.embed(text)
 
     def info(self) -> dict[str, Any]:
         """Adapter metadata."""

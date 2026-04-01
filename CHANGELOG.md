@@ -11,6 +11,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.6] — 2026-04-01
+
+### Added
+
+**X-CLIP support for `embed` task** — `mata.load("embed", "microsoft/xclip-base-patch32")` now returns a temporal video-language encoder. Video clips (lists of frames) and text queries are embedded into the same 512D vector space, enabling offline semantic video search without any external API.
+
+- `EmbedAdapter.embed(frames: list[np.ndarray])` — new input path for video clip embedding
+- `EmbedAdapter.embed(text: str)` — new input path for text query embedding
+- `EmbedAdapter.embed_text(text: str)` — convenience method for text embedding
+- `mata.run("embed", ..., frames=[...])` and `mata.run("embed", ..., text="...")` public API kwargs
+- `examples/embed/video_semantic_search.py` — end-to-end semantic video search example
+
+**Recognition & Embedding Documentation**
+
+- `docs/RECOGNITION_GUIDE.md` — complete recognition guide covering: embed task API (`mata.run("embed", ...)`), `EmbedResult` reference, `Gallery` creation/search/persistence, graph-based recognition pipeline (Detect → ExtractROIs → Embed → GalleryMatchNode), common patterns (person Re-ID, product recognition, vehicle Re-ID, similarity search), performance tips (batch crops, gallery size limits), FAISS migration path, and relationship to CLIP zero-shot and tracking ReID
+
+---
+
 ## [1.9.5] - 2026-03-22
 
 ### Added

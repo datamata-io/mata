@@ -358,3 +358,47 @@ class HuggingFaceReIDAdapter(ReIDAdapter):
                     embedding = last_hidden[0].mean(dim=0).cpu().float().numpy()
 
         return embedding
+
+    def predict_text(self, text: str | list[str]) -> np.ndarray:
+        """Extract text embeddings using CLIP's text encoder.
+
+        Only supported when the loaded model is a CLIP model (dual encoder).
+
+        Args:
+            text: Single string or list of strings.
+
+        Returns:
+            (N, D) float32 array, L2-normalised.
+
+        Raises:
+            NotImplementedError: If the model architecture is not CLIP.
+        """
+        if self._arch != "clip":
+            raise NotImplementedError(
+                f"predict_text() requires a CLIP model; " f"current architecture is '{self._arch}'"
+            )
+
+        import torch
+
+        texts = [text] if isinstance(text, str) else text
+
+        with torch.no_grad():
+            inputs = self._processor(text=texts, return_tensors="pt", padding=True)
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            text_features = self._model.get_text_features(**inputs)
+
+        # CLIPModel.get_text_features() returns a tensor, but some CLIP variants
+        # return a BaseModelOutputWithPooling object instead.
+        if isinstance(text_features, torch.Tensor):
+            embeddings = text_features.cpu().float().numpy()
+        elif hasattr(text_features, "pooler_output") and text_features.pooler_output is not None:
+            embeddings = text_features.pooler_output.cpu().float().numpy()
+        else:
+            # Last resort: CLS token from last hidden state
+            embeddings = text_features.last_hidden_state[:, 0].cpu().float().numpy()
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        norms = np.where(norms > 1e-9, norms, 1.0)
+        embeddings = embeddings / norms
+
+        self._embedding_dim = embeddings.shape[1]
+        return embeddings

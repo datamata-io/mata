@@ -72,6 +72,23 @@ See [`detect/basic_detection.py`](detect/basic_detection.py) for the full progre
 | ---------------------------------------- | ---------------------------------------------------------------- |
 | [`basic_scan.py`](barcode/basic_scan.py) | One-shot scan, load/reuse, pyzbar vs zxing, export, ROI pipeline |
 
+### Feature Embedding ([`embed/`](embed/)) _(v1.9.6)_
+
+Requires `pip install datamata[xclip]` (for `microsoft/xclip-base-patch32`). Videos not bundled — supply your own `.mp4` file.
+
+| File                                                                    | What it shows                                                              |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [`embed/video_semantic_search.py`](embed/video_semantic_search.py)      | Index a video with X-CLIP, search by text queries; multi-query comparison  |
+| [`embed/video_search_by_image.py`](embed/video_search_by_image.py)      | Image-to-video search: index a video, find clips matching a query frame    |
+
+### Inference Utilities ([`inference/`](inference/))
+
+| File                                                                              | What it shows                                                                |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [`inference/embed_example.py`](inference/embed_example.py)                        | `mata.run("embed", ...)`, batch crops, pre-loaded adapter, save/load — mock + `--real` |
+| [`inference/gallery_match_example.py`](inference/gallery_match_example.py)        | Gallery build, cosine search, `mata.run("recognize", ...)`, persistence, batch search — mock + `--real` |
+| [`inference/embedding.py`](inference/embedding.py)                                | Low-level `EmbedAdapter` + `Embeddings` artifact; graph pipeline simulation  |
+
 ## Pipelines & Graphs ([`graph/`](graph/))
 
 6 core examples + 20 industry scenarios.  
@@ -123,6 +140,10 @@ Shell and PowerShell scripts for every `mata` subcommand. See [cli/README.md](cl
 
 | Date       | Change                                                                                                                                                             |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-04-01 | Added `embed/video_semantic_search.py` and `embed/video_search_by_image.py` — X-CLIP semantic video search (v1.9.6)                                                |
+| 2026-04-01 | Added `inference/embed_example.py`, `inference/gallery_match_example.py`, `inference/embedding.py` to README                                                       |
+| 2026-04-01 | Fixed `inference/embed_example.py` real mode: `mata.run("embed")` returns `np.ndarray`; wrap in `EmbedResult`; use `embedder.embed()` not `embedder.predict()`     |
+| 2026-04-01 | Fixed `inference/gallery_match_example.py` real mode: `result.matches` → `result.entries[0].all_matches` (dict access)                                             |
 | 2026-03-19 | Fixed `MultiResult.__getitem__` and `__contains__` — `result['key']` and `'key' in result` now work correctly (was `TypeError` at runtime)                         |
 | 2026-03-19 | Fixed `grounding_sam_pipeline.py` — moved private `_mask_to_binary` import to lazy in-place usage                                                                  |
 | 2026-03-19 | Removed `graph/valkey_rtsp_pipeline.py` — required live RTSP + Valkey with no mock fallback; see `graph/valkey_pipeline.py` and `track/stream_tracking.py` instead |

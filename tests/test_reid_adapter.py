@@ -386,6 +386,166 @@ class TestHuggingFaceReIDAdapter:
 
 
 # ---------------------------------------------------------------------------
+# TestHuggingFaceReIDAdapterPredictText
+# ---------------------------------------------------------------------------
+
+
+class TestHuggingFaceReIDAdapterPredictText:
+    """Tests for HuggingFaceReIDAdapter.predict_text() — CLIP text encoder."""
+
+    def _make_clip_adapter(self, dim: int = 512):
+        """Build a CLIP-arch adapter with mocked model and processor."""
+        import torch
+
+        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+        adapter = object.__new__(HuggingFaceReIDAdapter)
+        adapter.model_id = "openai/clip-vit-base-patch32"
+        adapter._embedding_dim = None
+        adapter._arch = "clip"
+
+        text_features = torch.randn(1, dim)
+        mock_model = MagicMock()
+        mock_model.get_text_features.return_value = text_features
+        adapter._model = mock_model
+
+        mock_processor = MagicMock()
+        mock_processor.return_value = {"input_ids": torch.zeros(1, 10, dtype=torch.long)}
+        adapter._processor = mock_processor
+
+        adapter.device = "cpu"
+        return adapter, text_features
+
+    def test_predict_text_single_string_returns_correct_shape(self):
+        adapter, _ = self._make_clip_adapter(dim=512)
+        result = adapter.predict_text("red truck")
+        assert result.shape == (1, 512)
+        assert result.dtype == np.float32
+
+    def test_predict_text_list_of_strings_returns_batch(self):
+        import torch
+
+        adapter, _ = self._make_clip_adapter(dim=512)
+        # Override mock to return batch of 3
+        adapter._model.get_text_features.return_value = torch.randn(3, 512)
+        result = adapter.predict_text(["cat", "dog", "bird"])
+        assert result.shape == (3, 512)
+
+    def test_predict_text_output_is_l2_normalised(self):
+        adapter, _ = self._make_clip_adapter(dim=512)
+        result = adapter.predict_text("a photo of a cat")
+        norms = np.linalg.norm(result, axis=1)
+        np.testing.assert_allclose(norms, 1.0, atol=1e-5)
+
+    def test_predict_text_sets_embedding_dim(self):
+        adapter, _ = self._make_clip_adapter(dim=512)
+        assert adapter.embedding_dim is None
+        adapter.predict_text("test")
+        assert adapter.embedding_dim == 512
+
+    def test_predict_text_calls_get_text_features(self):
+        adapter, _ = self._make_clip_adapter()
+        adapter.predict_text("hello world")
+        adapter._model.get_text_features.assert_called_once()
+
+    def test_predict_text_calls_processor_with_text(self):
+        adapter, _ = self._make_clip_adapter()
+        adapter.predict_text("hello world")
+        adapter._processor.assert_called_once()
+        call_kwargs = adapter._processor.call_args
+        assert call_kwargs[1]["text"] == ["hello world"]
+
+    def test_predict_text_non_clip_raises(self):
+        """predict_text() on a non-CLIP arch must raise NotImplementedError."""
+        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+        adapter = object.__new__(HuggingFaceReIDAdapter)
+        adapter.model_id = "google/vit-base-patch16-224"
+        adapter._embedding_dim = None
+        adapter._arch = "vit_pooler"
+
+        with pytest.raises(NotImplementedError, match="CLIP model"):
+            adapter.predict_text("query")
+
+    def test_predict_text_generic_arch_raises(self):
+        """predict_text() on generic arch must raise NotImplementedError."""
+        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+        adapter = object.__new__(HuggingFaceReIDAdapter)
+        adapter.model_id = "some/model"
+        adapter._embedding_dim = None
+        adapter._arch = "generic"
+
+        with pytest.raises(NotImplementedError, match="CLIP model"):
+            adapter.predict_text("query")
+
+    def test_predict_text_model_output_fallback_pooler(self):
+        """predict_text() handles BaseModelOutputWithPooling via pooler_output."""
+        from unittest.mock import MagicMock
+
+        import torch
+
+        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+        adapter = object.__new__(HuggingFaceReIDAdapter)
+        adapter.model_id = "openai/clip-vit-base-patch32"
+        adapter._embedding_dim = None
+        adapter._arch = "clip"
+
+        # Simulate model returning a ModelOutput instead of a tensor
+        mock_output = MagicMock()
+        del mock_output.cpu  # not a tensor
+        mock_output.pooler_output = torch.randn(1, 512)
+        mock_output.last_hidden_state = torch.randn(1, 10, 512)
+
+        mock_model = MagicMock()
+        mock_model.get_text_features.return_value = mock_output
+
+        mock_processor = MagicMock()
+        mock_processor.return_value = {"input_ids": torch.zeros(1, 10, dtype=torch.long)}
+
+        adapter._model = mock_model
+        adapter._processor = mock_processor
+        adapter.device = "cpu"
+
+        result = adapter.predict_text("red truck")
+        assert result.shape == (1, 512)
+        assert result.dtype == np.float32
+
+    def test_predict_text_model_output_fallback_cls_token(self):
+        """predict_text() falls back to CLS token when pooler_output is None."""
+        from unittest.mock import MagicMock
+
+        import torch
+
+        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+        adapter = object.__new__(HuggingFaceReIDAdapter)
+        adapter.model_id = "openai/clip-vit-base-patch32"
+        adapter._embedding_dim = None
+        adapter._arch = "clip"
+
+        mock_output = MagicMock()
+        del mock_output.cpu  # not a tensor
+        mock_output.pooler_output = None
+        mock_output.last_hidden_state = torch.randn(1, 10, 512)
+
+        mock_model = MagicMock()
+        mock_model.get_text_features.return_value = mock_output
+
+        mock_processor = MagicMock()
+        mock_processor.return_value = {"input_ids": torch.zeros(1, 10, dtype=torch.long)}
+
+        adapter._model = mock_model
+        adapter._processor = mock_processor
+        adapter.device = "cpu"
+
+        result = adapter.predict_text("red truck")
+        assert result.shape == (1, 512)
+        assert result.dtype == np.float32
+
+
+# ---------------------------------------------------------------------------
 # TestONNXReIDAdapter
 # ---------------------------------------------------------------------------
 

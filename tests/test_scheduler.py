@@ -493,12 +493,14 @@ class TestParallelScheduler:
 
     def test_sequential_after_parallel(self, mock_image, mock_context):
         """Test mixed parallel and sequential execution."""
-        # Stage 1: Parallel
-        detect = MockDetectNode(name="detect", delay_ms=50)
-        depth = MockDepthNode(name="depth", delay_ms=50)
+        # Stage 1: Parallel — use longer delays so Windows timer granularity
+        # (~15 ms) and thread-dispatch latency are a smaller proportion of the
+        # budget, making the test reliably pass across OSes.
+        detect = MockDetectNode(name="detect", delay_ms=200)
+        depth = MockDepthNode(name="depth", delay_ms=200)
 
         # Stage 2: Sequential (depends on detect)
-        filter_node = MockFilterNode(name="filter", delay_ms=30)
+        filter_node = MockFilterNode(name="filter", delay_ms=50)
 
         graph = Graph(name="mixed_test")
         graph.add(detect, inputs={"image": "input.image"})
@@ -507,6 +509,13 @@ class TestParallelScheduler:
 
         # Compile
         compiled = graph.compile(providers={})
+
+        # Warm up: Image.validate() does `import torch` on the first call in the
+        # process. When this test is run in isolation the cold import takes
+        # ~1-2 s on Windows and would land inside the timed section, inflating
+        # the measured time. Calling validate() here forces the import to happen
+        # before we start the clock.
+        mock_image.validate()
 
         # Execute
         scheduler = ParallelScheduler(max_workers=2)
@@ -519,10 +528,11 @@ class TestParallelScheduler:
         assert depth.executed
         assert filter_node.executed
 
-        # Verify timing (parallel stage ~50ms + sequential ~30ms = ~80ms total)
-        # Not 130ms (50 + 50 + 30)
+        # Parallel stage ~200 ms + sequential ~50 ms = ~250 ms.
+        # Sequential would be 200 + 200 + 50 = 450 ms.
+        # Allow generous headroom for OS scheduling / timer granularity.
         elapsed_ms = (end_time - start_time) * 1000
-        assert elapsed_ms < 120, f"Execution took {elapsed_ms}ms, expected < 120ms"
+        assert elapsed_ms < 380, f"Execution took {elapsed_ms}ms, expected < 380ms"
 
     def test_error_handling_in_parallel(self, mock_image, mock_context):
         """Test error handling when parallel node fails."""

@@ -676,9 +676,26 @@ class UniversalLoader:
 
         elif task == "embed":
             from mata.adapters.embed_adapter import EmbedAdapter
-            from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
 
-            encoder = HuggingFaceReIDAdapter(model_id, **kwargs)
+            # Probe AutoConfig to detect X-CLIP before falling back to ReIDAdapter
+            _model_type = ""
+            try:
+                from transformers import AutoConfig
+
+                _cfg = AutoConfig.from_pretrained(model_id)
+                _model_type = getattr(_cfg, "model_type", "").lower()
+            except Exception:
+                pass
+
+            if _model_type in ("x_clip", "xclip"):
+                from mata.adapters.xclip_adapter import XCLIPAdapter
+
+                encoder = XCLIPAdapter(model_id, **kwargs)
+            else:
+                from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
+
+                encoder = HuggingFaceReIDAdapter(model_id, **kwargs)
+
             return EmbedAdapter(encoder=encoder)
 
         else:

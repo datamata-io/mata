@@ -21,6 +21,7 @@ from .reid_adapter import HuggingFaceReIDAdapter, ONNXReIDAdapter, ReIDAdapter
 from .torchscript_adapter import TorchScriptDetectAdapter
 from .torchscript_classify_adapter import TorchScriptClassifyAdapter
 from .torchvision_detect_adapter import TorchvisionDetectAdapter
+from .xclip_adapter import XCLIPAdapter
 
 __all__ = [
     # Base classes
@@ -28,6 +29,7 @@ __all__ = [
     "PyTorchBaseAdapter",
     "ONNXBaseAdapter",
     "EmbedAdapter",
+    "XCLIPAdapter",
     "ReIDAdapter",
     "HuggingFaceReIDAdapter",
     "ONNXReIDAdapter",
