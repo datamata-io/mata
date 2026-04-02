@@ -274,6 +274,23 @@ class TestTrackingAdapterConstruction:
         adapter = TrackingAdapter(detector)
         assert adapter.tracker_type == "botsort"
 
+    def test_reid_encoder_auto_enables_with_reid(self):
+        detector = _make_mock_detector()
+        reid_encoder = MagicMock()
+
+        adapter = TrackingAdapter(detector, tracker_config="botsort", reid_encoder=reid_encoder)
+
+        assert adapter._tracker.encoder is reid_encoder
+        assert adapter._tracker.with_reid is True
+
+    def test_no_reid_encoder_leaves_with_reid_false(self):
+        detector = _make_mock_detector()
+
+        adapter = TrackingAdapter(detector, tracker_config="botsort")
+
+        assert adapter._tracker.encoder is None
+        assert adapter._tracker.with_reid is False
+
     def test_bytetrack_string(self):
         detector = _make_mock_detector()
         adapter = TrackingAdapter(detector, tracker_config="bytetrack")

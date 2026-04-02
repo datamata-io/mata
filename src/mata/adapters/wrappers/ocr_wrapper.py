@@ -34,7 +34,7 @@ class OCRWrapper:
     Also exposes ``predict()`` for VLM tool-dispatch compatibility.
 
     Supported adapters:
-    - HuggingFaceOCRAdapter (GOT-OCR2, TrOCR)
+    - HuggingFaceOCRAdapter (GLM-OCR, GOT-OCR2, TrOCR)
     - EasyOCRAdapter
     - PaddleOCRAdapter
     - TesseractAdapter

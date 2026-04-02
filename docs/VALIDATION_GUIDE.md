@@ -1156,7 +1156,9 @@ Without ReID, BotSort associates detections to tracks using two cues:
 1. **IoU** — spatial overlap between predicted and detected bounding boxes
 2. **GMC** — global motion compensation (sparse optical flow) for camera motion
 
-With ReID enabled (`reid_model=...`), a third cue is added: 3. **Cosine appearance distance** — L2-normalised embedding vectors extracted from detection crops are compared against cached track features (`smooth_feat`)
+When you supply `reid_model=...`, BotSort ReID is auto-enabled and a third cue is added:
+
+3. **Cosine appearance distance** — L2-normalised embedding vectors extracted from detection crops are compared against cached track features (`smooth_feat`)
 
 This allows BotSort to re-associate tracks even when the predicted position drifts significantly due to occlusion gaps.
 
@@ -1170,7 +1172,7 @@ results = mata.track(
     "video.mp4",
     model="facebook/detr-resnet-50",
     tracker="botsort",
-    reid_model="openai/clip-vit-base-patch32",  # any HF image encoder
+    reid_model="openai/clip-vit-base-patch32",  # any HF image encoder; auto-enables ReID
     conf=0.3,
 )
 

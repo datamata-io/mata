@@ -448,3 +448,144 @@ class TestEmbedAdapterXCLIPDispatch:
 
         assert isinstance(result, np.ndarray)
         assert result.shape == (1, 512)
+
+
+# ---------------------------------------------------------------------------
+# Helpers for Qwen3-VL tests
+# ---------------------------------------------------------------------------
+
+
+def _make_qwen3_encoder(dim: int = 2048) -> MagicMock:
+    """Return a mock encoder mimicking Qwen3VLEmbeddingAdapter behaviour."""
+    encoder = MagicMock()
+    encoder.embedding_dim = dim
+    # Use side_effect so each call returns a fresh dict — EmbedAdapter.info()
+    # mutates the returned dict in-place, which would corrupt a shared return_value.
+    encoder.info.side_effect = lambda: {
+        "type": "qwen3_vl_embedding",
+        "model_id": "Qwen/Qwen3-VL-Embedding-2B",
+        "native_dim": dim,
+        "embedding_dim": dim,
+        "device": "cpu",
+    }
+    encoder.predict.side_effect = lambda crops: (
+        np.zeros((0, 0), dtype=np.float32) if len(crops) == 0 else np.ones((len(crops), dim), dtype=np.float32)
+    )
+    encoder.predict_image.return_value = np.ones((1, dim), dtype=np.float32)
+    encoder.predict_text.return_value = np.ones((1, dim), dtype=np.float32)
+    encoder.predict_video.return_value = np.ones((1, dim), dtype=np.float32)
+    encoder.predict_multimodal.return_value = np.ones((1, dim), dtype=np.float32)
+    return encoder
+
+
+# ---------------------------------------------------------------------------
+# TestEmbedAdapterQwen3VLDispatch
+# ---------------------------------------------------------------------------
+
+
+class TestEmbedAdapterQwen3VLDispatch:
+    def test_embed_image_delegates_to_predict(self):
+        """Image → encoder.predict([np_image]) even when encoder has predict_video."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_qwen3_encoder(dim=2048)
+        adapter = EmbedAdapter(encoder=encoder)
+        adapter.embed(_make_image())
+
+        encoder.predict.assert_called_once()
+        encoder.predict_video.assert_not_called()
+
+    def test_embed_adapter_wraps_qwen3_encoder(self):
+        """EmbedAdapter(encoder=qwen3_mock) stores the encoder on _encoder."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_qwen3_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        assert adapter._encoder is encoder
+
+    def test_embedding_dim_from_qwen3_encoder(self):
+        """embedding_dim delegates to Qwen3VL encoder's embedding_dim property."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        dim = 2048
+        encoder = _make_qwen3_encoder(dim=dim)
+        adapter = EmbedAdapter(encoder=encoder)
+        assert adapter.embedding_dim == dim
+
+    def test_info_wraps_qwen3_encoder_info(self):
+        """info() merges Qwen3VL encoder fields; top-level type is 'embed'.
+
+        The encoder's own info() reports type 'qwen3_vl_embedding', but
+        EmbedAdapter.info() overrides type to 'embed' and merges the rest.
+        """
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_qwen3_encoder(dim=2048)
+        adapter = EmbedAdapter(encoder=encoder)
+        info = adapter.info()
+
+        # EmbedAdapter normalises type to "embed"
+        assert info["type"] == "embed"
+        # Qwen3VL-specific fields from the encoder are present in the merged dict
+        assert info["model_id"] == "Qwen/Qwen3-VL-Embedding-2B"
+        # Encoder's own info carries the "qwen3_vl_embedding" type identifier
+        assert encoder.info()["type"] == "qwen3_vl_embedding"
+
+    def test_embed_rois_with_qwen3_encoder(self):
+        """ROIs dispatch calls encoder.predict(crops_list) on Qwen3 adapter."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        dim = 2048
+        n = 3
+        encoder = _make_qwen3_encoder(dim=dim)
+        adapter = EmbedAdapter(encoder=encoder)
+        result = adapter.embed(_make_rois(n=n))
+
+        encoder.predict.assert_called_once()
+        call_arg = encoder.predict.call_args[0][0]
+        assert isinstance(call_arg, list)
+        assert len(call_arg) == n
+        assert result.shape == (n, dim)
+
+    def test_embed_empty_rois_with_qwen3(self):
+        """Empty ROIs returns (0, 0) array without calling encoder.predict."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+        from mata.core.artifacts.rois import ROIs
+
+        encoder = _make_qwen3_encoder()
+        adapter = EmbedAdapter(encoder=encoder)
+        empty_rois = ROIs(roi_images=[], source_boxes=[])
+        result = adapter.embed(empty_rois)
+
+        assert result.shape[0] == 0
+        encoder.predict.assert_not_called()
+
+    def test_embed_with_kwargs_forwarded_to_qwen3(self):
+        """Extra kwargs passed to embed() do not raise with a Qwen3 encoder."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_qwen3_encoder(dim=2048)
+        adapter = EmbedAdapter(encoder=encoder)
+        result = adapter.embed(_make_image(), normalize=True)
+
+        assert isinstance(result, np.ndarray)
+        encoder.predict.assert_called_once()
+
+    def test_existing_clip_path_unchanged(self):
+        """CLIP encoder (predict only, no predict_video) still routes via predict()."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        dim = 512
+        clip_encoder = MagicMock(spec=["embedding_dim", "info", "predict"])
+        clip_encoder.embedding_dim = dim
+        clip_encoder.info.return_value = {
+            "model_id": "openai/clip-vit-base-patch32",
+            "device": "cpu",
+        }
+        clip_encoder.predict.return_value = np.ones((1, dim), dtype=np.float32)
+
+        adapter = EmbedAdapter(encoder=clip_encoder)
+        result = adapter.embed(_make_image())
+
+        clip_encoder.predict.assert_called_once()
+        assert result.shape == (1, dim)

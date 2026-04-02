@@ -99,8 +99,8 @@ result = mata.infer(
 )
 
 # Analyze results
-for inst in result['final'].instances:
-    print(f"{inst.label}: {inst.score:.2f} at {inst.bbox}")
+for inst in result['final']['dets'].instances:
+    print(f"{inst.label_name}: {inst.score:.2f} at {inst.bbox}")
 ```
 
 **Use Cases**:
@@ -153,9 +153,12 @@ result = mata.infer(
 )
 
 # Calculate defect areas
-for inst in result['final'].instances:
-    area = inst.mask.sum() if inst.mask is not None else 0
-    print(f"{inst.label}: {area} pixels at {inst.bbox}")
+for inst in result['final']['masks'].instances:
+    if inst.bbox is None:
+        continue
+    x1, y1, x2, y2 = inst.bbox
+    area = (x2 - x1) * (y2 - y1)
+    print(f"{inst.label_name}: {area:.0f} pixels at {inst.bbox}")
 ```
 
 ---
@@ -205,8 +208,9 @@ result = mata.infer(
     providers={"vlm": vlm, "detector": detector},
 )
 
-print("VLM Assessment:", result['final'].meta.get('vlm_response'))
-print(f"Detected {len(result['final'].instances)} components")
+assessment_text = result['final'].vlm_assessment.meta.get('text')
+print("VLM Assessment:", assessment_text)
+print(f"Detected {len(result['final']['dets'].instances)} components")
 ```
 
 ---
@@ -305,7 +309,7 @@ result = mata.infer(
 
 # Brand summary
 from collections import Counter
-brands = Counter(inst.label for inst in result['final'].instances)
+brands = Counter(inst.label_name for inst in result['final']['dets'].instances)
 print("Brand counts:", dict(brands))
 ```
 
@@ -351,7 +355,7 @@ result = mata.infer(
     text_prompts="red can . blue bottle . cereal box . milk carton",
 )
 
-print(f"Found {len(result['final'].instances)} products matching prompts")
+print(f"Found {len(result['final']['dets'].instances)} products matching prompts")
 ```
 
 ---
@@ -404,9 +408,10 @@ result = mata.infer(
     providers={"vlm": vlm, "detector": detector, "classifier": classifier},
 )
 
-print("VLM Assessment:", result['final'].meta.get('vlm_response'))
-print(f"Product Count: {len(result['final'].instances)}")
-print("Stock Level:", result['final'].meta.get('stock_category'))
+stock_text = result['final'].vlm_description.meta.get('text')
+print("VLM Assessment:", stock_text)
+print(f"Product Count: {len(result['final']['dets'].instances)}")
+print("Stock Level:", result['final'].classifications.top1.label_name)
 ```
 
 ---
@@ -461,12 +466,12 @@ result = mata.infer(
 )
 
 # Correlate detections with depth
-depth_map = result['final'].meta['depth_map']
-for inst in result['final'].instances:
+depth_map = result['final'].depth.depth
+for inst in result['final']['dets'].instances:
     x1, y1, x2, y2 = inst.bbox
     cx, cy = int((x1+x2)/2), int((y1+y2)/2)
     distance = depth_map[cy, cx]
-    print(f"{inst.label} at depth {distance:.2f}")
+    print(f"{inst.label_name} at depth {distance:.2f}")
 ```
 
 ---
@@ -522,8 +527,8 @@ result = mata.infer(
     providers={"detector": detector, "segmenter": segmenter, "depth": depth, "classifier": classifier},
 )
 
-print("Scene type:", result['final'].meta.get('scene_classification'))
-print(f"Detected {len(result['final'].instances)} objects")
+print("Scene type:", result['final'].classifications.top1.label_name)
+print(f"Detected {len(result['final']['dets'].instances)} objects")
 ```
 
 ---
@@ -558,7 +563,7 @@ Frame → Detect → Filter → Track → Annotate → Fuse
 ```python
 import mata
 from mata.presets import traffic_tracking
-from mata.tracking import ByteTrackWrapper
+from mata.nodes.track import ByteTrackWrapper
 
 detector = mata.load("detect", "PekingU/rtdetr_r18vd")
 tracker = ByteTrackWrapper()
@@ -573,9 +578,9 @@ for frame_idx, frame in enumerate(video_frames):
         providers={"detector": detector, "tracker": tracker},
     )
 
-    print(f"Frame {frame_idx}: {len(result['final'].instances)} tracked objects")
-    for inst in result['final'].instances:
-        print(f"  Track ID {inst.track_id}: {inst.label} at {inst.bbox}")
+    print(f"Frame {frame_idx}: {len(result['final']['tracks'].instances)} tracked objects")
+    for inst in result['final']['tracks'].instances:
+        print(f"  Track ID {inst.track_id}: {inst.label_name} at {inst.bbox}")
 ```
 
 ---
@@ -622,13 +627,14 @@ depth = mata.load("depth", "depth-anything/Depth-Anything-V2-Small-hf")
 result = mata.infer(
     "obstacle_scene.jpg",
     vlm_scene_understanding(
-        vlm_prompt="Identify any road hazards, obstacles, or traffic violations. Rate the urgency level.",
-        detect_entities=True,
+        describe_prompt="Identify any road hazards, obstacles, or traffic violations. Rate the urgency level.",
     ),
     providers={"vlm": vlm, "detector": detector, "depth": depth},
 )
 
-print("VLM Hazard Assessment:", result['final'].meta.get('vlm_response'))
+hazard_text = result['scene'].description.meta.get('text')
+print("VLM Hazard Assessment:", hazard_text)
+print(f"Objects detected: {len(result['scene']['dets'].instances)}")
 ```
 
 ---
@@ -668,7 +674,7 @@ Frame → Detect → Filter(person) → Track → Annotate → Fuse
 ```python
 import mata
 from mata.presets import crowd_monitoring
-from mata.tracking import ByteTrackWrapper
+from mata.nodes.track import ByteTrackWrapper
 
 detector = mata.load("detect", "facebook/detr-resnet-50")
 tracker = ByteTrackWrapper()
@@ -679,7 +685,7 @@ result = mata.infer(
     providers={"detector": detector, "tracker": tracker},
 )
 
-unique_ids = {inst.track_id for inst in result['final'].instances if inst.track_id}
+unique_ids = {inst.track_id for inst in result['final']['tracks'].instances if inst.track_id}
 print(f"Crowd count: {len(unique_ids)} individuals")
 
 # Alert if crowd exceeds threshold
@@ -734,9 +740,10 @@ result = mata.infer(
     providers={"detector": detector, "segmenter": segmenter, "vlm": vlm},
 )
 
-print(f"Found {len(result['final'].instances)} suspicious objects")
-for inst in result['final'].instances:
-    print(f"  {inst.label}: VLM says '{inst.meta.get('vlm_response')}'")
+print(f"Found {len(result['final']['dets'].instances)} suspicious objects")
+print("VLM Analysis:", result['final'].vlm_analysis.meta.get('text'))
+for inst in result['final']['dets'].instances:
+    print(f"  {inst.label_name}: {inst.score:.2f} at {inst.bbox}")
 ```
 
 ---
@@ -748,9 +755,11 @@ for inst in result['final'].instances:
 **Architecture Diagram**:
 
 ```
-Image → VLMQuery → PromoteEntities → Fuse
-        (security           (extract bboxes
-         assessment)         from VLM text)
+            ┌─→ VLMDescribe (security assessment)
+Image ──parallel────┼─→ Detect (entity extraction)
+            └─→ EstimateDepth (scene geometry)
+             ↓
+              Fuse
 ```
 
 **Provider Requirements**:
@@ -758,6 +767,7 @@ Image → VLMQuery → PromoteEntities → Fuse
 |----------|-------|------|---------|
 | `vlm` | Vision-Language Model | Scene assessment | `Qwen/Qwen3-VL-2B-Instruct` |
 | `detector` | Zero-shot detector | Entity extraction | `IDEA-Research/grounding-dino-tiny` |
+| `depth` | Depth estimator | Scene geometry context | `depth-anything/Depth-Anything-V2-Small-hf` |
 
 **Hardware Requirements**:
 
@@ -773,19 +783,20 @@ from mata.presets import vlm_scene_understanding
 
 vlm = mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct")
 detector = mata.load("detect", "IDEA-Research/grounding-dino-tiny")
+depth = mata.load("depth", "depth-anything/Depth-Anything-V2-Small-hf")
 
 result = mata.infer(
     "security_camera.jpg",
     vlm_scene_understanding(
-        vlm_prompt="Describe any security concerns, unusual behavior, or restricted area violations.",
-        detect_entities=True,
+        describe_prompt="Describe any security concerns, unusual behavior, or restricted area violations.",
     ),
-    providers={"vlm": vlm, "detector": detector},
+    providers={"vlm": vlm, "detector": detector, "depth": depth},
 )
 
-print("Security Assessment:", result['final'].meta.get('vlm_response'))
-if len(result['final'].instances) > 0:
-    print(f"⚠️ {len(result['final'].instances)} entities of concern detected")
+security_text = result['scene'].description.meta.get('text')
+print("Security Assessment:", security_text)
+if len(result['scene']['dets'].instances) > 0:
+    print(f"⚠️ {len(result['scene']['dets'].instances)} entities of concern detected")
 ```
 
 ---
@@ -840,8 +851,8 @@ result = mata.infer(
 
 # Disease summary
 from collections import Counter
-diseases = Counter(inst.label for inst in result['final'].instances)
-print("Disease distribution:", dict)
+diseases = Counter(inst.label_name for inst in result['final']['dets'].instances)
+print("Disease distribution:", dict(diseases))
 ```
 
 ---
@@ -888,7 +899,7 @@ result = mata.infer(
 )
 
 # Crop coverage analysis
-stuff_regions = [inst for inst in result['final'].instances if inst.meta.get('is_stuff')]
+stuff_regions = [inst for inst in result['final']['masks'].instances if inst.is_stuff]
 print(f"Identified {len(stuff_regions)} crop/terrain regions")
 ```
 
@@ -936,7 +947,11 @@ result = mata.infer(
 )
 
 # Calculate total infestation area
-total_area = sum(inst.mask.sum() for inst in result['final'].instances if inst.mask is not None)
+total_area = sum(
+    (inst.bbox[2] - inst.bbox[0]) * (inst.bbox[3] - inst.bbox[1])
+    for inst in result['final']['masks'].instances
+    if inst.bbox is not None
+)
 print(f"Total infestation area: {total_area} pixels")
 ```
 
@@ -992,9 +1007,12 @@ result = mata.infer(
 )
 
 # ROI measurements (research use only)
-for inst in result['final'].instances:
-    area = inst.mask.sum() if inst.mask is not None else 0
-    print(f"ROI {inst.label}: {area} pixels at {inst.bbox}")
+for inst in result['final']['masks'].instances:
+    if inst.bbox is None:
+        continue
+    x1, y1, x2, y2 = inst.bbox
+    area = (x2 - x1) * (y2 - y1)
+    print(f"ROI {inst.label_name}: {area:.0f} pixels at {inst.bbox}")
 ```
 
 ---
@@ -1006,9 +1024,7 @@ for inst in result['final'].instances:
 **Architecture Diagram**:
 
 ```
-Image → VLMQuery → Fuse
-        (describe
-         findings)
+Image → mata.run("vlm", ...) → report text
 ```
 
 **Provider Requirements**:
@@ -1026,20 +1042,14 @@ Image → VLMQuery → Fuse
 
 ```python
 import mata
-from mata.presets import vlm_scene_understanding
-
-vlm = mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct")
-
-result = mata.infer(
+result = mata.run(
+    "vlm",
     "medical_image.jpg",
-    vlm_scene_understanding(
-        vlm_prompt="Describe any abnormalities, lesions, or notable features in this medical image. (Research report only)",
-        detect_entities=False,
-    ),
-    providers={"vlm": vlm},
+    model="Qwen/Qwen3-VL-2B-Instruct",
+    prompt="Describe any abnormalities, lesions, or notable features in this medical image. (Research report only)",
 )
 
-print("Research Report:", result['final'].meta.get('vlm_response'))
+print("Research Report:", result.text)
 ```
 
 ---
@@ -1052,8 +1062,8 @@ print("Research Report:", result['final'].meta.get('vlm_response'))
 
 ```
 Image → Detect → Filter → ExtractROIs → Classify → [Conditional VLM] → Fuse
-        (find     (>0.4)   (crop        (normal/benign/    (detailed
-         regions)           regions)     malignant)         analysis if
+    (find     (>0.4)   (crop        (normal/benign/    (detailed
+     regions)           regions)     atypical)          analysis if
                                                             flagged)
 ```
 
@@ -1078,38 +1088,47 @@ from mata.core.graph.graph import Graph
 from mata.nodes.detect import Detect
 from mata.nodes.filter import Filter
 from mata.nodes.roi import ExtractROIs
-from mata.nodes.classify import Classify
-from mata.nodes.vlm_query import VLMQuery
 from mata.nodes.fuse import Fuse
 
 detector = mata.load("detect", "facebook/detr-resnet-50")
 classifier = mata.load("classify", "openai/clip-vit-base-patch32")
 vlm = mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct")
 
-# Build custom triage graph
+# Stage 1: detect candidate regions and extract ROI crops
 graph = (
     Graph("pathology_triage")
-    .then(Detect(using="detector", out="detections"))
-    .then(Filter(src="detections", score_gt=0.4, out="filtered"))
-    .then(ExtractROIs(src_dets="filtered", out="rois"))
-    .then(Classify(
-        using="classifier",
-        text_prompts=["normal", "benign", "malignant", "uncertain"],
-        out="classifications",
-    ))
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(ExtractROIs(src_dets="filtered", padding=10, out="rois"))
+    .then(Fuse(out="triage", dets="filtered", rois="rois"))
 )
 
 result = mata.infer(
     "pathology_slide.jpg",
     graph,
-    providers={"detector": detector, "classifier": classifier, "vlm": vlm},
+    providers={"detector": detector},
 )
 
-# Conditional VLM analysis for flagged cases
-for inst in result['classifications'].instances:
-    if inst.label == "malignant" and inst.score > 0.3:
-        print(f"⚠️ FLAGGED: {inst.label} (confidence {inst.score:.2f})")
-        # In real implementation, trigger VLM analysis here
+# Stage 2: classify each ROI crop, then escalate atypical cases to the VLM
+triage_labels = ["normal", "benign", "atypical", "uncertain"]
+for idx, roi_image in enumerate(result['triage'].rois.roi_images):
+    cls = mata.run(
+        "classify",
+        roi_image,
+        model="openai/clip-vit-base-patch32",
+        text_prompts=triage_labels,
+    )
+
+    top1 = cls.top1
+    if top1.label_name in {"atypical", "uncertain"} and top1.score > 0.3:
+        review = mata.run(
+            "vlm",
+            roi_image,
+            model="Qwen/Qwen3-VL-2B-Instruct",
+            prompt="Describe the notable visual patterns in this pathology ROI. Research use only.",
+        )
+        print(f"⚠️ FLAGGED ROI {idx}: {top1.label_name} ({top1.score:.2f})")
+        print("   VLM review:", review.text)
 ```
 
 ---

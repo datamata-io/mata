@@ -17,6 +17,7 @@ from .onnx_classify_adapter import ONNXClassifyAdapter
 from .pytorch_adapter import PyTorchDetectAdapter
 from .pytorch_base import PyTorchBaseAdapter
 from .pytorch_classify_adapter import PyTorchClassifyAdapter
+from .qwen3_vl_embedding_adapter import Qwen3VLEmbeddingAdapter
 from .reid_adapter import HuggingFaceReIDAdapter, ONNXReIDAdapter, ReIDAdapter
 from .torchscript_adapter import TorchScriptDetectAdapter
 from .torchscript_classify_adapter import TorchScriptClassifyAdapter
@@ -48,6 +49,8 @@ __all__ = [
     "PyTorchClassifyAdapter",
     "ONNXClassifyAdapter",
     "TorchScriptClassifyAdapter",
+    # Embedding adapters
+    "Qwen3VLEmbeddingAdapter",
     # OCR adapters
     "HuggingFaceOCRAdapter",
     "EasyOCRAdapter",

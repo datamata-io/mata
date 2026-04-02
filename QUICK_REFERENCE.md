@@ -43,10 +43,9 @@ detector = mata.load("detect", "./models/rtdetr.onnx")
 
 # Load using config alias
 detector = mata.load("detect", "fast-model")
-
-# Load legacy plugin (backward compat)
-detector = mata.load("detect", "rtdetr")  # Still works!
 ```
+
+Bare legacy plugin names like `"rtdetr"` are **not** direct load targets anymore. Use a HuggingFace model ID, a local file path, or define a config alias in `.mata/models.yaml`.
 
 ---
 
@@ -86,11 +85,14 @@ detector = mata.load("detect", "rtdetr-r18")
 
 When you call `mata.load("detect", "source")`, MATA checks in order:
 
-1. **Config alias** - Is "source" in `models.yaml`?
-2. **Local file** - Does file exist on disk?
-3. **HuggingFace ID** - Does "source" contain `/`?
-4. **Legacy plugin** - Is "source" a registered plugin?
-5. **Default** - Use task's default model
+1. **Default** - Is source `None`? Use task's default model
+2. **Config alias** - Is "source" in `models.yaml`?
+3. **Local file** - Does file exist on disk?
+4. **File extension** - Does it end with `.onnx`, `.pt`, `.pth`, `.bin`, `.trt`, or `.engine`?
+5. **Torchvision** - Does it start with `torchvision/`?
+6. **External engine** - Is it a known engine name such as `easyocr`, `paddleocr`, `tesseract`, `pyzbar`, or `zxing`?
+7. **HuggingFace ID** - Does "source" contain `/`?
+8. **Fallback** - Treat as config alias and raise `ModelNotFoundError` if it is not found
 
 ---
 
@@ -167,8 +169,8 @@ detector = mata.load("detect", "production-model")
 
 ### If you're upgrading from v1.4:
 
-- [ ] **Option 1:** No changes needed - old code still works with deprecation warnings
-- [ ] **Option 2:** Update to model IDs/paths for new features:
+- [ ] **Option 1:** Replace legacy plugin names with a real model ID, local path, or config alias
+- [ ] **Option 2:** Update existing loads like this:
 
   ```python
   # Old
@@ -179,7 +181,7 @@ detector = mata.load("detect", "production-model")
   ```
 
 - [ ] **Option 3:** Create config file for aliases
-- [ ] Update code to use `.instances` instead of `.detections` (removed in v1.5)
+- [ ] Prefer `.instances` for full results; `.detections` remains as a backward-compatible filtered property
 
 ---
 
@@ -189,13 +191,13 @@ detector = mata.load("detect", "production-model")
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 - **Graph System:** [GRAPH_API_REFERENCE.md](docs/GRAPH_API_REFERENCE.md)
 - **VLM Agent:** [VLM_TOOL_CALLING_SUMMARY.md](docs/VLM_TOOL_CALLING_SUMMARY.md)
-- **Tracking:** [TASK_TRACKING.md](docs/TASK_TRACKING.md)
+- **Tracking:** [TRACKING_GUIDE.md](docs/TRACKING_GUIDE.md)
 
 ---
 
 ## ✅ Testing
 
-**4047+ tests across all subsystems:**
+**5346+ tests across all subsystems:**
 
 ```bash
 pytest tests/ -v
@@ -239,35 +241,34 @@ for inst in result.final.instances:
 
 ### Common Node Types
 
-| Node        | Description                  | Key params                           |
-| ----------- | ---------------------------- | ------------------------------------ |
-| `Detect`    | Run object detection         | `using`, `out`                       |
-| `Classify`  | Run classification           | `using`, `out`                       |
-| `Segment`   | Run segmentation             | `using`, `out`                       |
-| `Depth`     | Run depth estimation         | `using`, `out`                       |
-| `VLMQuery`  | Run VLM with prompt          | `using`, `prompt`, `out`             |
-| `VLMDetect` | VLM → structured detections  | `using`, `prompt`, `out`             |
-| `Filter`    | Filter by score / label      | `src`, `score_gt`, `label_in`, `out` |
-| `TopK`      | Keep top-K detections        | `k`, `src`, `out`                    |
-| `Merge`     | Merge multiple inputs        | `srcs`, `out`                        |
-| `Fuse`      | Collect results into channel | `dets`, `out`                        |
-| `Annotate`  | Draw boxes/masks on image    | `dets`, `out`                        |
-| `Crop`      | Extract ROIs per detection   | `dets`, `image`, `out`               |
-| `Track`     | Add multi-object tracking    | `using`, `dets`, `out`               |
-| `If`        | Conditional branch           | `condition`, `then`, `out`           |
+| Node            | Description                  | Key params                           |
+| --------------- | ---------------------------- | ------------------------------------ |
+| `Detect`        | Run object detection         | `using`, `out`                       |
+| `Classify`      | Run classification           | `using`, `out`                       |
+| `SegmentImage`  | Run segmentation             | `using`, `out`                       |
+| `EstimateDepth` | Run depth estimation         | `using`, `out`                       |
+| `VLMQuery`      | Run VLM with prompt          | `using`, `prompt`, `out`             |
+| `VLMDetect`     | VLM → structured detections  | `using`, `prompt`, `out`             |
+| `Filter`        | Filter by score / label      | `src`, `score_gt`, `label_in`, `out` |
+| `TopK`          | Keep top-K detections        | `k`, `src`, `out`                    |
+| `Merge`         | Merge multiple inputs        | `srcs`, `out`                        |
+| `Fuse`          | Collect results into channel | `dets`, `out`                        |
+| `Annotate`      | Draw boxes/masks on image    | `dets`, `out`                        |
+| `ExtractROIs`   | Extract ROIs per detection   | `src_dets`, `out`                    |
+| `Track`         | Add multi-object tracking    | `using`, `dets`, `out`               |
 
 ### Parallel Execution
 
 ```python
 from mata.core.graph import Graph, ParallelScheduler
-from mata.nodes import Detect, Classify, Depth, Fuse
+from mata.nodes import Detect, Classify, EstimateDepth, Fuse
 
 result = mata.infer(
     image="photo.jpg",
     graph=[
         Detect(using="detector", out="dets"),
-        Classify(using="classifier", out="class"),   # ← parallel stage
-        Depth(using="depth_model", out="depth"),      # ← parallel stage
+        Classify(using="classifier", out="cls"),       # ← parallel stage
+        EstimateDepth(using="depth_model", out="depth"),  # ← parallel stage
         Fuse(dets="dets", out="final"),
     ],
     providers={
@@ -279,7 +280,7 @@ result = mata.infer(
     scheduler=ParallelScheduler(),
 )
 print(result.dets)   # VisionResult
-print(result.class_)  # ClassifyResult
+print(result.cls)    # ClassifyResult
 print(result.depth)  # DepthResult
 ```
 
@@ -302,13 +303,14 @@ result = mata.infer("photo.jpg", graph, providers={"detector": detector})
 ### DSL Graph Construction
 
 ```python
-from mata.dsl import dsl_graph
+from mata.core.graph.dsl import sequential
+from mata.nodes import Detect, Filter, Fuse
 
-graph = dsl_graph("""
-detect using=detector out=dets
-filter src=dets score_gt=0.3 out=filtered
-fuse dets=filtered out=final
-""")
+graph = sequential(
+    Detect(using="detector", out="dets"),
+    Filter(src="dets", score_gt=0.3, out="filtered"),
+    Fuse(dets="filtered", out="final"),
+)
 
 result = mata.infer("photo.jpg", graph, providers={"detector": detector})
 ```
@@ -317,17 +319,16 @@ result = mata.infer("photo.jpg", graph, providers={"detector": detector})
 
 ```python
 from mata.presets import (
-    surveillance_basic,          # detect persons + tracking
-    retail_analytics,            # detect products + classify
-    medical_analysis,            # segment + VLM description
-    traffic_monitoring,          # detect vehicles + tracking
+    crowd_monitoring,            # detect persons + ByteTrack
     crowd_monitoring_botsort,    # detect persons + BotSort
+    traffic_tracking,            # detect vehicles + ByteTrack
+    traffic_tracking_botsort,    # detect vehicles + BotSort
 )
 
 result = mata.infer(
     image="scene.jpg",
     **crowd_monitoring_botsort(),
-    providers={"detector": mata.load("detect", "facebook/detr-resnet-50"), ...},
+    providers={"detector": mata.load("detect", "facebook/detr-resnet-50")},
 )
 ```
 
@@ -351,8 +352,8 @@ image = Image.open("image.jpg")
 result = detector.predict(image, threshold=0.5)
 
 # Access results
-for det in result.detections:
-    print(f"{det.label}: {det.score:.2f} at {det.bbox}")
+for inst in result.instances:
+    print(f"{inst.label_name}: {inst.score:.2f} at {inst.bbox}")
 ```
 
 ### Using Config File
@@ -657,7 +658,7 @@ result = mata.run(
     model="openai/clip-vit-base-patch32",
     text_prompts=["cat", "dog", "bird"]
 )
-print(result.top(1))  # Most likely label
+print(result.top1)  # Most likely label
 
 # Custom template (context-aware)
 result = mata.run(
@@ -1491,7 +1492,7 @@ result = mata.infer("video.mp4", crowd_monitoring_botsort(), providers={...})
 
 **Test suites:** `tests/test_trackers/` (354) · `tests/test_tracking_adapter.py` (73) · `tests/test_track_api.py` (62) · `tests/test_tracking_visualization.py` (103) · `tests/test_video_io.py` (56) — **687 tracking tests total**
 
-**Documentation:** [TASK_TRACKING.md](docs/TASK_TRACKING.md) · [examples/track/](examples/track/)
+**Documentation:** [TRACKING_GUIDE.md](docs/TRACKING_GUIDE.md) · [examples/track/](examples/track/)
 
 ---
 
@@ -2011,7 +2012,7 @@ mata val segment --data coco.yaml --model facebook/mask2former-swin-tiny-coco-in
 ```python
 import mata
 
-gallery = mata.Gallery(threshold=0.7)
+gallery = mata.Gallery(similarity_thresh=0.7)
 gallery.add("alice_1.jpg", label="alice", model="openai/clip-vit-base-patch32")
 gallery.add("alice_2.jpg", label="alice", model="openai/clip-vit-base-patch32")
 gallery.add("bob_1.jpg",   label="bob",   model="openai/clip-vit-base-patch32")
@@ -2028,8 +2029,8 @@ matches = mata.run("recognize", "query.jpg",
     model="openai/clip-vit-base-patch32",
     top_k=3)
 
-print(matches.top1.label)        # best match
-print(matches.top1.similarity)   # cosine similarity [0, 1]
+print(matches.entries[0].label)        # best match
+print(matches.entries[0].similarity)   # cosine similarity [0, 1]
 for entry in matches.entries:
     print(f"{entry.label}: {entry.similarity:.3f}")
 ```
@@ -2040,9 +2041,8 @@ for entry in matches.entries:
 from mata import Matches, MatchEntry
 
 matches.entries          # list[MatchEntry]
-matches.top1             # highest-similarity MatchEntry
-matches.to_json()        # JSON serialisation
 matches.to_dict()        # dict serialisation
+Matches.from_dict(data)  # reconstruct from dict
 
 entry.label              # gallery label string
 entry.similarity         # float in [0, 1]

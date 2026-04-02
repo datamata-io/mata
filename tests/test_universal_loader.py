@@ -1048,5 +1048,96 @@ class TestUniversalLoaderXCLIPRouting:
         assert not isinstance(result, type(mock_xclip_cls.return_value))
 
 
+class TestUniversalLoaderQwen3VLEmbeddingRouting:
+    """Test that model_loader routes embed task correctly for Qwen3-VL-Embedding models (Task D3)."""
+
+    @patch("mata.adapters.qwen3_vl_embedding_adapter.Qwen3VLEmbeddingAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_qwen3_vl_8b_routes_correctly(self, mock_autoconfig_cls, mock_qwen3_cls):
+        """model_id='Qwen/Qwen3-VL-Embedding-8B' → Qwen3VLEmbeddingAdapter wrapped in EmbedAdapter."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "qwen3_vl"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_qwen3_cls.return_value = Mock()
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "Qwen/Qwen3-VL-Embedding-8B")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_qwen3_cls.assert_called_once_with("Qwen/Qwen3-VL-Embedding-8B")
+
+    @patch("mata.adapters.qwen3_vl_embedding_adapter.Qwen3VLEmbeddingAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_qwen3_vl_2b_routes_correctly(self, mock_autoconfig_cls, mock_qwen3_cls):
+        """model_id='Qwen/Qwen3-VL-Embedding-2B' → Qwen3VLEmbeddingAdapter wrapped in EmbedAdapter."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "qwen3_vl"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_qwen3_cls.return_value = Mock()
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "Qwen/Qwen3-VL-Embedding-2B")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_qwen3_cls.assert_called_once_with("Qwen/Qwen3-VL-Embedding-2B")
+
+    @patch("mata.adapters.reid_adapter.HuggingFaceReIDAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_clip_unchanged(self, mock_autoconfig_cls, mock_reid_cls):
+        """'openai/clip-vit-base-patch32' still routes to HuggingFaceReIDAdapter (no regression)."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "clip"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_reid_cls.return_value = Mock()
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "openai/clip-vit-base-patch32")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_reid_cls.assert_called_once_with("openai/clip-vit-base-patch32")
+
+    @patch("mata.adapters.reid_adapter.ONNXReIDAdapter")
+    def test_load_embed_onnx_unchanged(self, mock_onnx_cls):
+        """'./model.onnx' still routes to ONNXReIDAdapter via local file path (no regression)."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_onnx_cls.return_value = Mock()
+
+        loader = UniversalLoader()
+        with patch("os.path.exists", return_value=True):
+            result = loader.load("embed", "./model.onnx")
+
+        assert isinstance(result, EmbedAdapter)
+        mock_onnx_cls.assert_called_once_with("./model.onnx")
+
+    @patch("mata.adapters.reid_adapter.HuggingFaceReIDAdapter")
+    @patch("transformers.AutoConfig")
+    def test_load_embed_qwen_vl_instruct_not_matched(self, mock_autoconfig_cls, mock_reid_cls):
+        """'Qwen/Qwen3-VL-2B-Instruct' (VLM model, no 'embedding' in name) does NOT route to Qwen3VLEmbeddingAdapter."""
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        mock_cfg = Mock()
+        mock_cfg.model_type = "qwen3_vl"
+        mock_autoconfig_cls.from_pretrained.return_value = mock_cfg
+
+        mock_reid_cls.return_value = Mock()
+
+        loader = UniversalLoader()
+        result = loader._load_from_huggingface("embed", "Qwen/Qwen3-VL-2B-Instruct")
+
+        assert isinstance(result, EmbedAdapter)
+        # Must fall through to HuggingFaceReIDAdapter — NOT Qwen3VLEmbeddingAdapter
+        mock_reid_cls.assert_called_once_with("Qwen/Qwen3-VL-2B-Instruct")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

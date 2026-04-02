@@ -47,7 +47,7 @@ result = mata.infer(
     providers={"detector": detector},
 )
 
-for inst in result.final.instances:
+for inst in result.final.dets.instances:
     print(f"{inst.label_name}: {inst.score:.2f} at {inst.bbox}")
 ```
 
@@ -68,7 +68,7 @@ result = mata.infer(
     providers={"detector": detector},
 )
 
-print(f"Found {len(result.final.instances)} objects above 0.5 confidence")
+print(f"Found {len(result.final.dets.instances)} objects above 0.5 confidence")
 ```
 
 ### Recipe 3: Using the Graph Builder
@@ -106,7 +106,7 @@ result = (Graph("top5_detections")
     .run("photo.jpg", providers={"detector": detector})
 )
 
-for inst in result.final.instances:
+for inst in result.final.dets.instances:
     print(f"{inst.label_name}: {inst.score:.2f}")
 ```
 
@@ -205,7 +205,7 @@ result = mata.infer(
 )
 
 # Access cropped regions
-for roi, inst_id in zip(result.final.roi_images, result.final.instance_ids):
+for roi, inst_id in zip(result.final.rois.roi_images, result.final.rois.instance_ids):
     print(f"Crop for {inst_id}: {roi.size}")
 ```
 
@@ -234,7 +234,7 @@ result = mata.infer(
     providers={"detector": detector, "segmenter": segmenter},
 )
 
-print(f"Segmented {len(result.final.instances)} objects")
+print(f"Segmented {len(result.final.dets.instances)} objects")
 ```
 
 ### Recipe 9: GroundingDINO + SAM (Preset)
@@ -356,7 +356,10 @@ result = mata.infer(
     providers={"classifier": classifier},
 )
 
-print(f"Top prediction: {result.final.top1.label_name} ({result.final.top1.score:.2f})")
+print(
+    f"Top prediction: {result.final.classification.top1.label_name} "
+    f"({result.final.classification.top1.score:.2f})"
+)
 ```
 
 ### Recipe 15: Monocular Depth Estimation
@@ -419,7 +422,7 @@ result = mata.infer(
 )
 
 print(f"Scene: {result.scene.classification.top1.label_name}")
-print(f"Objects: {len(result.scene.detections.instances)}")
+print(f"Objects: {len(result.scene.dets.instances)}")
 ```
 
 ### Recipe 17: Full Scene Analysis (Preset)
@@ -680,7 +683,7 @@ graph = (
     Graph("video_callback")
     .then(Detect(using="detector", out="dets"))
     .then(Filter(src="dets", score_gt=0.4, out="filtered"))
-    .then(Track(using="tracker", src="filtered", out="tracks"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
     .then(Fuse(tracks="tracks", out="final"))
 )
 
@@ -735,7 +738,7 @@ graph = (
     Graph("cross_camera_reid")
     .then(Detect(using="detector", out="dets"))
     .then(Filter(src="dets", score_gt=0.4, out="filtered"))
-    .then(Track(using="tracker", src="filtered", out="tracks"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
     .then(ExtractROIs(src_dets="tracks", src_image="image", out="rois"))
     .then(Embed(using="encoder", src="rois", out="embeddings"))
     .then(ReID(using="bridge", tracks_src="tracks",
@@ -752,7 +755,7 @@ results = graph.run(
 
 for result in results:
     cm = result.channels.get("cross_matches")
-    if cm and cm.has_cross_camera:
+    if cm and len(cm.matches) > 0:
         for match in cm.matches:
             print(f"Local track #{match.local_track_id} "
                   f"→ {match.remote_camera_id}#{match.remote_track_id} "
@@ -796,7 +799,7 @@ graph = (
     Graph("annotated_video")
     .then(Detect(using="detector", out="dets"))
     .then(Filter(src="dets", score_gt=0.4, out="filtered"))
-    .then(Track(using="tracker", src="filtered", out="tracks"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
     .then(ExtractROIs(src_dets="tracks", src_image="image", out="rois"))
     .then(Embed(using="encoder", src="rois", out="embeddings"))
     .then(ReID(using="bridge", tracks_src="tracks",
@@ -859,7 +862,7 @@ def make_graph(cam_id: str) -> tuple[Graph, AnnotateRT]:
         Graph(f"pipeline_{cam_id}")
         .then(Detect(using="detector", out="dets"))
         .then(Filter(src="dets", score_gt=0.4, out="filtered"))
-        .then(Track(using="tracker", src="filtered", out="tracks"))
+        .then(Track(using="tracker", dets="filtered", out="tracks"))
         .then(ExtractROIs(src_dets="tracks", src_image="image", out="rois"))
         .then(Embed(using="encoder", src="rois", out="embeddings"))
         .then(ReID(using="bridge", tracks_src="tracks",
@@ -925,7 +928,7 @@ except KeyboardInterrupt:
 
 ## VLM Workflows
 
-### Recipe 26: Image Description
+### Recipe 30: Image Description
 
 Generate natural language descriptions using a VLM.
 
@@ -944,7 +947,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 27: VLM Zero-Shot Detection
+### Recipe 31: VLM Zero-Shot Detection
 
 Detect objects using VLM with auto-promotion.
 
@@ -967,7 +970,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 28: VLM → GroundingDINO Grounded Detection
+### Recipe 32: VLM → GroundingDINO Grounded Detection
 
 Use VLM for semantic understanding, then ground with spatial detector.
 
@@ -990,7 +993,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 29: VLM Scene Understanding (Parallel)
+### Recipe 33: VLM Scene Understanding (Parallel)
 
 Combine VLM description with detection and depth in parallel.
 
@@ -1015,7 +1018,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 30: Multi-Image Comparison
+### Recipe 34: Multi-Image Comparison
 
 Compare multiple images using VLM reasoning.
 
@@ -1034,7 +1037,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 31: Entity → Instance Promotion (Manual)
+### Recipe 35: Entity → Instance Promotion (Manual)
 
 Manually promote VLM entities to spatial instances.
 
@@ -1061,7 +1064,7 @@ graph = (Graph("entity_promotion")
 
 ## Custom Nodes & Providers
 
-### Recipe 32: Custom Node (Blur Detection)
+### Recipe 36: Custom Node (Blur Detection)
 
 Create a node that computes image blur score.
 
@@ -1102,7 +1105,7 @@ graph = (Graph("blur_check")
 )
 ```
 
-### Recipe 33: Custom Provider (Wrapping a PyTorch Model)
+### Recipe 37: Custom Provider (Wrapping a PyTorch Model)
 
 Wrap any PyTorch model as a MATA provider.
 
@@ -1147,7 +1150,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 34: Custom Predicate for Conditional Branching
+### Recipe 38: Custom Predicate for Conditional Branching
 
 ```python
 from mata.core.graph.conditionals import Predicate
@@ -1186,7 +1189,7 @@ graph.then(If(
 
 ## Performance Optimization
 
-### Recipe 35: Parallel Scheduler for Independent Tasks
+### Recipe 39: Parallel Scheduler for Independent Tasks
 
 ```python
 from mata.core.graph import ParallelScheduler
@@ -1200,14 +1203,14 @@ result = mata.infer(
 )
 ```
 
-### Recipe 36: Optimized Multi-GPU Execution
+### Recipe 40: Optimized Multi-GPU Execution
 
 ```python
 from mata.core.graph import OptimizedParallelScheduler
 
 scheduler = OptimizedParallelScheduler(
-    strategy="memory_aware",   # Place models on GPU with most free memory
-    unload_models=True,        # Free GPU memory after each node completes
+    device_placement="memory_aware",  # Place models on GPU with most free memory
+    unload_unused=True,                # Free GPU memory after each node completes
 )
 
 result = mata.infer(
@@ -1219,7 +1222,7 @@ result = mata.infer(
 )
 ```
 
-### Recipe 37: Early Filtering for Pipeline Efficiency
+### Recipe 41: Early Filtering for Pipeline Efficiency
 
 Place `Filter` early to reduce work for downstream nodes.
 
@@ -1239,7 +1242,7 @@ graph_fast = (Graph()
 )
 ```
 
-### Recipe 38: Video Frame Skipping
+### Recipe 42: Video Frame Skipping
 
 Balance quality vs speed for video processing.
 
@@ -1263,7 +1266,7 @@ results = graph.run(
 
 ## Debugging & Troubleshooting
 
-### Recipe 39: Inspect Execution Metrics
+### Recipe 43: Inspect Execution Metrics
 
 ```python
 result = mata.infer("photo.jpg", graph, providers=providers)
@@ -1280,7 +1283,7 @@ print(f"Models: {result.provenance.get('models', {})}")
 print(f"Graph: {result.provenance.get('graph_name', 'unknown')}")
 ```
 
-### Recipe 40: Visualize Results
+### Recipe 44: Visualize Results
 
 Render detections on the image using built-in Annotate node.
 
@@ -1306,11 +1309,11 @@ result = mata.infer(
 )
 
 # Save annotated image
-annotated_img = result.final.to_pil()
+annotated_img = result.final.annotated.to_pil()
 annotated_img.save("annotated_output.jpg")
 ```
 
-### Recipe 41: Visualize Graph Structure
+### Recipe 45: Visualize Graph Structure
 
 Generate a visual diagram of your graph.
 
@@ -1326,7 +1329,7 @@ compiled = graph.compile(providers=providers)
 graph.visualize("pipeline.png")  # Requires networkx + pydot
 ```
 
-### Recipe 42: Debug Validation Errors
+### Recipe 46: Debug Validation Errors
 
 ```python
 from mata.core.graph import GraphValidator
@@ -1348,7 +1351,7 @@ else:
     print("✅ Graph is valid")
 ```
 
-### Recipe 43: Access Intermediate Artifacts
+### Recipe 47: Access Intermediate Artifacts
 
 After execution, all intermediate artifacts are in the context.
 
@@ -1401,7 +1404,7 @@ Stop expensive downstream inference the moment a fast guard determines there is 
 
 ```python
 import mata
-from mata.nodes import Detect, EarlyExit, SegmentImage
+from mata.nodes import Detect, EarlyExit, PromptBoxes
 from mata.core.graph import Graph
 
 detector  = mata.load("detect",  "facebook/detr-resnet-50")
@@ -1419,7 +1422,7 @@ graph = (
         reason="No detections — skipping segmentation",
         name="gate",
     ))
-    .then(SegmentImage(using="segmenter", dets="dets", out="masks"))
+    .then(PromptBoxes(using="segmenter", dets_src="dets", out="masks"))
 )
 
 try:
@@ -1536,14 +1539,14 @@ result = mata.infer(
 )
 
 for match_entry in result.matches:
-    print(f"Instance {match_entry.instance_id}: {match_entry.top1.label}"
-          f" ({match_entry.top1.similarity:.2f})")
+    print(f"Instance {match_entry.instance_id}: {match_entry.label}"
+          f" ({match_entry.similarity:.2f})")
 ```
 
 **Key points:**
 
 - `GalleryMatchNode` does **not** need a `providers` entry — the gallery is injected at construction.
 - `top_k=1` returns the single best identity per embedding; increase for top-N ranked results.
-- `threshold` filters out low-confidence matches; unmatched instances have `match_entry.top1 is None`.
+- `threshold` filters out low-confidence matches; unmatched instances have `match_entry.label == "unknown"`.
 - Use `mata.run("recognize", image, gallery=gallery, model="openai/clip-vit-base-patch32")` for the one-liner equivalent.
 - See [Recognition API Reference](GRAPH_API_REFERENCE.md#recognition-nodes-v195) for full `GalleryMatchNode` docs.

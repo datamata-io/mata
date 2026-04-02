@@ -25,7 +25,9 @@ class ValkeyLoad(Node):
     Args:
         url: Valkey connection URL
         key: Key name to load from
-        result_type: "auto", "vision", "classify", "depth", "ocr"
+        result_type: "auto", "vision", "classify", "depth", "ocr".
+            When ``"ocr"`` the loaded payload is converted to an
+            :class:`~mata.core.artifacts.ocr_text.OCRText` artifact.
         out: Output artifact name (default: "loaded")
 
     Examples:
@@ -87,7 +89,8 @@ class ValkeyLoad(Node):
         from mata.core.artifacts.classifications import Classifications
         from mata.core.artifacts.depth_map import DepthMap
         from mata.core.artifacts.detections import Detections
-        from mata.core.types import ClassifyResult, DepthResult, VisionResult
+        from mata.core.artifacts.ocr_text import OCRText
+        from mata.core.types import ClassifyResult, DepthResult, OCRResult, VisionResult
 
         if isinstance(result, VisionResult):
             return Detections.from_vision_result(result)
@@ -95,5 +98,7 @@ class ValkeyLoad(Node):
             return Classifications.from_classify_result(result)
         elif isinstance(result, DepthResult):
             return DepthMap.from_depth_result(result)
+        elif isinstance(result, OCRResult):
+            return OCRText.from_ocr_result(result)
         else:
             raise TypeError(f"Cannot convert {type(result).__name__} to graph artifact")

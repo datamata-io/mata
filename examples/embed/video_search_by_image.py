@@ -26,10 +26,9 @@ Usage:
 """
 import sys
 import argparse
-import numpy as np
 import mata
 from mata.core.video_io import iter_frames, get_video_info
-from mata.recognition import Gallery
+from mata.recognition import index_video
 
 # Tune these for your video / target action duration.
 # Run recommend_chunk_params() below to get suggested values.
@@ -37,44 +36,7 @@ CHUNK_FRAMES = 15   # frames sampled per chunk
 CHUNK_STRIDE = 89   # stride in frames (~3 s at 30 fps)
 
 
-def index_video(video_path: str, model: str) -> tuple[Gallery, dict]:
-    """Embed every CHUNK_STRIDE-frame window and store in a Gallery."""
-    adapter = mata.load("embed", model)
-    gallery = Gallery()
-    frame_map: dict[str, int] = {}
-
-    frames_buf: list = []
-    chunk_start = 0
-
-    for frame_idx, bgr_frame in iter_frames(video_path):
-        frames_buf.append(bgr_frame)
-
-        if len(frames_buf) == CHUNK_STRIDE:
-            sampled = [frames_buf[i] for i in
-                    np.linspace(0, CHUNK_STRIDE - 1, CHUNK_FRAMES, dtype=int)]
-            emb = adapter.embed(sampled)        # (1, D)
-            chunk_id = f"chunk_{chunk_start:06d}"
-            gallery.add(chunk_id, emb[0])
-            frame_map[chunk_id] = chunk_start
-            chunk_start = frame_idx + 1
-            frames_buf = []
-            print(f"Indexed up to frame {frame_idx}...", end="\r")
-
-    # Flush tail
-    if frames_buf:
-        n = len(frames_buf)
-        indices = np.linspace(0, n - 1, min(CHUNK_FRAMES, n), dtype=int)
-        sampled = [frames_buf[i] for i in indices]
-        emb = adapter.embed(sampled)
-        chunk_id = f"chunk_{chunk_start:06d}"
-        gallery.add(chunk_id, emb[0])
-        frame_map[chunk_id] = chunk_start
-
-    return gallery, frame_map
-
-
-def search_by_image(frame_path: str, gallery: Gallery, frame_map: dict,
-                    model: str, fps: float, top_k: int = 5) -> None:
+def search_by_image(frame_path: str, video_index, model: str, top_k: int = 5) -> None:
     """Find video chunks visually similar to a query image frame.
 
     Uses mata.run("recognize") which embeds the image through X-CLIP's video
@@ -83,7 +45,7 @@ def search_by_image(frame_path: str, gallery: Gallery, frame_map: dict,
     """
 
     result = mata.run("recognize", frame_path,
-                        gallery=gallery,
+                        gallery=video_index.gallery,
                         model=model,
                         top_k=top_k)
     
@@ -91,9 +53,9 @@ def search_by_image(frame_path: str, gallery: Gallery, frame_map: dict,
     print(f"\nImage-to-video results for: '{frame_path}'")
     for i, m in enumerate(entry.all_matches, 1):
         chunk_id = m["label"]
-        if chunk_id in frame_map:
-            start_s = frame_map[chunk_id] / fps
-            end_s = start_s + CHUNK_STRIDE / fps
+        if chunk_id in video_index.frame_map:
+            start_s = video_index.frame_map[chunk_id]
+            end_s = video_index.end_map[chunk_id]
             sm, ss = int(start_s) // 60, int(start_s) % 60
             em, es = int(end_s) // 60, int(end_s) % 60
             ts = f"@ {sm}m{ss:02d}s – {em}m{es:02d}s"
@@ -150,8 +112,13 @@ if __name__ == "__main__":
         parser.error("query_image is required unless --dump-frames is used")
 
     print(f"Indexing {args.video} ({info['frame_count']} frames @ {fps:.1f} fps)...")
-    gallery, frame_map = index_video(args.video, model)
-    print(f"Indexed {len(gallery)} chunks.\n")
+    video_index = index_video(
+        args.video,
+        model=model,
+        mode="chunk",
+        chunk_stride=CHUNK_STRIDE,
+        chunk_frames=CHUNK_FRAMES,
+    )
+    print(f"Indexed {len(video_index.gallery)} chunks.\n")
 
-    search_by_image(args.query_image, gallery, frame_map, model,
-                    fps=fps, top_k=args.top_k)
+    search_by_image(args.query_image, video_index, model, top_k=args.top_k)

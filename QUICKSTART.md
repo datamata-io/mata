@@ -4,24 +4,20 @@ This guide will get you up and running with MATA in 5 minutes.
 
 ## Installation
 
-### Quick Install (CPU)
-
 ```bash
-cd MATA
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install -e .
+pip install datamata
 ```
 
-### GPU Installation (Faster, requires NVIDIA GPU)
+For GPU acceleration (requires NVIDIA GPU + CUDA):
 
 ```bash
-cd MATA
-# Check your CUDA version with: nvidia-smi
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip install -e .
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install datamata
 ```
 
-**See [INSTALLATION.md](INSTALLATION.md) for detailed GPU/CPU installation instructions and troubleshooting.**
+> **From source** (contributors only): `git clone https://github.com/datamata-io/mata.git && cd mata && pip install -e .`
+
+See [INSTALLATION.md](INSTALLATION.md) for all options, optional extras, and troubleshooting.
 
 ## Verify Installation
 
@@ -65,8 +61,9 @@ Create a file `test_detect.py`:
 ```python
 import mata
 
-# Option 1: One-shot detection (simplest)
-result = mata.run("detect", "path/to/your/image.jpg")
+# One-shot detection (simplest)
+result = mata.run("detect", "path/to/your/image.jpg",
+                  model="facebook/detr-resnet-50")
 
 # Print results
 print(f"Found {len(result.instances)} objects:")
@@ -112,18 +109,17 @@ python test_depth.py
 ```python
 import mata
 
-# List available models
-print(mata.list_models("detect"))
-# Output: ['rtdetr', 'dino', 'conditional_detr']
+# List available models from HuggingFace Hub
+models = mata.list_models("detect")
+for model in models[:3]:
+    print(f"{model['id']} ({model['downloads']} downloads)")
 
-# List depth models
-print(mata.list_models("depth"))
-
-# Use DINO instead of default RT-DETR
-result = mata.run("detect", "image.jpg", model="dino", threshold=0.6)
+# Use a different model
+result = mata.run("detect", "image.jpg",
+                  model="IDEA-Research/grounding-dino-tiny", threshold=0.6)
 
 # Or load adapter for repeated use
-detector = mata.load("detect", "dino")
+detector = mata.load("detect", "facebook/detr-resnet-50")
 result1 = detector.predict("image1.jpg")
 result2 = detector.predict("image2.jpg")
 ```
@@ -132,16 +128,16 @@ result2 = detector.predict("image2.jpg")
 
 ```python
 # Adjust detection threshold
-result = mata.run("detect", "image.jpg", threshold=0.7)
+result = mata.run("detect", "image.jpg",
+                  model="facebook/detr-resnet-50", threshold=0.7)
 
 # Force CPU (default is auto)
-detector = mata.load("detect", "rtdetr", device="cpu")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="cpu")
 
-# Use different model variant
+# Use a larger model variant
 detector = mata.load(
     "detect",
-    "rtdetr",
-    model_id="PekingU/rtdetr_v2_r50vd",  # Larger model
+    "PekingU/rtdetr_v2_r50vd",
     threshold=0.5
 )
 ```
@@ -149,7 +145,7 @@ detector = mata.load(
 ## Working with Results
 
 ```python
-result = mata.run("detect", "image.jpg")
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
 
 # Access individual detections
 for inst in result.instances:
@@ -177,15 +173,15 @@ loaded_result = DetectResult.from_json(json_str)
 
 ```python
 # Option 1: Auto-detection (recommended)
-detector = mata.load("detect", "rtdetr", device="auto")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="auto")
 # Uses GPU if available, falls back to CPU
 
 # Option 2: Explicit GPU
-detector = mata.load("detect", "rtdetr", device="cuda")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="cuda")
 # Requires CUDA-capable GPU
 
 # Option 3: Explicit CPU
-detector = mata.load("detect", "rtdetr", device="cpu")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="cpu")
 # Useful for testing or non-GPU environments
 ```
 
@@ -202,7 +198,7 @@ else:
     print("No GPU available, using CPU")
 
 # Verify model is on correct device
-detector = mata.load("detect", "rtdetr", device="auto")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="auto")
 print(f"Model device: {detector.device}")
 ```
 
@@ -249,7 +245,7 @@ detector = mata.load(
 import torch
 
 # Clear GPU cache between large batches
-detector = mata.load("detect", "rtdetr", device="cuda")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="cuda")
 result = detector.predict("large_image.jpg")
 torch.cuda.empty_cache()  # Free unused GPU memory
 ```
@@ -283,7 +279,7 @@ Create a config file `mata_config.json`:
 {
   "default_device": "cuda",
   "default_models": {
-    "detect": "dino"
+    "detect": "facebook/detr-resnet-50"
   },
   "log_level": "INFO"
 }
@@ -301,7 +297,7 @@ set_config(config)
 # Or set via code
 config = MATAConfig(
     default_device="cpu",
-    default_models={"detect": "rtdetr"},
+    default_models={"detect": "facebook/detr-resnet-50"},
     log_level="DEBUG"
 )
 set_config(config)
@@ -318,10 +314,12 @@ detector = mata.load("detect")  # Uses config defaults
 
 ```python
 # Default threshold (0.3) might be too high for your image
-result = mata.run("detect", "image.jpg", threshold=0.3)  # 0 detections
+result = mata.run("detect", "image.jpg",
+                  model="facebook/detr-resnet-50", threshold=0.3)  # 0 detections
 
 # Try lowering it
-result = mata.run("detect", "image.jpg", threshold=0.2)  # May find objects now
+result = mata.run("detect", "image.jpg",
+                  model="facebook/detr-resnet-50", threshold=0.2)  # May find objects now
 ```
 
 **Debug with the debug script**:
@@ -352,19 +350,19 @@ ImportError: transformers is required for RT-DETR adapter
 
 ```python
 # Use CPU instead
-detector = mata.load("detect", device="cpu")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="cpu")
 
-# Or use smaller model
-detector = mata.load("detect", "rtdetr", model_id="facebook/detr-resnet-50")
+# Or use a smaller model
+detector = mata.load("detect", "PekingU/rtdetr_r18vd")
 ```
 
-### Plugin Not Discovered
+### Model Not Found
 
 ```
-PluginNotFoundError: Plugin 'rtdetr' not found for task 'detect'
+ModelNotFoundError: Model 'my-model' not found for task 'detect'
 ```
 
-**Solution**: Run `python verify_install.py` to check plugin discovery
+**Solution**: Check your model ID or config alias. Run `python verify_install.py` to diagnose.
 
 ## Evaluate Your Model
 
@@ -488,9 +486,15 @@ Build a gallery of known identities, then match query images against it with cos
 import mata
 
 # Build once
-gallery = mata.Gallery(threshold=0.7)
-gallery.add("alice_photo.jpg", label="alice", model="openai/clip-vit-base-patch32")
-gallery.add("bob_photo.jpg",   label="bob",   model="openai/clip-vit-base-patch32")
+gallery = mata.Gallery(similarity_thresh=0.7)
+
+# Embed photos, then add them to the gallery
+alice_emb = mata.run("embed", "alice_photo.jpg", model="openai/clip-vit-base-patch32")
+gallery.add("alice", alice_emb.embedding)
+
+bob_emb = mata.run("embed", "bob_photo.jpg", model="openai/clip-vit-base-patch32")
+gallery.add("bob", bob_emb.embedding)
+
 gallery.save("gallery.npz")
 
 # Recognise later
@@ -500,8 +504,8 @@ matches = mata.run("recognize", "query.jpg",
     model="openai/clip-vit-base-patch32",
     top_k=3)
 
-print(matches.top1.label)        # best match
-print(matches.top1.similarity)   # cosine similarity score
+print(matches.entries[0].label)       # best match
+print(matches.entries[0].similarity)  # cosine similarity score
 
 # Or use CLI:
 # mata recognize query.jpg --gallery gallery.npz --top-k 3
@@ -510,10 +514,8 @@ print(matches.top1.similarity)   # cosine similarity score
 See [QUICK_REFERENCE.md](QUICK_REFERENCE.md#-gallery--recognition-quick-reference-v195) for the full API and graph pipeline pattern.
 
 1. **Read the full documentation**: [README.md](README.md)
-2. **Understand the architecture**: [MATA_architecture_and_code_structure.md](MATA_architecture_and_code_structure.md)
-3. **See implementation details**: [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
-4. **Explore examples**: Check `examples/` directory and [examples/README.md](examples/README.md)
-5. **Write your own plugin**: See README.md "Plugin Development" section
+2. **Understand the architecture**: [docs/MATA_DESIGN_AND_ARCHITECTURE.md](docs/MATA_DESIGN_AND_ARCHITECTURE.md)
+3. **Explore examples**: Check `examples/` directory and [examples/README.md](examples/README.md)
 
 ## Getting Help
 

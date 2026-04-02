@@ -17,7 +17,7 @@ result  = mata.run("<task>", "image.jpg", model="<HuggingFace ID or file path>")
 
 | Model                | HuggingFace ID                         | Runtime            | mAP (COCO) | Speed (RTX 3080) | License    |
 | -------------------- | -------------------------------------- | ------------------ | ---------- | ---------------- | ---------- |
-| **RT-DETR R18**      | `PekingU/rtdetr_r18vd`                 | PyTorch ✅ ONNX ✅ | 40.7       | ~50 FPS          | Apache 2.0 |
+| **RT-DETR v2 R18**   | `PekingU/rtdetr_v2_r18vd`              | PyTorch ✅ ONNX ✅ | 46.5       | ~50 FPS          | Apache 2.0 |
 | **DETR ResNet-50**   | `facebook/detr-resnet-50`              | PyTorch ✅ ONNX ✅ | 42.0       | ~20 FPS          | Apache 2.0 |
 | **Conditional DETR** | `microsoft/conditional-detr-resnet-50` | PyTorch ✅         | —          | —                | Apache 2.0 |
 | **GroundingDINO**    | `IDEA-Research/grounding-dino-tiny`    | PyTorch ✅         | —          | —                | Apache 2.0 |
@@ -119,4 +119,4 @@ See [VLM Model Support](VLM_MODEL_SUPPORT.md) for the full compatibility table.
 | Torchvision      | ✅        | —              | —            | —     | —   | —   | —     | —       |
 | Native (libzbar) | —         | —              | —            | —     | —   | —   | —     | ✅      |
 
-**All models support:** single-image and batch inference, PIL/path/numpy input, configurable thresholds, GPU and CPU execution, consistent output formats (xyxy bbox, RLE masks).
+**All models support:** single-image inference, PIL/path/numpy input, configurable thresholds, GPU and CPU execution, consistent output formats (xyxy bbox, RLE masks).

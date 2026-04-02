@@ -205,7 +205,11 @@ Only these two placeholders are supported — user data is never interpolated.
 
 ### `ValkeyLoad` — source node
 
-`ValkeyLoad` loads a stored result from Valkey and injects it as the first artifact in a graph. Use this to build pipelines that consume results produced by another service.
+`ValkeyLoad` loads a stored result from Valkey and injects it into the graph as a typed artifact. Use this as an entry node to consume results produced by another pipeline or service.
+
+When `result_type="ocr"` is used, the loaded `OCRResult` is converted into the graph-system `OCRText` artifact so OCR payloads can continue through downstream graph nodes as typed artifacts.
+
+With `result_type="auto"`, stored OCR payloads are detected from their `regions` structure and also load as `OCRText`.
 
 ```python
 from mata.nodes import ValkeyLoad, Filter, Fuse
@@ -224,6 +228,23 @@ graph = (
 )
 
 result = mata.infer("frame.jpg", graph=graph, providers={})
+```
+
+OCR example:
+
+```python
+from mata.nodes import ValkeyLoad
+from mata.core.graph import Graph
+
+graph = Graph().then(ValkeyLoad(
+    url="valkey://localhost:6379",
+    key="upstream:ocr:latest",
+    result_type="ocr",
+    out="ocr_text",
+))
+
+result = mata.infer("frame.jpg", graph=graph, providers={})
+print(result.ocr_text.full_text)
 ```
 
 ### Complete cross-pipeline example

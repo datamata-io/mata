@@ -7,7 +7,48 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [Unreleased] — Maintenance
+
+> **v1.9.x is now feature-complete.** All subsequent 1.9.x releases will contain
+> bug fixes and documentation updates only. New features — including `mata.annotate()`,
+> `mata.train()`, and quantized ONNX export — are targeting **v2.0.0**.
+> See the README [Roadmap](README.md#roadmap) for details.
+
+---
+
+## [1.9.7] — 2026-04-02
+
+### Added
+
+**Qwen3-VL-Embedding support for `embed` task** — `mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B")` and
+`Qwen/Qwen3-VL-Embedding-8B` now supported as embed backends. Enables text, image, video,
+and mixed-modal embeddings in a unified vector space (up to 4096D).
+Matryoshka dimension control via `embed_dim` parameter.
+Optional enhanced preprocessing: `pip install datamata[qwen3-embedding]`.
+
+- `Qwen3VLEmbeddingAdapter` — standalone multimodal encoder; `predict_image()`, `predict_text()`, `predict_video()`, `predict_multimodal()` all return L2-normalised `(1, D)` float32 arrays
+- `mata.run("embed", "image.jpg", model="Qwen/Qwen3-VL-Embedding-2B")` — image embedding
+- `mata.run("embed", text="red truck", model="Qwen/Qwen3-VL-Embedding-2B")` — text-only embedding
+- `mata.run("embed", "video.mp4", model="Qwen/Qwen3-VL-Embedding-2B", fps=1.0)` — video embedding
+- `mata.run("embed", {"text": "...", "image": img}, model="...")` — mixed-modal embedding
+- `embed_dim` kwarg for Matryoshka dimension truncation (e.g. 64, 128, 256, 512 … 4096)
+- Optional extra: `pip install datamata[qwen3-embedding]` installs `qwen-vl-utils` for enhanced pixel-budget-aware preprocessing; adapter works without it via MATA's own resize + frame sampling
+- `UniversalLoader` auto-routes `"Qwen/Qwen3-VL-Embedding-*"` model IDs to `Qwen3VLEmbeddingAdapter` via `AutoConfig` probe; all existing embed routes (CLIP, OSNet-ONNX, X-CLIP) are unchanged
+
+### Fixed
+
+- `docs/TRACKING_GUIDE.md`: corrected tracking guide API references and examples, including the graph pipeline pattern, ReID activation wording, ONNX guidance, and cross-camera tracking example model ID
+- `docs/VALKEY_GUIDE.md`: clarified that `ValkeyLoad` loads OCR payloads as `OCRText` artifacts for `result_type="ocr"` and OCR auto-detection, matching shipped behavior
+- `src/mata/adapters/tracking_adapter.py`: auto-enable BotSort appearance matching when a ReID encoder is injected so `reid_model=` works as documented without requiring a separate `with_reid` toggle
+- `docs/ZEROSHOT_DETECTION_GUIDE.md`: corrected outdated zero-shot examples and API references by removing non-existent `result.task`, `instance.meta`, and `mask.to_binary()` usage; updated classification examples to use `top1`; removed unsupported `model_id=` and `cache_dir=` parameters
+- `docs/GRAPH_COOKBOOK.md`: corrected graph result access patterns in multiple recipes, including `result.final.dets.instances` for detection outputs and `result.final.rois.roi_images` for ROI outputs
+- `docs/REAL_WORLD_SCENARIOS.md`: corrected tracking import paths to `mata.nodes.track`; updated preset examples to use shipped kwargs such as `describe_prompt=` and removed non-existent `detect_entities=` usage
+- `docs/SUPPORTED_MODELS.md`: corrected the RT-DETR R18 model ID to `PekingU/rtdetr_v2_r18vd`, updated the reported mAP to 46.5, and removed unsupported batch-inference wording
+- `docs/VLM_MODEL_SUPPORT.md`: corrected model compatibility details, including Moondream2 support status, the LLaVA-NeXT model ID, and the minimum Transformers version guidance
+- `docs/CLIP_QUICK_START.md`: refreshed the quick-start document for v1.9.7 and removed a dead link to a non-existent implementation note
+- `docs/MATA_DESIGN_AND_ARCHITECTURE.md`: corrected the documented `mata.infer()` calling pattern and aligned result channel examples with the current graph API
+- `QUICKSTART.md`: corrected Gallery and recognition examples to match the shipped API, including valid Gallery construction and usage patterns
+- `INSTALLATION.md`: corrected installation examples to use valid model-loading patterns and removed references to a bare `"rtdetr"` alias that is not shipped
 
 ---
 

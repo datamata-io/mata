@@ -3,7 +3,7 @@
 Supports three OCR architectures:
 - GLM-OCR (zai-org/GLM-OCR): Full-image end-to-end OCR via AutoModelForImageTextToText
   with chat-template inference (apply_chat_template). State-of-the-art document OCR.
-- GOT-OCR2 (stepfun-ai/GOT-OCR-2.0-hf): Full-image end-to-end OCR via AutoModelForCausalLM.
+- GOT-OCR2 (stepfun-ai/GOT-OCR-2.0-hf): Full-image end-to-end OCR via AutoModelForImageTextToText.
   Requires ``trust_remote_code=True``.
 - TrOCR (microsoft/trocr-*): Sequence-to-sequence OCR via VisionEncoderDecoderModel.
   Designed for pre-cropped single text-line images; performance degrades on full-page documents.
@@ -56,7 +56,7 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
     Architecture is auto-detected from the model ID:
     - IDs containing ``glm-ocr``, ``glm_ocr``, or ``glmocr`` → GLM-OCR
       (AutoModelForImageTextToText + chat-template API)
-    - IDs containing ``got-ocr``, ``gotocr``, or ``got_ocr`` → GOT-OCR2 (AutoModelForCausalLM)
+    - IDs containing ``got-ocr``, ``gotocr``, or ``got_ocr`` → GOT-OCR2 (AutoModelForImageTextToText)
     - IDs containing ``trocr`` → TrOCR (VisionEncoderDecoderModel)
     - All others fall back to TrOCR pattern.
 

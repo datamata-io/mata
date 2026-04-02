@@ -35,7 +35,7 @@ def infer(
     image: Union[str, Path, PIL.Image.Image, np.ndarray],
     graph: Union[Graph, List[Node]],
     providers: Dict[str, Any],
-    scheduler: Optional[Scheduler] = None,
+    scheduler: SyncScheduler | ParallelScheduler | OptimizedParallelScheduler | None = None,
     device: str = "auto",
     **kwargs,
 ) -> MultiResult
@@ -43,13 +43,13 @@ def infer(
 
 **Parameters:**
 
-| Parameter   | Type                                     | Default           | Description                                                                                              |
-| ----------- | ---------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `image`     | `str \| Path \| PIL.Image \| np.ndarray` | _required_        | Input image (file path, PIL image, or numpy array)                                                       |
-| `graph`     | `Graph \| list[Node]`                    | _required_        | Graph object or list of nodes (auto-wrapped into Graph)                                                  |
-| `providers` | `dict[str, Any]`                         | _required_        | Provider instances keyed by name. Flat `{"name": adapter}` or nested `{"capability": {"name": adapter}}` |
-| `scheduler` | `Scheduler \| None`                      | `SyncScheduler()` | Execution strategy. Use `ParallelScheduler()` for concurrent stages                                      |
-| `device`    | `str`                                    | `"auto"`          | Device placement: `"auto"`, `"cuda"`, `"cpu"`                                                            |
+| Parameter   | Type                                                                       | Default           | Description                                                                                              |
+| ----------- | -------------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `image`     | `str \| Path \| PIL.Image \| np.ndarray`                                   | _required_        | Input image (file path, PIL image, or numpy array)                                                       |
+| `graph`     | `Graph \| list[Node]`                                                      | _required_        | Graph object or list of nodes (auto-wrapped into Graph)                                                  |
+| `providers` | `dict[str, Any]`                                                           | _required_        | Provider instances keyed by name. Flat `{"name": adapter}` or nested `{"capability": {"name": adapter}}` |
+| `scheduler` | `SyncScheduler \| ParallelScheduler \| OptimizedParallelScheduler \| None` | `SyncScheduler()` | Execution strategy. Use `ParallelScheduler()` or `OptimizedParallelScheduler()` for concurrent stages    |
+| `device`    | `str`                                                                      | `"auto"`          | Device placement: `"auto"`, `"cuda"`, `"cpu"`                                                            |
 
 **Returns:** `MultiResult` with all task outputs accessible as attributes.
 
@@ -296,9 +296,9 @@ from mata.core.artifacts import Tracks, Track
 
 | Method                      | Returns         | Description        |
 | --------------------------- | --------------- | ------------------ |
-| `get_active_tracks()`       | `list[Track]`   | Active tracks only |
-| `get_lost_tracks()`         | `list[Track]`   | Lost tracks        |
-| `get_terminated_tracks()`   | `list[Track]`   | Terminated tracks  |
+| `get_active_tracks()`       | `Tracks`        | Active tracks only |
+| `get_lost_tracks()`         | `Tracks`        | Lost tracks        |
+| `get_terminated_tracks()`   | `Tracks`        | Terminated tracks  |
 | `get_track_by_id(track_id)` | `Track \| None` | Find by ID         |
 
 ---
@@ -613,7 +613,9 @@ PromptBoxes(
     image_src: str = "image",
     dets_src: str = "dets",
     out: str = "masks",
-    name: str = None,
+    keep_best: bool = True,
+    group_size: int | None = 3,
+    name: str | None = None,
     **kwargs,
 )
 ```
@@ -793,7 +795,6 @@ ReID(
 ```python
 import mata
 from mata.nodes import Detect, Filter, Track, ExtractROIs, Embed, ReID, Fuse
-from mata.nodes.embed import Embed
 from mata.trackers import ReIDBridge
 from mata.core.graph import Graph
 
@@ -1096,8 +1097,7 @@ The `inputs` dict is built dynamically in `__init__` — optional keys are only 
 
 ```python
 import mata
-from mata.nodes import Detect, Filter, Track, ReID, AnnotateRT, Fuse
-from mata.nodes.embed import Embed
+from mata.nodes import Detect, Filter, Track, Embed, ReID, AnnotateRT, Fuse
 from mata.trackers import ReIDBridge
 from mata.core.graph import Graph
 from mata.core.graph.temporal import FramePolicyEveryN
@@ -1305,7 +1305,7 @@ ValkeyLoad(
 | `instances`                | `vision`      | `Detections`      |
 | `predictions`              | `classify`    | `Classifications` |
 | `depth`                    | `depth`       | `DepthMap`        |
-| `regions`                  | `ocr`         | _(raw dict)_      |
+| `regions`                  | `ocr`         | `OCRText`         |
 
 **Raises:**
 
@@ -1452,9 +1452,7 @@ GalleryMatchNode(
 ```python
 import mata
 from mata import Gallery
-from mata.nodes import Detect, GalleryMatchNode
-from mata.nodes.embed import Embed
-from mata.nodes.extract_rois import ExtractROIs
+from mata.nodes import Detect, ExtractROIs, Embed, GalleryMatchNode
 from mata.core.graph import Graph
 
 # 1. Build the gallery once
@@ -1482,7 +1480,7 @@ result = mata.infer(
 )
 
 for m in result.matches:
-    print(m.top1.label, m.top1.similarity)  # e.g.  "alice"  0.87
+    print(m.label, m.similarity)  # e.g.  "alice"  0.87
 ```
 
 **Related:** `Gallery` class — `mata.recognition.Gallery` | `Matches` artifact — `mata.core.artifacts.Matches`
@@ -1524,11 +1522,11 @@ def run(
     image: Union[str, Path, int, PIL.Image.Image, np.ndarray],
     providers: Dict[str, Any],
     *,
-    scheduler: Optional[Scheduler] = None,
+    scheduler: SyncScheduler | ParallelScheduler | OptimizedParallelScheduler | None = None,
     device: str = "auto",
     frame_policy: Optional[FramePolicy] = None,
     max_frames: Optional[int] = None,
-    callback: Optional[Callable[[MultiResult, int], None]] = None,
+    callback: Optional[Callable[..., None]] = None,
     stop_event: Optional[threading.Event] = None,
     output_path: Optional[str] = None,
     **kwargs,
@@ -1537,18 +1535,17 @@ def run(
 
 **Parameters:**
 
-| Parameter      | Type                                                     | Default           | Description                                                                                                                                                                             |
-| -------------- | -------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `image`        | `str \| Path \| int \| PIL.Image \| np.ndarray`          | _required_        | Image path, video file path, stream URL, webcam index, or in-memory image                                                                                                               |
-| `providers`    | `dict[str, Any]`                                         | _required_        | Provider instances keyed by name (flat or nested)                                                                                                                                       |
-| `scheduler`    | `Scheduler \| None`                                      | `SyncScheduler()` | Execution strategy per frame                                                                                                                                                            |
-| `device`       | `str`                                                    | `"auto"`          | Device placement (`"auto"`, `"cuda"`, `"cpu"`) — image sources only                                                                                                                     |
-| `frame_policy` | `FramePolicy \| None`                                    | `None`            | **Required** for video/stream/webcam. Controls which frames are processed.                                                                                                              |
-| `max_frames`   | `int \| None`                                            | `None`            | Stop after this many total frames (including skipped). `None` = no limit.                                                                                                               |
-| `callback`     | `Callable[[MultiResult, int, np.ndarray], None] \| None` | `None`            | Per-frame callback receiving `(result, frame_num, frame_bgr)`. Works for **video files** (called per processed frame, full list still returned) and **streams/webcam** (blocking mode). |
-
-| `stop_event` | `threading.Event \| None` | `None` | Stop a stream/webcam callback loop gracefully. |
-| `output_path` | `str \| None` | `None` | Reserved for annotated video output (future release). |
+| Parameter      | Type                                                                       | Default           | Description                                                                                                                     |
+| -------------- | -------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `image`        | `str \| Path \| int \| PIL.Image \| np.ndarray`                            | _required_        | Image path, video file path, stream URL, webcam index, or in-memory image                                                       |
+| `providers`    | `dict[str, Any]`                                                           | _required_        | Provider instances keyed by name (flat or nested)                                                                               |
+| `scheduler`    | `SyncScheduler \| ParallelScheduler \| OptimizedParallelScheduler \| None` | `SyncScheduler()` | Execution strategy per frame                                                                                                    |
+| `device`       | `str`                                                                      | `"auto"`          | Device placement (`"auto"`, `"cuda"`, `"cpu"`) — image sources only                                                             |
+| `frame_policy` | `FramePolicy \| None`                                                      | `None`            | **Required** for video/stream/webcam. Controls which frames are processed.                                                      |
+| `max_frames`   | `int \| None`                                                              | `None`            | Stop after this many total frames (including skipped). `None` = no limit.                                                       |
+| `callback`     | `Callable[..., None] \| None`                                              | `None`            | Per-frame callback. **Video files** receive `(result, frame_num, frame_bgr)`. **Streams/webcam** receive `(result, frame_num)`. |
+| `stop_event`   | `threading.Event \| None`                                                  | `None`            | Stop a stream/webcam callback loop gracefully.                                                                                  |
+| `output_path`  | `str \| None`                                                              | `None`            | Reserved for annotated video output (future release).                                                                           |
 
 **Return value by source type:**
 
@@ -1632,7 +1629,7 @@ graph.run(
     "rtsp://cam/stream",
     providers={"detector": detector},
     frame_policy=FramePolicyLatest(),
-    callback=lambda result, frame_num, frame_bgr: print(f"Frame {frame_num}"),
+    callback=lambda result, frame_num: print(f"Frame {frame_num}"),
     stop_event=stop,
 )
 ```
@@ -1769,19 +1766,19 @@ All protocols are in `mata.core.registry.protocols` and are `@runtime_checkable`
 from mata.core.registry.providers import ProviderRegistry
 
 registry = ProviderRegistry()
-registry.register("detr", Detector, factory_fn, lazy=True)
+registry.register("detr", Detector, adapter_factory=factory_fn, lazy=True)
 detector = registry.get(Detector, "detr")
 registry.list_providers(Detector)  # ["detr"]
 registry.unregister(Detector, "detr")
 ```
 
-| Method                                           | Description                   |
-| ------------------------------------------------ | ----------------------------- |
-| `register(name, capability, factory, lazy=True)` | Register provider             |
-| `get(capability, name)`                          | Retrieve (triggers lazy load) |
-| `list_providers(capability=None)`                | List by capability or all     |
-| `unregister(capability, name)`                   | Remove provider               |
-| `has(capability, name)`                          | Check existence               |
+| Method                                                   | Description                   |
+| -------------------------------------------------------- | ----------------------------- |
+| `register(name, capability, adapter_factory, lazy=True)` | Register provider             |
+| `get(capability, name)`                                  | Retrieve (triggers lazy load) |
+| `list_providers(capability=None)`                        | List by capability or all     |
+| `unregister(capability, name)`                           | Remove provider               |
+| `has(capability, name)`                                  | Check existence               |
 
 ---
 

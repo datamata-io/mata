@@ -60,16 +60,37 @@ cap.release()
 Integrate tracking into multi-task graph workflows:
 
 ```python
-from mata.nodes import Detect, Filter, Track, Annotate
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN, VideoProcessor
+from mata.nodes import Detect, Filter, Fuse, Track
+from mata.nodes.track import SimpleIOUTracker
 
-graph = [
-    Detect(using="detr", out="dets"),
-    Filter(src="dets", labels=["person", "car"], out="filtered"),
-    Track(using="botsort", dets="filtered", out="tracks"),
-    Annotate(using="drawer", dets="tracks", show_track_ids=True, out="annotated"),
-]
-result = mata.infer(graph=graph, video="video.mp4", providers={...})
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker = SimpleIOUTracker()
+
+graph = (
+    Graph("detect_and_track")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", label_in=["person", "car"], out="filtered"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
+    .then(Fuse(detections="filtered", tracks="tracks", out="frame_result"))
+)
+
+flat_providers = {"detector": detector, "tracker": tracker}
+compiled = graph.compile(providers=flat_providers)
+
+processor = VideoProcessor(
+    graph=compiled,
+    providers={
+        "detect": {"detector": detector},
+        "track": {"tracker": tracker},
+    },
+    frame_policy=FramePolicyEveryN(n=1),
+)
+results = processor.process_video(video_path="video.mp4")
 ```
+
+Add `Annotate` afterward if you want a rendered output stage.
 
 ## Supported Source Types
 
@@ -86,14 +107,14 @@ result = mata.infer(graph=graph, video="video.mp4", providers={...})
 
 ## ByteTrack vs BotSort
 
-| Feature       | ByteTrack                 | BotSort                                     |
-| ------------- | ------------------------- | ------------------------------------------- |
-| Algorithm     | Two-stage IoU association | IoU + Global Motion Compensation (GMC)      |
-| Camera motion | No                        | Sparse optical flow compensation            |
-| Speed         | Faster                    | Slightly slower                             |
-| Accuracy      | Good                      | Better (especially for panning cameras)     |
-| Default       | No                        | **Yes** (MATA default, matches Ultralytics) |
-| ReID          | No                        | Yes (v1.9.2+, `reid_model=` kwarg)          |
+| Feature       | ByteTrack                    | BotSort                                            |
+| ------------- | ---------------------------- | -------------------------------------------------- |
+| Algorithm     | Two-stage IoU association    | IoU + Global Motion Compensation (GMC)             |
+| Camera motion | No                           | Sparse optical flow compensation                   |
+| Speed         | Typically lower overhead     | Typically higher overhead (GMC + optional ReID)    |
+| Accuracy      | Strong baseline IoU tracking | Often more robust under camera motion (GMC)        |
+| Default       | No                           | **Yes** (MATA default, matches Ultralytics)        |
+| ReID          | No                           | Yes (v1.9.2+, supply `reid_model=` to auto-enable) |
 
 ## YAML Configuration
 
@@ -131,7 +152,7 @@ results = mata.track(
 
 ### ONNX ReID Models
 
-For production deployment with lower latency:
+For production deployment where ONNX Runtime fits your serving stack:
 
 ```python
 results = mata.track(
@@ -151,13 +172,14 @@ models:
       source: "facebook/detr-resnet-50"
       tracker: botsort
       reid_model: "openai/clip-vit-base-patch32"
+      with_reid: true # Optional here; auto-enabled when reid_model is provided
       tracker_config:
         track_high_thresh: 0.6
         appearance_thresh: 0.25
 ```
 
 ```python
-tracker = mata.load("track", "smart-cam")  # ReID loaded automatically
+tracker = mata.load("track", "smart-cam")  # ReID loads and activates automatically
 ```
 
 ## Cross-Camera Re-Identification (v1.9.2+)
@@ -169,7 +191,7 @@ from mata.trackers import ReIDBridge
 
 # Camera 1 — publish embeddings
 bridge = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
-results = mata.track("rtsp://cam1/stream", model="detr",
+results = mata.track("rtsp://cam1/stream", model="facebook/detr-resnet-50",
                      reid_model="openai/clip-vit-base-patch32",
                      reid_bridge=bridge, stream=True)
 
@@ -186,7 +208,7 @@ See [Valkey Guide](VALKEY_GUIDE.md) for Valkey/Redis setup and configuration.
 # Basic tracking
 mata track video.mp4 --model facebook/detr-resnet-50 --tracker botsort --save
 
-# With ReID
+# With ReID (--reid-model auto-enables appearance matching)
 mata track video.mp4 --model facebook/detr-resnet-50 --reid-model openai/clip-vit-base-patch32
 ```
 
@@ -194,5 +216,7 @@ mata track video.mp4 --model facebook/detr-resnet-50 --reid-model openai/clip-vi
 
 - [Basic Tracking](../examples/track/basic_tracking.py) — Video file tracking with save output
 - [Persistent Tracking](../examples/track/persist_tracking.py) — Frame-by-frame with `persist=True`
+- [ReID Tracking](../examples/track/reid_tracking.py) — Single-camera BotSort ReID with `reid_model=`
+- [Cross-Camera ReID](../examples/track/cross_camera_reid.py) — Valkey-backed identity sharing across cameras
 - [Stream Tracking](../examples/track/stream_tracking.py) — Memory-efficient generator mode
 - [Graph Tracking](../examples/graph/video_tracking.py) — Graph pipeline integration

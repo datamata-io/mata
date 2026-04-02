@@ -1,7 +1,7 @@
 # CLIP Zero-Shot Image Classification - Quick Start Guide
 
-**Version:** 1.5.0  
-**Date:** February 5, 2026  
+**Version:** 1.9.7  
+**Date:** April 2, 2026  
 **Status:** ✅ Production Ready
 
 ## Overview
@@ -42,7 +42,7 @@ pip install datamata transformers torch
 
 **Requirements:**
 
-- Python 3.8+
+- Python 3.10+
 - transformers >= 4.30.0
 - torch >= 2.0.0
 
@@ -271,27 +271,27 @@ MATA provides 3 predefined template shortcuts:
 from mata.adapters.clip_adapter import TEMPLATE_SETS
 
 # Basic (1 template)
-TEMPLATE_SETS["basic"] = [
-    "a photo of a {}"
-]
+# TEMPLATE_SETS["basic"] == [
+#     "a photo of a {}"
+# ]
 
 # Ensemble (6 templates) - Recommended
-TEMPLATE_SETS["ensemble"] = [
-    "a photo of a {}",
-    "a picture of a {}",
-    "an image of a {}",
-    "a rendering of a {}",
-    "a cropped photo of a {}",
-    "a good photo of a {}"
-]
+# TEMPLATE_SETS["ensemble"] == [
+#     "a photo of a {}",
+#     "a picture of a {}",
+#     "an image of a {}",
+#     "a rendering of a {}",
+#     "a cropped photo of a {}",
+#     "a good photo of a {}"
+# ]
 
 # Detailed (18 templates) - Maximum robustness
-TEMPLATE_SETS["detailed"] = [
-    "a photo of a {}",
-    "a blurry photo of a {}",
-    "a black and white photo of a {}",
-    # ... 15 more variations
-]
+# TEMPLATE_SETS["detailed"] == [
+#     "a photo of a {}",
+#     "a blurry photo of a {}",
+#     "a black and white photo of a {}",
+#     # ... 15 more variations
+# ]
 ```
 
 **Usage:**
@@ -621,6 +621,7 @@ ClassifyResult(
     ],
     meta={
         "model_id": "openai/clip-vit-base-patch32",
+        "device": "cuda",
         "num_classes": 3,
         "template_type": "single" or "ensemble",
         "num_templates": 1,
@@ -636,9 +637,9 @@ ClassifyResult(
 ## Next Steps
 
 - 📖 See [examples/classify/clip_zeroshot.py](../../examples/classify/clip_zeroshot.py) for complete examples
-- 🔧 Read [CLIP_IMPLEMENTATION_COMPLETE.md](CLIP_IMPLEMENTATION_COMPLETE.md) for technical details
+- 🔧 Read [SUPPORTED_MODELS.md](SUPPORTED_MODELS.md) for model compatibility details
 - 🚀 Explore [ZEROSHOT_DETECTION_GUIDE.md](ZEROSHOT_DETECTION_GUIDE.md) for zero-shot detection
-- 📚 Check [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for all MATA tasks
+- 📚 Check [QUICK_REFERENCE.md](../QUICK_REFERENCE.md) for all MATA tasks
 
 ---
 
@@ -650,6 +651,6 @@ Found a CLIP model that works well? Have template recommendations? Open an issue
 
 ---
 
-**Last Updated:** February 5, 2026  
+**Last Updated:** April 2, 2026  
 **MATA Version:** 1.5.0+  
 **License:** MIT

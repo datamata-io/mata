@@ -182,10 +182,10 @@ scene_result = mata.run(
     model="openai/clip-vit-base-patch32",
     text_prompts=["indoor", "outdoor"]
 )
-print(f"Scene: {scene_result.top(1)[0].label_name}")  # "outdoor"
+print(f"Scene: {scene_result.top1.label_name}")  # "outdoor"
 
 # Step 2: Detect specific objects
-if scene_result.top(1)[0].label_name == "outdoor":
+if scene_result.top1.label_name == "outdoor":
     detect_result = mata.run(
         "detect", "image.jpg",
         model="IDEA-Research/grounding-dino-tiny",
@@ -472,7 +472,6 @@ All zero-shot detectors return `VisionResult`:
 result = detector.predict(image, text_prompts="cat . dog")
 
 # Result structure
-print(result.task)        # "detect"
 print(len(result.instances))  # Number of detections
 print(result.meta)        # Metadata dict
 ```
@@ -493,11 +492,8 @@ for instance in result.instances:
 
     # Mask (None for pure detection, present for pipeline)
     if instance.mask is not None:
-        binary_mask = instance.mask.to_binary()  # numpy array
-        print(instance.area)                      # Mask area in pixels
-
-    # Metadata
-    print(instance.meta)  # Additional info dict
+        # Masks can be RLE dicts, numpy arrays, or polygon lists
+        print(instance.area)  # Mask area in pixels
 ```
 
 ### Filtering & Sorting
@@ -928,10 +924,9 @@ print("Shelf inventory:", inventory)
 ```python
 detector = mata.load(
     task="detect",
-    model_id="IDEA-Research/grounding-dino-tiny",
+    model="IDEA-Research/grounding-dino-tiny",
     threshold=0.3,           # Confidence threshold (0-1)
     device="cuda",           # Device: "cuda", "cpu", "cuda:0", etc.
-    cache_dir=None,          # Custom cache directory
 )
 ```
 
@@ -995,8 +990,6 @@ python examples/segment/grounding_sam_pipeline.py
 
 - [MATA Quick Reference](../QUICK_REFERENCE.md)
 - [API Documentation](../README.md)
-- [Migration Guide](MIGRATION_GUIDE.md)
-- [VisionResult Specification](../docs/UNIVERSAL_RESULT_REFACTOR_PLAN.md)
 
 **Research Papers:**
 
