@@ -1088,11 +1088,12 @@ def register_model(task: str, alias: str, source: str, **config: Any) -> None:
 
 
 def infer(
-    image: str | Path | Image.Image | np.ndarray,
-    graph: Graph | list[Node],
-    providers: dict[str, Any],
+    image: str | Path | Image.Image | np.ndarray | None = None,
+    graph: Graph | list[Node] = None,
+    providers: dict[str, Any] = None,
     scheduler: Any | None = None,
     device: str = "auto",
+    video: str | None = None,
     **kwargs: Any,
 ) -> MultiResult:
     """Execute a multi-task graph on an image.
@@ -1175,17 +1176,33 @@ def infer(
     from .core.graph import Graph as GraphClass
     from .core.graph.node import Node
 
-    # --- Convert image to Image artifact ---
-    if isinstance(image, (str, Path)):
-        image_artifact = ImageArtifact.from_path(str(image))
-    elif isinstance(image, Image.Image):
-        image_artifact = ImageArtifact.from_pil(image)
-    elif isinstance(image, np.ndarray):
-        image_artifact = ImageArtifact.from_numpy(image)
+    if graph is None:
+        raise ValueError("'graph' must be provided.")
+    if providers is None:
+        providers = {}
+
+    # --- Determine input artifact ---
+    if image is None and video is not None:
+        from .core.artifacts.video_path import VideoPath
+
+        initial_artifact_key = "input.video"
+        initial_artifact_value = VideoPath(path=str(video))
+    elif image is not None:
+        # --- Convert image to Image artifact ---
+        if isinstance(image, (str, Path)):
+            initial_artifact_value = ImageArtifact.from_path(str(image))
+        elif isinstance(image, Image.Image):
+            initial_artifact_value = ImageArtifact.from_pil(image)
+        elif isinstance(image, np.ndarray):
+            initial_artifact_value = ImageArtifact.from_numpy(image)
+        else:
+            raise ValueError(
+                f"Unsupported image type: {type(image).__name__}. "
+                f"Expected str, Path, PIL.Image.Image, or np.ndarray."
+            )
+        initial_artifact_key = "input.image"
     else:
-        raise ValueError(
-            f"Unsupported image type: {type(image).__name__}. " f"Expected str, Path, PIL.Image.Image, or np.ndarray."
-        )
+        raise ValueError("Either 'image' or 'video' must be provided to infer().")
 
     # --- Build graph if list of nodes provided ---
     if isinstance(graph, list):
@@ -1216,7 +1233,7 @@ def infer(
     if scheduler is None:
         scheduler = SyncScheduler()
 
-    result = scheduler.execute(compiled, context, {"input.image": image_artifact})
+    result = scheduler.execute(compiled, context, {initial_artifact_key: initial_artifact_value})
 
     return result
 

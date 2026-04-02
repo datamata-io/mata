@@ -492,9 +492,10 @@ class Graph:
 
     def run(
         self,
-        image: Any,
-        providers: dict[str, Any],
+        image: Any = None,
+        providers: dict[str, Any] = None,
         *,
+        video: str | None = None,
         scheduler: Any | None = None,
         device: str = "auto",
         frame_policy: Any | None = None,
@@ -624,6 +625,23 @@ class Graph:
                                         frame_policy=FramePolicyLatest()):
                     show(result)
         """
+        # ------------------------------------------------------------------ #
+        # Video-path mode (IndexVideo / EmbeddingSearch graph nodes)          #
+        # Delegates entirely to mata.infer() — NOT frame-by-frame processing  #
+        # ------------------------------------------------------------------ #
+        if video is not None and image is None:
+            from mata.api import infer
+
+            return infer(
+                image=None,
+                video=video,
+                graph=self,
+                providers=providers,
+                scheduler=scheduler,
+                device=device,
+                **kwargs,
+            )
+
         # ------------------------------------------------------------------ #
         # Detect whether the source is temporal (video / stream / webcam)     #
         # ------------------------------------------------------------------ #

@@ -42,7 +42,10 @@ from mata.core.artifacts.matches import MatchEntry, Matches
 from mata.core.artifacts.ocr_text import OCRText, TextBlock
 from mata.core.artifacts.result import MultiResult
 from mata.core.artifacts.rois import ROIs
+from mata.core.artifacts.search_results import QueryResult, SearchResults
 from mata.core.artifacts.tracks import Track, Tracks
+from mata.core.artifacts.video_index_data import VideoIndexData
+from mata.core.artifacts.video_path import VideoPath
 
 __all__ = [
     "Artifact",
@@ -87,4 +90,9 @@ __all__ = [
     # Recognition artifacts
     "Matches",
     "MatchEntry",
+    # Video search artifacts
+    "VideoPath",
+    "VideoIndexData",
+    "QueryResult",
+    "SearchResults",
 ]
