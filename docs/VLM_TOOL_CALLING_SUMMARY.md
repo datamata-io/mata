@@ -4,7 +4,7 @@
 **Implementation Date**: February 16, 2026  
 **Last Updated**: March 8, 2026  
 **Status**: ✅ Production Ready  
-**Test Coverage**: 342 comprehensive tests, all passing
+**Test Coverage**: 341 documented tests across the listed suites
 
 ---
 
@@ -69,7 +69,7 @@ The system integrates seamlessly with MATA's existing graph execution model thro
 │  2. VLM.query(prompt) → response text                                   │
 │  3. parse_tool_calls(response) → ToolCall[]                             │
 │  4. For each ToolCall:                                                  │
-│     • ToolRegistry.execute(call, image) → ToolResult                    │
+│     • ToolRegistry.execute_tool(call, image) → ToolResult                    │
 │     • Accumulate instances/entities                                     │
 │     • Add to conversation history                                       │
 │  5. If tool calls found: format results → loop to step 2                │
@@ -105,9 +105,10 @@ The system integrates seamlessly with MATA's existing graph execution model thro
 │                                                                          │
 │  Execution Flow:                                                        │
 │  1. Validate tool against schemas                                       │
-│  2. If builtin: execute_builtin_tool() → image result                   │
+│  2. If builtin: dispatch to the built-in image tool path                │
 │  3. If provider: ctx.get_provider(task, name) → adapter.predict()       │
-│  4. If region parameter: crop_and_execute() → remap coordinates         │
+│  4. If region parameter: crop the region, run the provider, then remap  │
+│     coordinates back to the full image                                  │
 │  5. Convert adapter result to ToolResult                                │
 └────────────────────────┬────────────────────────────────────────────────┘
                          │
@@ -125,7 +126,7 @@ The system integrates seamlessly with MATA's existing graph execution model thro
 │                                                                          │
 │  Factory Function:                                                      │
 │  schema_for_task(task) → ToolSchema with defaults                       │
-│  - "detect" → object detection with threshold, class_names              │
+│  - "detect" → object detection with threshold, text_prompts, region     │
 │  - "classify" → classification with top_k parameter                     │
 │  - "segment" → segmentation with threshold parameter                    │
 │  - "depth" → depth estimation (no parameters)                           │
@@ -194,13 +195,22 @@ The system integrates seamlessly with MATA's existing graph execution model thro
 **Example**:
 
 ```python
-mata.infer(
-    graph,
+graph = [
+    VLMQuery(
+        using="my-vlm",
+        prompt="Analyze this image.",
+        tools=["my-detector", "my-classifier"],
+    )
+]
+
+result = mata.infer(
+    image="image.jpg",
+    graph=graph,
     providers={
-        "my-detector": DetectAdapter(...),  # ← tool name is "my-detector"
+        "my-vlm": mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct"),
+        "my-detector": DetectAdapter(...),
         "my-classifier": ClassifyAdapter(...),
     },
-    tools=["my-detector", "my-classifier"],  # ← same names used here
 )
 ```
 
@@ -253,7 +263,7 @@ mata.infer(
 - **Extensibility**: New VLM providers work immediately if they implement `query()`.
 - **Testability**: Easy to mock VLM responses in tests.
 
-**Implementation**: `VLMWrapper` from `src/mata/adapters/vlm/base.py` provides unified interface.
+**Implementation**: `VLMWrapper` is implemented in `src/mata/adapters/wrappers/vlm_wrapper.py` and used by the loader to provide a unified `query()` interface.
 
 ---
 
@@ -388,27 +398,27 @@ VLM: "Found 2 cats at [80,120,220,300] and [300,130,440,280]. Summary..."
 
 ### Test Coverage
 
-| Test Suite                     | Tests   | Coverage | Status         |
-| ------------------------------ | ------- | -------- | -------------- |
-| `test_tool_schema.py`          | 33      | 100%     | ✅ All passing |
-| `test_tool_registry.py`        | 44      | 87%      | ✅ All passing |
-| `test_agent_loop.py`           | 51      | 90%+     | ✅ All passing |
-| `test_agent_loop_tracing.py`   | 13      | Full     | ✅ All passing |
-| `test_tool_prompts.py`         | 18      | 100%     | ✅ All passing |
-| `test_tool_call_parser.py`     | 51      | 100%     | ✅ All passing |
-| `test_vlm_nodes_agent_mode.py` | 11      | Full     | ✅ All passing |
-| `test_image_tools.py`          | 37      | 100%     | ✅ All passing |
-| `test_region_tool_dispatch.py` | 11      | Full     | ✅ All passing |
-| `test_converters.py` (agent)   | 55      | Full     | ✅ All passing |
-| `test_vlm_tool_calling.py`     | 12      | Full     | ✅ All passing |
-| **Total**                      | **336** | **~95%** | ✅ All passing |
+| Test Suite                     | Tests   | Coverage | Status           |
+| ------------------------------ | ------- | -------- | ---------------- |
+| `test_tool_schema.py`          | 33      | 100%     | ✅ All passing   |
+| `test_tool_registry.py`        | 49      | 87%      | ✅ All passing   |
+| `test_agent_loop.py`           | 51      | 90%+     | ✅ All passing   |
+| `test_agent_loop_tracing.py`   | 13      | Full     | ✅ All passing   |
+| `test_tool_prompts.py`         | 18      | 100%     | ✅ All passing   |
+| `test_tool_call_parser.py`     | 51      | 100%     | ✅ All passing   |
+| `test_vlm_nodes_agent_mode.py` | 11      | Full     | ✅ All passing   |
+| `test_image_tools.py`          | 37      | 100%     | ✅ All passing   |
+| `test_region_tool_dispatch.py` | 11      | Full     | ✅ All passing   |
+| `test_converters.py` (agent)   | 55      | Full     | ✅ All passing   |
+| `test_vlm_tool_calling.py`     | 12      | Full     | ✅ All passing   |
+| **Total**                      | **341** | **~95%** | ✅ Listed suites |
 
 ### Integration Status
 
 - ✅ Works with `mata.infer()` API
 - ✅ Works with `Graph.compile()` fluent API
 - ✅ Supports parallel VLM agent nodes in same graph
-- ✅ Zero regressions (2576/2576 existing tests still pass)
+- ✅ No regressions were reported during the implementation cycle
 - ✅ Zero breaking changes to public API
 - ✅ Backward compatible with all VLM nodes
 
@@ -436,7 +446,7 @@ VLMQuery(using="qwen3-vl")  # Same as before
 
 Tool schemas auto-generated from adapters with sensible defaults:
 
-- Detect: `threshold`, `class_names`, `region` parameters
+- Detect: `region`, `threshold`, `text_prompts` parameters
 - Classify: `top_k`, `region` parameters
 - Segment: `threshold`, `region` parameters
 - Depth: No parameters (always full image)
@@ -821,31 +831,28 @@ class ToolRegistry:
 import mata
 from mata.nodes import VLMQuery
 
-# 1. Define graph with agent-enabled VLM node
 graph = [
     VLMQuery(
         using="qwen3-vl",
         prompt="Analyze this image and identify all objects.",
-        tools=["detect", "classify", "zoom"],  # ← Agent mode enabled
+        tools=["detect", "classify", "zoom"],
         max_iterations=5,
         on_error="retry",
+        out="vlm_result",
     ),
 ]
 
-# 2. Provide adapters as providers
-from mata.adapters import HuggingFaceDetectAdapter, HuggingFaceClassifyAdapter
-
 result = mata.infer(
-    graph,
     image="path/to/image.jpg",
+    graph=graph,
     providers={
-        "detect": HuggingFaceDetectAdapter("facebook/detr-resnet-50"),
-        "classify": HuggingFaceClassifyAdapter("microsoft/resnet-50"),
+        "qwen3-vl": mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct"),
+        "detect": mata.load("detect", "facebook/detr-resnet-50"),
+        "classify": mata.load("classify", "microsoft/resnet-50"),
     },
 )
 
-# 3. Access results
-detections = result["vlm_dets"]  # Detections artifact with all instances
+detections = result["vlm_result"]
 print(detections.meta["agent_iterations"])  # Number of loop iterations
 print(detections.meta["agent_text"])        # Final VLM synthesis
 ```
@@ -897,7 +904,7 @@ print(f"Tool calls: {metrics.get('tool_calls_count')}")
 
 ## Testing Strategy
 
-### Unit Tests (336 total)
+### Unit Tests (341 total)
 
 - **Schema validation**: All tool schemas serialize correctly
 - **Registry resolution**: Tool names resolve to correct providers
@@ -917,13 +924,11 @@ print(f"Tool calls: {metrics.get('tool_calls_count')}")
 ### Manual Testing (with real models)
 
 ```bash
-# Run examples with real VLM (requires GPU + transformers)
+# Run the example script with real providers
 python examples/graph/vlm_workflows.py --real
 
-# Test individual workflows
-python examples/graph/vlm_workflows.py --workflow 5a  # Single tool
-python examples/graph/vlm_workflows.py --workflow 5b  # Multi-tool
-python examples/graph/vlm_workflows.py --workflow 5c  # Zoom tool
+# Workflow 5 tool-calling scenarios are exercised by the script output.
+# The current example script does not implement a --workflow selector.
 ```
 
 ---
@@ -986,7 +991,7 @@ This implementation was developed as part of MATA v1.7.0 to enable advanced visi
 
 - Architecture design: Developer A, Developer B
 - Implementation: Full-stack development across all phases
-- Testing: Comprehensive test suite (336 tests)
+- Testing: Comprehensive test suite (341 tests)
 
 **References**:
 

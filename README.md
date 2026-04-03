@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.6-green?style=flat-square" alt="v1.9.6" />
-  <img src="https://img.shields.io/badge/tests-5%2C417%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-1.9.7-green?style=flat-square" alt="v1.9.7" />
+  <img src="https://img.shields.io/badge/tests-5%2C505%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
 </p>
 
 ---
@@ -230,14 +230,14 @@ MATA works with any model from HuggingFace Transformers, Torchvision, or local O
 | **Depth**          | Depth Anything V1/V2                                                      | PyTorch                                 |
 | **VLM**            | Qwen3-VL, MedGemma, Florence-2, LLaVA-NeXT, SmolVLM, Moondream2, + 3 more | PyTorch                                 |
 | **OCR**            | EasyOCR, PaddleOCR, Tesseract, GOT-OCR2, TrOCR                            | PyTorch                                 |
-| **Embedding**      | CLIP, DINOv2, OSNet                                                       | PyTorch, ONNX                           |
+| **Embedding**      | CLIP, OSNet, X-CLIP                                                       | PyTorch, ONNX                           |
 | **Barcode**        | pyzbar, zxing-cpp                                                         | Native                                  |
 
 See [Supported Models](docs/SUPPORTED_MODELS.md) for model IDs, benchmarks, and runtime compatibility matrix.
 
 ## When NOT to Use MATA
 
-- **Training-first workflows** — `mata.train()` is in beta (v2.0.0b1). If training is your primary need today, consider HuggingFace Trainer directly.
+- **Training-first workflows** — `mata.train()` is planned for v2.0.0. If training is your primary need today, use HuggingFace Trainer or PyTorch Lightning directly.
 - **Edge / mobile deployment** — TensorRT and TFLite export are planned but not yet available.
 - **Single-model, maximum-throughput** — MATA's adapter layer adds ~1-2ms overhead. For bare-metal speed on one model, use the runtime directly.
 
@@ -257,11 +257,16 @@ mata.run() / mata.load() / mata.infer()
    Export (JSON / CSV / image overlay / crops)
 ```
 
+For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN_AND_ARCHITECTURE.md](docs/MATA_DESIGN_AND_ARCHITECTURE.md).
+
 ## Roadmap
+
+> **v1.9.7 is the final feature release.** The 1.9.x line is now in maintenance mode.
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-- **v2.0** (Q2 2026) — Training module (`mata.train()`), TensorRT, mobile export, breaking API cleanup
+- **v1.9.x** (maintenance) — bug fixes and documentation only
+- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup
 - **v2.x** — HuggingFace Hub model recommendations, KACA CNN integration, V2L HyperLoRA research
 - **v2.5+** — 3D vision, edge deployment, Auto-ML
 

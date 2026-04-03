@@ -30,7 +30,7 @@ def section_one_shot():
     """Single call — no setup required."""
     result = mata.run("detect", str(IMG), model="facebook/detr-resnet-50", threshold=0.8)
     print(f"[one-shot] {len(result.detections)} detections")
-    for det in result.detections[:3]:
+    for det in result.detections:
         print(f"  {det.label_name:<20} {det.score:.1%}")
 
 
@@ -54,6 +54,7 @@ def section_switch_models():
     models = {
         "DETR":         "facebook/detr-resnet-50",
         "RT-DETR":      "PekingU/rtdetr_r50vd",
+        "RT-DETR v2":   "PekingU/rtdetr_v2_r18vd",
         "Cond-DETR":    "microsoft/conditional-detr-resnet-50",
     }
     for name, model_id in models.items():

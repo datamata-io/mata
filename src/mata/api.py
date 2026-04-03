@@ -193,25 +193,74 @@ def run(
     if task == "recognize":
         return _run_recognize(input, model=model, model_type=model_type, **kwargs)
 
-    # Pop X-CLIP-specific kwargs before load() to prevent leaking into adapter constructors
+    # Pop embed-specific kwargs before load() to prevent leaking into adapter constructors
     _embed_frames = kwargs.pop("frames", None) if task == "embed" else None
     _embed_text = kwargs.pop("text", None) if task == "embed" else None
+    _embed_fps = kwargs.pop("fps", None) if task == "embed" else None
+    _embed_max_frames = kwargs.pop("max_frames", None) if task == "embed" else None
+    _embed_dim = kwargs.pop("embed_dim", None) if task == "embed" else None
 
-    # Load adapter
-    adapter = load(task=task, model=model, model_type=model_type, **kwargs)
+    # For embed task, forward constructor kwargs to load() explicitly
+    if task == "embed":
+        _embed_load_kwargs = dict(kwargs)
+        if _embed_dim is not None:
+            _embed_load_kwargs["embed_dim"] = _embed_dim
+        if _embed_fps is not None:
+            _embed_load_kwargs["fps"] = _embed_fps
+        if _embed_max_frames is not None:
+            _embed_load_kwargs["max_frames"] = _embed_max_frames
+        adapter = load(task=task, model=model, model_type=model_type, **_embed_load_kwargs)
+    else:
+        # Load adapter
+        adapter = load(task=task, model=model, model_type=model_type, **kwargs)
 
     # Run prediction
     if task in ("detect", "segment", "classify", "depth", "pose", "vlm", "ocr", "barcode"):
         return adapter.predict(input, **kwargs)
     elif task == "embed":
-        if _embed_frames is not None:
-            return adapter.embed(_embed_frames)
-        if _embed_text is not None:
-            return adapter.embed(_embed_text)
-
-        # Existing image embedding path (unchanged)
         from .core.artifacts.image import Image as ImageArtifact
 
+        # XClip video frames (list of numpy arrays) — unchanged
+        if _embed_frames is not None:
+            return adapter.embed(_embed_frames)
+
+        # Text-only query (no image input)
+        if _embed_text is not None and input is None:
+            if hasattr(adapter._encoder, "predict_text"):
+                return adapter._encoder.predict_text(_embed_text)
+            # XClip / generic fallback via embed()
+            return adapter.embed(_embed_text)
+
+        # Multimodal dict input
+        if isinstance(input, dict):
+            if hasattr(adapter._encoder, "predict_multimodal"):
+                return adapter._encoder.predict_multimodal(input)
+            raise ValueError(
+                "Multimodal embedding requires a model with predict_multimodal() support "
+                "(e.g., Qwen/Qwen3-VL-Embedding-2B)"
+            )
+
+        # Video file path
+        if isinstance(input, (str, Path)) and _is_video_path(str(input)):
+            if hasattr(adapter._encoder, "predict_video"):
+                frames = _extract_video_frames(str(input), fps=_embed_fps, max_frames=_embed_max_frames)
+                return adapter._encoder.predict_video(frames)
+            raise ValueError(
+                "Video embedding requires a model with predict_video() support "
+                "(e.g., Qwen/Qwen3-VL-Embedding-2B, microsoft/xclip-base-patch32)"
+            )
+
+        # Image + text mixed-modal (image provided together with text= kwarg)
+        if _embed_text is not None and input is not None:
+            if hasattr(adapter._encoder, "predict_multimodal"):
+                mm_input: dict[str, Any] = {"text": _embed_text}
+                if isinstance(input, (str, Path)):
+                    mm_input["image"] = str(input)
+                else:
+                    mm_input["image"] = input
+                return adapter._encoder.predict_multimodal(mm_input)
+
+        # Standard image input — backward compatible
         if isinstance(input, (str, Path)):
             image_artifact = ImageArtifact.from_path(str(input))
         elif isinstance(input, Image.Image):
@@ -221,7 +270,7 @@ def run(
         else:
             raise ValueError(
                 f"Unsupported input type for embed task: {type(input).__name__}. "
-                "Expected file path, PIL Image, or numpy array."
+                "Expected file path, PIL Image, numpy array, dict, or video path."
             )
         return adapter.embed(image_artifact)
     else:
@@ -432,6 +481,51 @@ def track(
 _VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".m4v", ".mpeg", ".mpg", ".ts", ".flv"}
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
 _STREAM_PREFIXES = ("rtsp://", "rtsps://", "rtmp://", "http://", "https://")
+
+
+def _is_video_path(path: str) -> bool:
+    """Return True if *path* has a recognized video file extension."""
+    return Path(path).suffix.lower() in _VIDEO_EXTENSIONS
+
+
+def _extract_video_frames(
+    video_path: str,
+    fps: float | None = None,
+    max_frames: int | None = None,
+) -> list:
+    """Extract frames from a video file using OpenCV.
+
+    Args:
+        video_path: Path to the video file.
+        fps: Target frames-per-second to sample (default 1.0).
+        max_frames: Maximum number of frames to return (default 64).
+
+    Returns:
+        List of BGR numpy arrays.
+    """
+    import cv2
+
+    target_fps = fps if fps is not None else 1.0
+    target_max = max_frames if max_frames is not None else 64
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video file: {video_path}")
+    source_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    frame_interval = max(1, int(source_fps / target_fps))
+    frames: list = []
+    idx = 0
+    while len(frames) < target_max:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if idx % frame_interval == 0:
+            frames.append(frame)
+        idx += 1
+    cap.release()
+    if not frames:
+        raise ValueError(f"No frames extracted from video: {video_path}")
+    return frames
 
 
 def _detect_source_type(source: Any) -> str:
@@ -994,11 +1088,12 @@ def register_model(task: str, alias: str, source: str, **config: Any) -> None:
 
 
 def infer(
-    image: str | Path | Image.Image | np.ndarray,
-    graph: Graph | list[Node],
-    providers: dict[str, Any],
+    image: str | Path | Image.Image | np.ndarray | None = None,
+    graph: Graph | list[Node] = None,
+    providers: dict[str, Any] = None,
     scheduler: Any | None = None,
     device: str = "auto",
+    video: str | None = None,
     **kwargs: Any,
 ) -> MultiResult:
     """Execute a multi-task graph on an image.
@@ -1081,17 +1176,33 @@ def infer(
     from .core.graph import Graph as GraphClass
     from .core.graph.node import Node
 
-    # --- Convert image to Image artifact ---
-    if isinstance(image, (str, Path)):
-        image_artifact = ImageArtifact.from_path(str(image))
-    elif isinstance(image, Image.Image):
-        image_artifact = ImageArtifact.from_pil(image)
-    elif isinstance(image, np.ndarray):
-        image_artifact = ImageArtifact.from_numpy(image)
+    if graph is None:
+        raise ValueError("'graph' must be provided.")
+    if providers is None:
+        providers = {}
+
+    # --- Determine input artifact ---
+    if image is None and video is not None:
+        from .core.artifacts.video_path import VideoPath
+
+        initial_artifact_key = "input.video"
+        initial_artifact_value = VideoPath(path=str(video))
+    elif image is not None:
+        # --- Convert image to Image artifact ---
+        if isinstance(image, (str, Path)):
+            initial_artifact_value = ImageArtifact.from_path(str(image))
+        elif isinstance(image, Image.Image):
+            initial_artifact_value = ImageArtifact.from_pil(image)
+        elif isinstance(image, np.ndarray):
+            initial_artifact_value = ImageArtifact.from_numpy(image)
+        else:
+            raise ValueError(
+                f"Unsupported image type: {type(image).__name__}. "
+                f"Expected str, Path, PIL.Image.Image, or np.ndarray."
+            )
+        initial_artifact_key = "input.image"
     else:
-        raise ValueError(
-            f"Unsupported image type: {type(image).__name__}. " f"Expected str, Path, PIL.Image.Image, or np.ndarray."
-        )
+        raise ValueError("Either 'image' or 'video' must be provided to infer().")
 
     # --- Build graph if list of nodes provided ---
     if isinstance(graph, list):
@@ -1122,7 +1233,7 @@ def infer(
     if scheduler is None:
         scheduler = SyncScheduler()
 
-    result = scheduler.execute(compiled, context, {"input.image": image_artifact})
+    result = scheduler.execute(compiled, context, {initial_artifact_key: initial_artifact_value})
 
     return result
 

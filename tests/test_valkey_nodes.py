@@ -12,10 +12,11 @@ from mata.core.artifacts.classifications import Classifications
 from mata.core.artifacts.depth_map import DepthMap
 from mata.core.artifacts.detections import Detections
 from mata.core.artifacts.masks import Masks
+from mata.core.artifacts.ocr_text import OCRText
 from mata.core.graph.context import ExecutionContext
 from mata.core.graph.graph import CompiledGraph, Graph
 from mata.core.graph.node import Node
-from mata.core.types import Classification, ClassifyResult, DepthResult, Instance, VisionResult
+from mata.core.types import Classification, ClassifyResult, DepthResult, Instance, OCRResult, TextRegion, VisionResult
 from mata.nodes.valkey_load import ValkeyLoad
 from mata.nodes.valkey_store import ValkeyStore
 
@@ -58,6 +59,13 @@ def _make_depth_map() -> DepthMap:
     depth_arr = np.ones((64, 64), dtype=np.float32)
     result = DepthResult(depth=depth_arr, normalized=depth_arr)
     return DepthMap.from_depth_result(result)
+
+
+def _make_ocr_result(texts: list[str] | None = None) -> OCRResult:
+    if texts is None:
+        texts = ["Hello", "World"]
+    regions = [TextRegion(text=t, score=0.9, bbox=(0.0, 0.0, 10.0, 10.0), label="printed") for t in texts]
+    return OCRResult(regions=regions, meta={"engine": "test"})
 
 
 def _make_ctx() -> ExecutionContext:
@@ -440,3 +448,78 @@ class TestValkeyLoadNode:
         assert isinstance(compiled, CompiledGraph)
         assert compiled.validation_result.valid
         assert len(compiled.nodes) == 2
+
+    # ------------------------------------------------------------------
+    # OCR artifact conversion tests
+    # ------------------------------------------------------------------
+
+    def test_result_to_artifact_ocr(self):
+        """OCRResult is converted to OCRText without raising TypeError."""
+        ocr_result = _make_ocr_result(["Hello", "World"])
+        artifact = ValkeyLoad._result_to_artifact(ocr_result)
+        assert isinstance(artifact, OCRText)
+
+    def test_result_to_artifact_ocr_preserves_text_blocks(self):
+        """OCRText text_blocks mirror the source OCRResult regions."""
+        ocr_result = _make_ocr_result(["Hello", "World"])
+        artifact = ValkeyLoad._result_to_artifact(ocr_result)
+        assert isinstance(artifact, OCRText)
+        assert len(artifact.text_blocks) == 2
+        assert artifact.text_blocks[0].text == "Hello"
+        assert artifact.text_blocks[1].text == "World"
+
+    def test_result_to_artifact_ocr_preserves_full_text(self):
+        """OCRText full_text matches the source OCRResult full_text."""
+        ocr_result = _make_ocr_result(["Hello", "World"])
+        artifact = ValkeyLoad._result_to_artifact(ocr_result)
+        assert artifact.full_text == ocr_result.full_text
+
+    def test_result_to_artifact_ocr_preserves_meta(self):
+        """OCRText meta is populated from source OCRResult meta."""
+        ocr_result = _make_ocr_result(["text"])
+        artifact = ValkeyLoad._result_to_artifact(ocr_result)
+        assert isinstance(artifact, OCRText)
+        assert artifact.meta.get("engine") == "test"
+
+    def test_result_to_artifact_ocr_empty_instance_ids(self):
+        """When loading a whole-image OCR result, instance_ids is empty."""
+        ocr_result = _make_ocr_result(["text"])
+        artifact = ValkeyLoad._result_to_artifact(ocr_result)
+        assert isinstance(artifact, OCRText)
+        assert artifact.instance_ids == ()
+
+    def test_run_with_ocr_payload(self):
+        """ValkeyLoad.run() converts an OCRResult payload to OCRText."""
+        ocr_result = _make_ocr_result(["Detected text"])
+        ctx = _make_ctx()
+        node = ValkeyLoad(
+            url="valkey://localhost:6379",
+            key="test:ocr",
+            result_type="ocr",
+            out="loaded_ocr",
+        )
+
+        with patch("mata.core.exporters.valkey_exporter.load_valkey", return_value=ocr_result):
+            result = node.run(ctx)
+
+        assert "loaded_ocr" in result
+        assert isinstance(result["loaded_ocr"], OCRText)
+        assert result["loaded_ocr"].text_blocks[0].text == "Detected text"
+
+    def test_run_result_type_ocr_forwarded_to_load_valkey(self):
+        """result_type='ocr' is forwarded to load_valkey."""
+        ocr_result = _make_ocr_result(["text"])
+        ctx = _make_ctx()
+        node = ValkeyLoad(
+            url="valkey://localhost:6379",
+            key="test:ocr",
+            result_type="ocr",
+        )
+
+        with patch("mata.core.exporters.valkey_exporter.load_valkey", return_value=ocr_result) as mock_load:
+            node.run(ctx)
+            mock_load.assert_called_once_with(
+                url="valkey://localhost:6379",
+                key="test:ocr",
+                result_type="ocr",
+            )

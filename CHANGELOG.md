@@ -7,7 +7,79 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [Unreleased] — Maintenance
+
+> **v1.9.x is now feature-complete.** All subsequent 1.9.x releases will contain
+> bug fixes and documentation updates only. New features — including `mata.annotate()`,
+> `mata.train()`, and quantized ONNX export — are targeting **v2.0.0**.
+> See the README [Roadmap](README.md#roadmap) for details.
+
+---
+
+## [1.9.7] — 2026-04-02
+
+### Added
+
+**Qwen3-VL-Embedding support for `embed` task** — `mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B")` and
+`Qwen/Qwen3-VL-Embedding-8B` now supported as embed backends. Enables text, image, video,
+and mixed-modal embeddings in a unified vector space (up to 4096D).
+Matryoshka dimension control via `embed_dim` parameter.
+Optional enhanced preprocessing: `pip install datamata[qwen3-embedding]`.
+
+- `Qwen3VLEmbeddingAdapter` — standalone multimodal encoder; `predict_image()`, `predict_text()`, `predict_video()`, `predict_multimodal()` all return L2-normalised `(1, D)` float32 arrays
+- `mata.run("embed", "image.jpg", model="Qwen/Qwen3-VL-Embedding-2B")` — image embedding
+- `mata.run("embed", text="red truck", model="Qwen/Qwen3-VL-Embedding-2B")` — text-only embedding
+- `mata.run("embed", "video.mp4", model="Qwen/Qwen3-VL-Embedding-2B", fps=1.0)` — video embedding
+- `mata.run("embed", {"text": "...", "image": img}, model="...")` — mixed-modal embedding
+- `embed_dim` kwarg for Matryoshka dimension truncation (e.g. 64, 128, 256, 512 … 4096)
+- Optional extra: `pip install datamata[qwen3-embedding]` installs `qwen-vl-utils` for enhanced pixel-budget-aware preprocessing; adapter works without it via MATA's own resize + frame sampling
+- `UniversalLoader` auto-routes `"Qwen/Qwen3-VL-Embedding-*"` model IDs to `Qwen3VLEmbeddingAdapter` via `AutoConfig` probe; all existing embed routes (CLIP, OSNet-ONNX, X-CLIP) are unchanged
+
+**Graph Video Search — `IndexVideo` and `EmbeddingSearch` nodes**
+
+Two new graph nodes that turn a multi-hundred-line video-indexing pipeline into a 20-line graph:
+
+```python
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+result = (
+    Graph("urban_traffic_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text=["red bus", "jaywalking pedestrian"],
+                          top_k=3, threshold=0.18))
+).run(video="dashcam.mp4", providers={"embedder": embedder})
+
+for qr in result["search_results"].results:
+    for rank, m in enumerate(qr.matches, 1):
+        print(f'#{rank}  sim={m.similarity:.4f}  @ {int(m.start_s)//60:02d}m{int(m.start_s)%60:02d}s')
+```
+
+- `IndexVideo` graph node — samples frames from a video at `sample_fps`, embeds each frame via any `embed` provider, and stores the result as a `VideoIndexData` artifact; `mode` (`"frame"` / `"clip"`), `sample_fps`, and arbitrary `**embed_kwargs` (e.g. `embed_dim=`) are forwarded to `index_video()`
+- `EmbeddingSearch` graph node — accepts one or more text queries plus a `VideoIndexData` artifact; embeds each query and performs cosine nearest-neighbour search; returns a `SearchResults` artifact containing one `QueryResult` per query, each with a tuple of `VideoMatch` instances carrying `.label`, `.similarity`, `.start_s`, `.end_s`
+- `VideoPath` artifact — frozen `Artifact` subclass wrapping a video file path string; enables auto-wiring of `input.video` in graph context; round-trips via `to_dict()` / `from_dict()`
+- `VideoIndexData` artifact — frozen `Artifact` subclass wrapping a `VideoIndex` instance with optional `meta` dict; the bridge between `IndexVideo` and `EmbeddingSearch`
+- `SearchResults` artifact — frozen `Artifact` subclass holding a tuple of `QueryResult` objects; supports `len()`, iteration (`for qr in sr`), and index access (`sr[i]`); `QueryResult` is a frozen dataclass with `.query: str` and `.matches: tuple[VideoMatch, ...]`
+- `mata.infer()` extended: `image` parameter is now optional (`None` default); new `video: str | None = None` kwarg — when provided, creates a `VideoPath(path=video)` artifact and injects it as `input.video`; raises `ValueError` if neither `image` nor `video` is supplied
+- `Graph.run()` extended with `video: str | None = None` kwarg — when `video` is set and `image` is `None`, delegates to `mata.infer(image=None, video=video, ...)` without entering the frame-by-frame `VideoProcessor` path
+- `VideoPath`, `VideoIndexData`, `SearchResults`, and `QueryResult` exported from `mata.core.artifacts`
+- `IndexVideo` and `EmbeddingSearch` exported from `mata.nodes`
+- 42 new tests in `tests/test_video_search_nodes.py` covering node construction, `run()` dispatch, vector shape contract, metric recording, artifact serialization, and public export verification
+- `examples/embed/graph_urban_traffic_search.py` rewritten: the `main()` body reduced from ~300 lines to ~20 lines of graph-API code using `IndexVideo` + `EmbeddingSearch`; all CLI args (`--model`, `--dtype`, `--video`, `--queries`, `--sample-fps`, `--top-k`, `--threshold`, `--embed-dim`) retained
+
+### Fixed
+
+- `docs/TRACKING_GUIDE.md`: corrected tracking guide API references and examples, including the graph pipeline pattern, ReID activation wording, ONNX guidance, and cross-camera tracking example model ID
+- `docs/VALKEY_GUIDE.md`: clarified that `ValkeyLoad` loads OCR payloads as `OCRText` artifacts for `result_type="ocr"` and OCR auto-detection, matching shipped behavior
+- `src/mata/adapters/tracking_adapter.py`: auto-enable BotSort appearance matching when a ReID encoder is injected so `reid_model=` works as documented without requiring a separate `with_reid` toggle
+- `docs/ZEROSHOT_DETECTION_GUIDE.md`: corrected outdated zero-shot examples and API references by removing non-existent `result.task`, `instance.meta`, and `mask.to_binary()` usage; updated classification examples to use `top1`; removed unsupported `model_id=` and `cache_dir=` parameters
+- `docs/GRAPH_COOKBOOK.md`: corrected graph result access patterns in multiple recipes, including `result.final.dets.instances` for detection outputs and `result.final.rois.roi_images` for ROI outputs
+- `docs/REAL_WORLD_SCENARIOS.md`: corrected tracking import paths to `mata.nodes.track`; updated preset examples to use shipped kwargs such as `describe_prompt=` and removed non-existent `detect_entities=` usage
+- `docs/SUPPORTED_MODELS.md`: corrected the RT-DETR R18 model ID to `PekingU/rtdetr_v2_r18vd`, updated the reported mAP to 46.5, and removed unsupported batch-inference wording
+- `docs/VLM_MODEL_SUPPORT.md`: corrected model compatibility details, including Moondream2 support status, the LLaVA-NeXT model ID, and the minimum Transformers version guidance
+- `docs/CLIP_QUICK_START.md`: refreshed the quick-start document for v1.9.7 and removed a dead link to a non-existent implementation note
+- `docs/MATA_DESIGN_AND_ARCHITECTURE.md`: corrected the documented `mata.infer()` calling pattern and aligned result channel examples with the current graph API
+- `QUICKSTART.md`: corrected Gallery and recognition examples to match the shipped API, including valid Gallery construction and usage patterns
+- `INSTALLATION.md`: corrected installation examples to use valid model-loading patterns and removed references to a bare `"rtdetr"` alias that is not shipped
 
 ---
 

@@ -183,7 +183,6 @@ def _cmd_recognize(args: argparse.Namespace) -> int:
         return 1
 
     if args.output_json:
-        print(result.to_dict().__class__.__name__)
         print(json.dumps(result.to_dict(), indent=2))
     else:
         entries = getattr(result, "entries", [])
@@ -259,6 +258,7 @@ def _cmd_track(args: argparse.Namespace) -> int:
             conf=args.conf,
             iou=args.iou,
             save=args.save,
+            save_dir=args.save_dir,
             show=args.show,
             **kwargs,
         )

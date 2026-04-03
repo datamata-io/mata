@@ -24,7 +24,7 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "1.9.5"
+__version__ = "1.9.7"
 
 from .api import get_model_info, infer, list_models, load, register_model, run, track, val, verbose
 from .core import (
@@ -58,7 +58,7 @@ from .core import (
 from .core.artifacts.matches import MatchEntry, Matches
 from .core.graph.conditionals import EarlyExit, EarlyExitException, While
 from .eval import ClassifyMetrics, DepthMetrics, DetMetrics, OCRMetrics, SegmentMetrics
-from .recognition import Gallery, GalleryMatch
+from .recognition import Gallery, GalleryMatch, VideoIndex, VideoMatch, index_video
 
 # Visualization (lazy import to avoid hard dependency)
 try:
@@ -125,6 +125,9 @@ __all__ = [
     # Recognition
     "Gallery",
     "GalleryMatch",
+    "index_video",
+    "VideoIndex",
+    "VideoMatch",
     "Matches",
     "MatchEntry",
     # Graph control flow

@@ -1,7 +1,7 @@
-# VLM Model Support (v1.9.3)
+# VLM Model Support (v1.9.7)
 
-> **MATA** — Vision-Language Model compatibility reference for v1.9.3.  
-> All models are loaded via `AutoModelForImageTextToText` (HuggingFace Transformers ≥ 5.0.0).
+> **MATA** — Vision-Language Model compatibility reference for v1.9.7.  
+> All models are loaded via `AutoModelForImageTextToText` (HuggingFace Transformers ≥ 4.51.0; ≥ 5.0.0 recommended for full multi-model support).
 
 ---
 
@@ -39,10 +39,10 @@ print(result.text)
 | **SmolVLM**        | `HuggingFaceTB/SmolVLM-256M-Instruct` | 256M    | Ultra-light edge / mobile | `"auto"`         | No                  | ✅ Tested                                              |
 | **Florence-2**     | `florence-community/Florence-2-large` | 0.77B   | Grounding, captioning     | `"auto"`         | No                  | ✅ Tested (community model)                            |
 | **PaliGemma 2**    | `google/paligemma2-3b-pt-224`         | 3B      | Document understanding    | `"bfloat16"`     | No                  | ✅ Tested (gated — HF login required)                  |
-| **Phi-3.5 Vision** | `microsoft/Phi-3.5-vision-instruct`   | 4.2B    | Code, diagrams, charts    | `"auto"`         | Yes                 | ❌ Deferred (requires FlashAttention2 — Linux only)    |
+| **Phi-3.5 Vision** | `microsoft/Phi-3.5-vision-instruct`   | 4.2B    | Code, diagrams, charts    | `"bfloat16"`     | Yes                 | ❌ Deferred (requires FlashAttention2 — Linux only)    |
 | **InternVL2**      | `OpenGVLab/InternVL2-1B`              | 1B      | Multilingual VQA          | `"auto"`         | Yes                 | ❌ Not supported (Accelerate meta-device incompatible) |
-| **LLaVA-1.5-7B**   | `llava-hf/llava-1.5-7b-hf`            | 7B      | High-quality VQA          | `"auto"`         | No                  | ✅ Tested                                              |
-| **Moondream2**     | `vikhyatk/moondream2`                 | 1.9B    | Tiny / fast inference     | `"auto"`         | Yes                 | ❌ Not supported                                       |
+| **LLaVA-NeXT**     | `llava-hf/llava-v1.6-mistral-7b-hf`   | 7B      | High-quality VQA          | `"auto"`         | No                  | ✅ Tested                                              |
+| **Moondream2**     | `vikhyatk/moondream2`                 | 1.9B    | Tiny / fast inference     | `"auto"`         | Yes                 | ✅ Tested (`trust_remote_code=True` required)          |
 | **DeepSeek OCR**   | `deepseek-ai/DeepSeek-OCR-2`          | —       | Document OCR              | —                | Yes                 | ❌ Deferred (requires FlashAttention2 — Linux only)    |
 
 **Legend** — `dtype` Override column shows the recommended value for reliable loading:
@@ -173,7 +173,7 @@ for encoder-decoder models so decoded output is complete.
 ### PaliGemma 2 (Document Understanding) | Gated Repository
 
 Google's PaLI-Gemma 2 model family, strong at document understanding, fine-grained recognition,
-and chart/table parsing. Tested and working in MATA v1.9.3.
+and chart/table parsing. Tested and working in MATA v1.9.7.
 
 ```python
 vlm = mata.load("vlm", "google/paligemma2-3b-pt-224", dtype="bfloat16")
@@ -195,7 +195,7 @@ Run `huggingface-cli login` and accept the licence before first use.
 
 ### Phi-3.5 Vision (Code / Diagrams) — Deferred
 
-> ❌ **Phi-3.5 Vision is deferred from MATA v1.9.3 on Windows.**  
+> ❌ **Phi-3.5 Vision is deferred from MATA v1.9.7 on Windows.**  
 > Loading `microsoft/Phi-3.5-vision-instruct` requires **FlashAttention2** (`flash-attn ≥ 1.0.3`)
 > for meta-device support under Accelerate. Pre-built wheels for FlashAttention2 are not
 > available on Windows. The model will be validated and enabled in a future release after
@@ -224,7 +224,7 @@ FlashAttention2 build.
 
 ### InternVL2 (Not Supported)
 
-> ❌ **InternVL2 is not supported in MATA v1.9.3.**  
+> ❌ **InternVL2 is not supported in MATA v1.9.7.**  
 > The model's custom `__init__` calls `Tensor.item()` during construction, which is
 > incompatible with Accelerate's meta-device dispatch (`device_map`). Loading without
 > `device_map` also fails because neither `AutoModel` nor `AutoModelForCausalLM` can
@@ -279,7 +279,7 @@ result = vlm.predict("image.jpg", prompt="Describe this image.")
 
 ### DeepSeek OCR (Deferred)
 
-`deepseek-ai/DeepSeek-OCR-2` is deferred from v1.9.3. The model depends on **FlashAttention2**
+`deepseek-ai/DeepSeek-OCR-2` is deferred from v1.9.7. The model depends on **FlashAttention2**
 (`flash-attn`), which has no stable pre-built wheel for Windows. Attempting to load it on Windows
 raises an `ImportError`.
 
@@ -442,7 +442,7 @@ For CPU-only environments, try **`HuggingFaceTB/SmolVLM-256M-Instruct`** (256M, 
 
 ### Q: I get an OOM error loading a 7B model. What can I do?
 
-1. **Use a smaller model**: Qwen3-VL 2B, LFM2.5-VL 1.6B, InternVL2 1B, SmolVLM 256M.
+1. **Use a smaller model**: Qwen3-VL 2B, LFM2.5-VL 1.6B, SmolVLM 256M, or Moondream2 1.9B.
 2. **Use `dtype="float16"` or `dtype="bfloat16"`**: Halves VRAM compared to float32.
 3. **Use `device_map="auto"`** (passed via `device="auto"` — already the default): Splits layers
    across all available GPUs and CPU.
@@ -485,7 +485,7 @@ model will fall back to standard attention automatically.
 
 ### Q: Does MATA support API-based VLMs (GPT-4o, Gemini, Claude)?
 
-Not in v1.9.3. The current VLM adapter is designed for locally-loaded HuggingFace models that use
+Not in v1.9.7. The current VLM adapter is designed for locally-loaded HuggingFace models that use
 `AutoModelForImageTextToText`. API-based VLMs are planned for a future release (v2.0 target).
 
 ---
@@ -533,4 +533,4 @@ scaling heuristic handles [0,1] normalized, ~1000-unit, and raw pixel coords aut
 
 ---
 
-_Last updated: 2026-03-21 — MATA v1.9.4_
+_Last updated: 2026-04-02 — MATA v1.9.7_

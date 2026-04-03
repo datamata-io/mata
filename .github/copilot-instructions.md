@@ -2,14 +2,14 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. As of v1.9.5, it features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, a `barcode` task for QR/barcode decoding, a `recognize` task for gallery-based identity matching, a CLI (`mata` command), and graph control-flow primitives (`EarlyExit`, `While`, `Graph.add(condition=...)`).
+MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. It features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, a `barcode` task for QR/barcode decoding, a `recognize` task for gallery-based identity matching, a CLI (`mata` command), and graph control-flow primitives (`EarlyExit`, `While`, `Graph.add(condition=...)`).
 
 **Embed task — recommended backends (HuggingFace and ONNX are first-class):**
 
 - HuggingFace: `mata.load("embed", "openai/clip-vit-base-patch32")` — 400+ models, auto-detects arch
 - ONNX: `mata.load("embed", "./model.onnx")` — portable, CPU-efficient, no special deps
 
-**v2.0.0 Roadmap:** `mata.export()` for quantized ONNX export is planned for v2.0.0. Training and Export are co-planned as a paired milestone.
+**v2.0.0 Roadmap:** v1.9.x is feature-complete (maintenance mode). v2.0.0 targets `mata.annotate()`, `mata.train()`, and quantized ONNX export as co-planned milestones.
 
 **Universal Loading (v1.5.2+):**
 
@@ -57,7 +57,7 @@ result = tracker.update(frame, persist=True)  # YOLO-like pattern
 # Appearance-based ReID (v1.9.2+) — BotSort only
 results = mata.track("video.mp4",
     model="facebook/detr-resnet-50",
-    reid_model="openai/clip-vit-base-patch32")
+    reid_model="openai/clip-vit-base-patch32")  # auto-enables ReID
 
 # Cross-camera ReID via Valkey (v1.9.2+)
 from mata.trackers import ReIDBridge
@@ -85,7 +85,7 @@ emb = mata.run("embed", "image.jpg", model="openai/clip-vit-base-patch32")
 ```
 User API (mata.load/run/track/infer/val)
     ↓
-UniversalLoader (5-strategy auto-detection)
+UniversalLoader (source auto-detection)
     ↓
 Task Adapters (HuggingFace/ONNX/TorchScript/PyTorch)
     ↓
@@ -260,7 +260,11 @@ Built-in Tools (zoom, crop) + Provider Tools (detect, classify, etc.)
 
 ### Running Tests
 
-ALWAYS USE VIRTUAL ENVIRONMENT BEFORE RUNNING TESTS TO ENSURE ALL TEST DEPENDENCIES ARE AVAILABLE
+ALWAYS USE VIRTUAL ENVIRONMENT BEFORE RUNNING TESTS TO ENSURE ALL TEST DEPENDENCIES ARE AVAILABLE.
+Available virtual environment:
+
+- venv (Installed with GPU-accelerated PyTorch)
+- venv_cpu (Installed with CPU-only PyTorch)
 
 ```bash
 # All tests (5346+ total, all must pass)
@@ -335,7 +339,7 @@ pytest --cov=mata --cov-report=html
 
 When implementing new task adapters:
 
-1. Inherit from appropriate base adapter in `adapters/base/`
+1. Inherit from appropriate base adapter in `adapters/base.py`
 2. Implement `predict()` returning task-specific result type (VisionResult, ClassifyResult, DepthResult, EmbedResult)
 3. Add comprehensive tests in `tests/test_<task>_adapter.py`
 4. Test all supported runtimes (PyTorch, ONNX, TorchScript where applicable)
@@ -367,12 +371,14 @@ registry = ModelRegistry(
 
 - **Type hints required:** Use `from __future__ import annotations` for forward refs
 
-  ```python
-  from __future__ import annotations
-  from typing import Optional, Any
+```python
+from __future__ import annotations
+from typing import Optional, Any
 
-  def load(self, task: str, source: Optional[str] = None) -> Any:
-  ```
+def load(task: str, model: Optional[str] = None) -> Any:
+```
+
+Public API note: `mata.load(..., model=...)` passes `model` to the internal loader as `source`.
 
 ### Result Type Patterns
 
@@ -398,13 +404,13 @@ class VisionResult:
 **ClassifyResult:**
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class ClassifyResult:
-    classifications: list[Classification]
-    meta: dict[str, Any] = field(default_factory=dict)
+    predictions: list[Classification]
+    meta: dict[str, Any] | None = None
 
     @property
-    def top1(self) -> Classification: ...
+    def top1(self) -> Classification | None: ...
     @property
     def top5(self) -> list[Classification]: ...
 
@@ -415,21 +421,26 @@ class ClassifyResult:
 **DepthResult:**
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class DepthResult:
-    depth_map: np.ndarray  # (H, W) float array
+    depth: np.ndarray  # (H, W) raw depth float array
+    normalized: np.ndarray | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
-    def save(self, output_path: str, colormap: str = "magma"): ...
+    @property
+    def depth_map(self) -> np.ndarray: ...
+
+    def save(self, output_path: str | Path, image=None,
+             format: str | None = None, **kwargs): ...
 ```
 
-**EmbedResult (🆕 v1.9.6):**
+**EmbedResult (🆕 v1.9.2 Beta Release 2):**
 
 ```python
 @dataclass(frozen=True)
 class EmbedResult:
     embeddings: np.ndarray   # (N, D) float32, L2-normalised
-    labels: list[str] = field(default_factory=list)
+    labels: list[str] | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -484,16 +495,20 @@ logger.debug(f"Detected architecture: {arch}")
 
 ## UniversalLoader Detection Chain
 
-**Critical:** Understand the 5-strategy detection order in `model_loader.py`:
+**Critical:** Understand the detection order in `model_loader.py`:
 
 ```python
 def _detect_source_type(self, task: str, source: Optional[str]) -> tuple[str, str]:
     """
     1. None → "default" (registry.get_default())
     2. Config alias (registry.has_alias()) → "config_alias"
-    3. Local file (os.path.exists()) → "local_file" (.onnx/.pth/.pt/.bin/.engine)
-    4. Contains '/' → "huggingface" (org/model pattern)
-    5. Otherwise → "config_alias" (will raise ModelNotFoundError)
+    3. Local file (os.path.exists()) → "local_file"
+    4. Known extension (.onnx/.pth/.pt/.bin/.trt/.engine) → "local_file"
+    5. Starts with "torchvision/" → "torchvision"
+    6. External OCR engine (easyocr/paddleocr/tesseract) → "external_engine"
+    7. External barcode engine (pyzbar/zxing) → "external_engine"
+    8. Contains '/' → "huggingface" (org/model pattern)
+    9. Otherwise → "config_alias" (will raise ModelNotFoundError)
     """
 ```
 

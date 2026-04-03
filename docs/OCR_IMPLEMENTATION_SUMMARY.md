@@ -54,7 +54,7 @@ mata.load("ocr", ...) / mata.run("ocr", ...)
 | Backend       | Class                   | Models / Source               | Runtime                                      | Bbox support         | GPU                   | Notes                                                      |
 | ------------- | ----------------------- | ----------------------------- | -------------------------------------------- | -------------------- | --------------------- | ---------------------------------------------------------- |
 | **GLM-OCR**   | `HuggingFaceOCRAdapter` | `zai-org/GLM-OCR`             | PyTorch (AutoModelForImageTextToText + chat) | ❌ (whole-image)     | ✅ via `device_map`   | State-of-the-art doc OCR; chat-template API (v1.9.4+)      |
-| **GOT-OCR2**  | `HuggingFaceOCRAdapter` | `stepfun-ai/GOT-OCR-2.0-hf`   | PyTorch (AutoModelForCausalLM)               | ❌ (whole-image)     | ✅ via `device`       | ⚠️ Known hallucination issues — avoid until further notice |
+| **GOT-OCR2**  | `HuggingFaceOCRAdapter` | `stepfun-ai/GOT-OCR-2.0-hf`   | PyTorch (AutoModelForImageTextToText)        | ❌ (whole-image)     | ✅ via `device`       | ⚠️ Known hallucination issues — avoid until further notice |
 | **TrOCR**     | `HuggingFaceOCRAdapter` | `microsoft/trocr-*`           | PyTorch (VisionEncoderDecoderModel)          | ❌ (whole-image)     | ✅ via `device`       | Single text-line crops only                                |
 | **EasyOCR**   | `EasyOCRAdapter`        | local engine (80+ languages)  | PyTorch (internal)                           | ✅ xyxy polygon→bbox | ✅ via `gpu=True`     |                                                            |
 | **PaddleOCR** | `PaddleOCRAdapter`      | local engine (80+ languages)  | PaddlePaddle (internal)                      | ✅ xyxy polygon→bbox | ✅ via `use_gpu=True` | paddleocr + paddlepaddle major versions must match         |
@@ -111,10 +111,11 @@ class TextRegion:
 @dataclass(frozen=True)
 class OCRResult:
     regions: list[TextRegion]
-    meta:    dict[str, Any]
+    meta:    dict[str, Any] = field(default_factory=dict)
 
-    # Convenience
-    full_text: str                                   # "\n".join(region.text …)
+    # Convenience (properties / methods)
+    @property
+    def full_text(self) -> str: ...                  # "\n".join(region.text …)
     filter_by_score(threshold) -> OCRResult
     to_dict() / to_json() / from_dict() / from_json()
     save(output_path)                                # auto-format by extension
@@ -441,25 +442,25 @@ native backend runtimes (PyTorch, PaddlePaddle, the Tesseract binary).
 
 ```
 src/mata/
-  api.py                                ← mata.load("ocr", ...) / mata.run("ocr", ...)
-  core/
-    types.py                            ← OCRResult, TextRegion
-    model_loader.py                     ← UniversalLoader (OCR strategy)
-    artifacts/
-      ocr_text.py                       ← OCRText, TextBlock (graph artifact)
-  adapters/
-    ocr/
-      __init__.py                       ← exports all four adapter classes
-      huggingface_ocr_adapter.py        ← GOT-OCR2 + TrOCR
-      easyocr_adapter.py                ← EasyOCR
-      paddleocr_adapter.py              ← PaddleOCR
-      tesseract_adapter.py              ← Tesseract via pytesseract
-    wrappers/
-      ocr_wrapper.py                    ← OCRWrapper (graph + VLM tool protocol)
-  nodes/
-    ocr.py                              ← OCR graph node (Image / ROIs → OCRText)
+    api.py                                ← mata.load("ocr", ...) / mata.run("ocr", ...)
+    core/
+        types.py                            ← OCRResult, TextRegion
+        model_loader.py                     ← UniversalLoader (OCR strategy)
+        artifacts/
+            ocr_text.py                       ← OCRText, TextBlock (graph artifact)
+    adapters/
+        ocr/
+            __init__.py                       ← exports all four adapter classes
+            huggingface_ocr_adapter.py        ← GLM-OCR + GOT-OCR2 + TrOCR
+            easyocr_adapter.py                ← EasyOCR
+            paddleocr_adapter.py              ← PaddleOCR
+            tesseract_adapter.py              ← Tesseract via pytesseract
+        wrappers/
+            ocr_wrapper.py                    ← OCRWrapper (graph + VLM tool protocol)
+    nodes/
+        ocr.py                              ← OCR graph node (Image / ROIs → OCRText)
 
 tests/
-  test_ocr_adapters.py                  ← adapter-level unit tests (56 tests)
-  test_ocr_api.py                       ← public API integration tests (8 tests)
+    test_ocr_adapter.py                   ← adapter-level unit tests (90 tests)
+    test_ocr_node.py                      ← OCR graph node + wrapper + pipeline tests (47 tests)
 ```

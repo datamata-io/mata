@@ -677,7 +677,7 @@ class UniversalLoader:
         elif task == "embed":
             from mata.adapters.embed_adapter import EmbedAdapter
 
-            # Probe AutoConfig to detect X-CLIP before falling back to ReIDAdapter
+            # Probe AutoConfig to detect X-CLIP / Qwen3-VL-Embedding before falling back to ReIDAdapter
             _model_type = ""
             try:
                 from transformers import AutoConfig
@@ -691,6 +691,10 @@ class UniversalLoader:
                 from mata.adapters.xclip_adapter import XCLIPAdapter
 
                 encoder = XCLIPAdapter(model_id, **kwargs)
+            elif _model_type == "qwen3_vl" and "embedding" in model_id.lower():
+                from mata.adapters.qwen3_vl_embedding_adapter import Qwen3VLEmbeddingAdapter
+
+                encoder = Qwen3VLEmbeddingAdapter(model_id, **kwargs)
             else:
                 from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
 

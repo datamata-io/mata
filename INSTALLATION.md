@@ -150,11 +150,11 @@ This script will:
 import mata
 
 # MATA will auto-detect and use GPU if available
-detector = mata.load("detect", "rtdetr")  # device="auto" is default
+detector = mata.load("detect", "facebook/detr-resnet-50")  # device="auto" is default
 
 # Force specific device
-detector_gpu = mata.load("detect", "rtdetr", device="cuda")  # GPU only
-detector_cpu = mata.load("detect", "rtdetr", device="cpu")   # CPU only
+detector_gpu = mata.load("detect", "facebook/detr-resnet-50", device="cuda")  # GPU only
+detector_cpu = mata.load("detect", "facebook/detr-resnet-50", device="cpu")   # CPU only
 
 # Run detection
 result = detector.predict("image.jpg")
@@ -168,14 +168,14 @@ print(f"Found {len(result.instances)} objects")
 **Solution 1**: Use CPU instead
 
 ```python
-detector = mata.load("detect", "rtdetr", device="cpu")
+detector = mata.load("detect", "facebook/detr-resnet-50", device="cpu")
 ```
 
 **Solution 2**: Use smaller model
 
 ```python
-# RT-DETRv2-R18 is the smallest (default)
-detector = mata.load("detect", "rtdetr", model_id="facebook/detr-resnet-50")
+# Use a lighter model for lower memory usage
+detector = mata.load("detect", "facebook/detr-resnet-50")
 ```
 
 **Solution 3**: Close other GPU applications
@@ -196,10 +196,14 @@ Possible causes:
 3. **Verify GPU is actually being used**:
    ```python
    import mata
-   detector = mata.load("detect", "rtdetr", device="cuda")
-   # Check internal model device
-   print(detector.device)  # Should show "cuda"
+   detector = mata.load("detect", "facebook/detr-resnet-50", device="cuda")
    ```
+
+# Check internal model device
+
+print(detector.device) # Should show "cuda" (torch.device object)
+
+````
 
 ## Optional Features
 
@@ -210,7 +214,7 @@ To run models in `.onnx` format (faster CPU inference, no PyTorch overhead):
 ```bash
 pip install datamata[onnx]      # CPU ONNX Runtime
 pip install datamata[onnx-gpu]  # GPU ONNX Runtime (requires CUDA)
-```
+````
 
 ---
 
@@ -297,7 +301,7 @@ mata.show(result, image="image.jpg")  # adds image overlay
 ### All optional extras
 
 ```bash
-pip install datamata[all]  # onnx + eval + viz + ocr + notebook
+pip install datamata[all]  # onnx + eval + viz + ocr + notebook + qwen3-embedding
 ```
 
 ---
@@ -351,4 +355,4 @@ After installation:
 1. Run `python verify_install.py` to verify GPU/CPU detection
 2. Try `python examples/detect/basic_detection.py` for a quick test
 3. Read [QUICKSTART.md](QUICKSTART.md) for API usage
-4. Check the [Common Issues](README.md#common-issues) section if you encounter issues
+4. Check the [README](README.md) if you encounter issues

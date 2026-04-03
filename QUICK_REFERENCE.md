@@ -1,4 +1,4 @@
-﻿# MATA Quick Reference — v1.5 to v1.9.4
+﻿# MATA Quick Reference — v1.5 to v1.9.7
 
 ## 📋 Table of Contents
 
@@ -16,6 +16,12 @@
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
 | [Feature Embedding](#-feature-embedding-quick-reference-v192b2) | v1.9.2 Beta Release 2 |
 | [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193) | v1.9.3 |
+| [Notebook Display](#-jupyter-notebook-display-quick-reference-v194) | v1.9.4 |
+| [CLI Reference](#-cli-quick-reference-v195) | v1.9.5 |
+| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195) | v1.9.5 |
+| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195) | v1.9.5 |
+| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6 |
+| [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197) | v1.9.7 |
 | [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
 | [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
 
@@ -43,10 +49,9 @@ detector = mata.load("detect", "./models/rtdetr.onnx")
 
 # Load using config alias
 detector = mata.load("detect", "fast-model")
-
-# Load legacy plugin (backward compat)
-detector = mata.load("detect", "rtdetr")  # Still works!
 ```
+
+Bare legacy plugin names like `"rtdetr"` are **not** direct load targets anymore. Use a HuggingFace model ID, a local file path, or define a config alias in `.mata/models.yaml`.
 
 ---
 
@@ -86,11 +91,14 @@ detector = mata.load("detect", "rtdetr-r18")
 
 When you call `mata.load("detect", "source")`, MATA checks in order:
 
-1. **Config alias** - Is "source" in `models.yaml`?
-2. **Local file** - Does file exist on disk?
-3. **HuggingFace ID** - Does "source" contain `/`?
-4. **Legacy plugin** - Is "source" a registered plugin?
-5. **Default** - Use task's default model
+1. **Default** - Is source `None`? Use task's default model
+2. **Config alias** - Is "source" in `models.yaml`?
+3. **Local file** - Does file exist on disk?
+4. **File extension** - Does it end with `.onnx`, `.pt`, `.pth`, `.bin`, `.trt`, or `.engine`?
+5. **Torchvision** - Does it start with `torchvision/`?
+6. **External engine** - Is it a known engine name such as `easyocr`, `paddleocr`, `tesseract`, `pyzbar`, or `zxing`?
+7. **HuggingFace ID** - Does "source" contain `/`?
+8. **Fallback** - Treat as config alias and raise `ModelNotFoundError` if it is not found
 
 ---
 
@@ -153,7 +161,7 @@ import mata
 
 # Register an alias at runtime
 mata.register_model("detect", "production-model", {
-    "source": "s3://models/rtdetr_prod.onnx",
+    "source": "/models/rtdetr_prod.onnx",
     "threshold": 0.7
 })
 
@@ -167,8 +175,8 @@ detector = mata.load("detect", "production-model")
 
 ### If you're upgrading from v1.4:
 
-- [ ] **Option 1:** No changes needed - old code still works with deprecation warnings
-- [ ] **Option 2:** Update to model IDs/paths for new features:
+- [ ] **Option 1:** Replace legacy plugin names with a real model ID, local path, or config alias
+- [ ] **Option 2:** Update existing loads like this:
 
   ```python
   # Old
@@ -179,7 +187,7 @@ detector = mata.load("detect", "production-model")
   ```
 
 - [ ] **Option 3:** Create config file for aliases
-- [ ] Update code to use `.instances` instead of `.detections` (removed in v1.5)
+- [ ] Prefer `.instances` for full results; `.detections` remains as a backward-compatible filtered property
 
 ---
 
@@ -189,13 +197,13 @@ detector = mata.load("detect", "production-model")
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 - **Graph System:** [GRAPH_API_REFERENCE.md](docs/GRAPH_API_REFERENCE.md)
 - **VLM Agent:** [VLM_TOOL_CALLING_SUMMARY.md](docs/VLM_TOOL_CALLING_SUMMARY.md)
-- **Tracking:** [TASK_TRACKING.md](docs/TASK_TRACKING.md)
+- **Tracking:** [TRACKING_GUIDE.md](docs/TRACKING_GUIDE.md)
 
 ---
 
 ## ✅ Testing
 
-**4047+ tests across all subsystems:**
+**5346+ tests across all subsystems:**
 
 ```bash
 pytest tests/ -v
@@ -239,35 +247,34 @@ for inst in result.final.instances:
 
 ### Common Node Types
 
-| Node        | Description                  | Key params                           |
-| ----------- | ---------------------------- | ------------------------------------ |
-| `Detect`    | Run object detection         | `using`, `out`                       |
-| `Classify`  | Run classification           | `using`, `out`                       |
-| `Segment`   | Run segmentation             | `using`, `out`                       |
-| `Depth`     | Run depth estimation         | `using`, `out`                       |
-| `VLMQuery`  | Run VLM with prompt          | `using`, `prompt`, `out`             |
-| `VLMDetect` | VLM → structured detections  | `using`, `prompt`, `out`             |
-| `Filter`    | Filter by score / label      | `src`, `score_gt`, `label_in`, `out` |
-| `TopK`      | Keep top-K detections        | `k`, `src`, `out`                    |
-| `Merge`     | Merge multiple inputs        | `srcs`, `out`                        |
-| `Fuse`      | Collect results into channel | `dets`, `out`                        |
-| `Annotate`  | Draw boxes/masks on image    | `dets`, `out`                        |
-| `Crop`      | Extract ROIs per detection   | `dets`, `image`, `out`               |
-| `Track`     | Add multi-object tracking    | `using`, `dets`, `out`               |
-| `If`        | Conditional branch           | `condition`, `then`, `out`           |
+| Node            | Description                  | Key params                           |
+| --------------- | ---------------------------- | ------------------------------------ |
+| `Detect`        | Run object detection         | `using`, `out`                       |
+| `Classify`      | Run classification           | `using`, `out`                       |
+| `SegmentImage`  | Run segmentation             | `using`, `out`                       |
+| `EstimateDepth` | Run depth estimation         | `using`, `out`                       |
+| `VLMQuery`      | Run VLM with prompt          | `using`, `prompt`, `out`             |
+| `VLMDetect`     | VLM → structured detections  | `using`, `prompt`, `out`             |
+| `Filter`        | Filter by score / label      | `src`, `score_gt`, `label_in`, `out` |
+| `TopK`          | Keep top-K detections        | `k`, `src`, `out`                    |
+| `Merge`         | Merge multiple inputs        | `srcs`, `out`                        |
+| `Fuse`          | Collect results into channel | `dets`, `out`                        |
+| `Annotate`      | Draw boxes/masks on image    | `dets`, `out`                        |
+| `ExtractROIs`   | Extract ROIs per detection   | `src_dets`, `out`                    |
+| `Track`         | Add multi-object tracking    | `using`, `dets`, `out`               |
 
 ### Parallel Execution
 
 ```python
 from mata.core.graph import Graph, ParallelScheduler
-from mata.nodes import Detect, Classify, Depth, Fuse
+from mata.nodes import Detect, Classify, EstimateDepth, Fuse
 
 result = mata.infer(
     image="photo.jpg",
     graph=[
         Detect(using="detector", out="dets"),
-        Classify(using="classifier", out="class"),   # ← parallel stage
-        Depth(using="depth_model", out="depth"),      # ← parallel stage
+        Classify(using="classifier", out="cls"),       # ← parallel stage
+        EstimateDepth(using="depth_model", out="depth"),  # ← parallel stage
         Fuse(dets="dets", out="final"),
     ],
     providers={
@@ -279,7 +286,7 @@ result = mata.infer(
     scheduler=ParallelScheduler(),
 )
 print(result.dets)   # VisionResult
-print(result.class_)  # ClassifyResult
+print(result.cls)    # ClassifyResult
 print(result.depth)  # DepthResult
 ```
 
@@ -302,13 +309,14 @@ result = mata.infer("photo.jpg", graph, providers={"detector": detector})
 ### DSL Graph Construction
 
 ```python
-from mata.dsl import dsl_graph
+from mata.core.graph.dsl import sequential
+from mata.nodes import Detect, Filter, Fuse
 
-graph = dsl_graph("""
-detect using=detector out=dets
-filter src=dets score_gt=0.3 out=filtered
-fuse dets=filtered out=final
-""")
+graph = sequential(
+    Detect(using="detector", out="dets"),
+    Filter(src="dets", score_gt=0.3, out="filtered"),
+    Fuse(dets="filtered", out="final"),
+)
 
 result = mata.infer("photo.jpg", graph, providers={"detector": detector})
 ```
@@ -317,17 +325,16 @@ result = mata.infer("photo.jpg", graph, providers={"detector": detector})
 
 ```python
 from mata.presets import (
-    surveillance_basic,          # detect persons + tracking
-    retail_analytics,            # detect products + classify
-    medical_analysis,            # segment + VLM description
-    traffic_monitoring,          # detect vehicles + tracking
+    crowd_monitoring,            # detect persons + ByteTrack
     crowd_monitoring_botsort,    # detect persons + BotSort
+    traffic_tracking,            # detect vehicles + ByteTrack
+    traffic_tracking_botsort,    # detect vehicles + BotSort
 )
 
 result = mata.infer(
     image="scene.jpg",
     **crowd_monitoring_botsort(),
-    providers={"detector": mata.load("detect", "facebook/detr-resnet-50"), ...},
+    providers={"detector": mata.load("detect", "facebook/detr-resnet-50")},
 )
 ```
 
@@ -351,8 +358,8 @@ image = Image.open("image.jpg")
 result = detector.predict(image, threshold=0.5)
 
 # Access results
-for det in result.detections:
-    print(f"{det.label}: {det.score:.2f} at {det.bbox}")
+for inst in result.instances:
+    print(f"{inst.label_name}: {inst.score:.2f} at {inst.bbox}")
 ```
 
 ### Using Config File
@@ -657,7 +664,7 @@ result = mata.run(
     model="openai/clip-vit-base-patch32",
     text_prompts=["cat", "dog", "bird"]
 )
-print(result.top(1))  # Most likely label
+print(result.top1)  # Most likely label
 
 # Custom template (context-aware)
 result = mata.run(
@@ -1491,7 +1498,7 @@ result = mata.infer("video.mp4", crowd_monitoring_botsort(), providers={...})
 
 **Test suites:** `tests/test_trackers/` (354) · `tests/test_tracking_adapter.py` (73) · `tests/test_track_api.py` (62) · `tests/test_tracking_visualization.py` (103) · `tests/test_video_io.py` (56) — **687 tracking tests total**
 
-**Documentation:** [TASK_TRACKING.md](docs/TASK_TRACKING.md) · [examples/track/](examples/track/)
+**Documentation:** [TRACKING_GUIDE.md](docs/TRACKING_GUIDE.md) · [examples/track/](examples/track/)
 
 ---
 
@@ -1765,7 +1772,89 @@ result = mata.infer(graph, image="shelf.jpg", providers={
 
 ---
 
-## 📊 Evaluation Quick Reference (v1.8)
+## � Jupyter Notebook Display Quick Reference (v1.9.4)
+
+> **New in v1.9.4:** All MATA result types have `_repr_html_()` and `_repr_png_()` methods, so they render automatically as rich tables and charts in Jupyter Notebook and JupyterLab.
+
+### Automatic Rich Display
+
+```python
+import mata
+
+# Detection — renders an HTML table of labels, scores, bbox coords + optional overlay
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+result   # auto-renders in Jupyter
+
+# Classification — renders an SVG bar chart + score table
+result = mata.run("classify", "image.jpg", model="openai/clip-vit-base-patch32")
+result
+
+# Depth — renders a colormapped PNG (magma)
+result = mata.run("depth", "image.jpg", model="depth-anything/Depth-Anything-V2-Small-hf")
+result
+
+# Barcode — renders decoded payloads and symbology types
+result = mata.run("barcode", "qr.jpg", model="pyzbar")
+result
+
+# Embeddings — renders shape + min/max/mean stats
+result = mata.run("embed", "image.jpg", model="openai/clip-vit-base-patch32")
+result
+
+# OCR — renders recognized text fragments
+result = mata.run("ocr", "document.jpg", model="easyocr")
+result
+```
+
+### Manual Rendering Functions
+
+Import render helpers directly if you need the HTML string or PNG bytes outside a notebook:
+
+```python
+from mata.notebook import (
+    render_vision_html,    # detect / segment / track results
+    render_classify_html,  # classification results
+    render_depth_png,      # depth map (returns PNG bytes)
+    render_ocr_html,       # OCR results
+    render_barcode_html,   # barcode / QR results
+    render_embed_html,     # embedding vectors
+)
+
+# Get HTML string
+html_str = render_vision_html(result)
+
+# Get PNG bytes (depth)
+png_bytes = render_depth_png(depth_result)
+```
+
+### Display Behaviour Summary
+
+| Result Type       | Renders As                        | Method              |
+| ----------------- | --------------------------------- | ------------------- |
+| `VisionResult`    | HTML table with optional overlay  | `_repr_html_()`     |
+| `ClassifyResult`  | SVG bar chart + score table       | `_repr_html_()`     |
+| `DepthResult`     | Magma colourmap PNG               | `_repr_png_()`      |
+| `OCRResult`       | HTML table of text regions        | `_repr_html_()`     |
+| `BarcodeResult`   | HTML table of codes + symbologies | `_repr_html_()`     |
+| `EmbedResult`     | Shape + statistics summary        | `_repr_html_()`     |
+
+### Dependencies
+
+All Jupyter / matplotlib imports are **guarded** — `mata.notebook` is importable in non-Jupyter environments. The render functions return `None` if optional dependencies are unavailable.
+
+```bash
+# Required for depth PNG rendering
+pip install matplotlib
+
+# Required for image overlay in VisionResult
+pip install pillow
+```
+
+**Notebook:** [examples/notebooks/](examples/notebooks/)
+
+---
+
+## �📊 Evaluation Quick Reference (v1.8)
 
 ### `mata.val()` — YOLO-style validation
 
@@ -2011,7 +2100,7 @@ mata val segment --data coco.yaml --model facebook/mask2former-swin-tiny-coco-in
 ```python
 import mata
 
-gallery = mata.Gallery(threshold=0.7)
+gallery = mata.Gallery(similarity_thresh=0.7)
 gallery.add("alice_1.jpg", label="alice", model="openai/clip-vit-base-patch32")
 gallery.add("alice_2.jpg", label="alice", model="openai/clip-vit-base-patch32")
 gallery.add("bob_1.jpg",   label="bob",   model="openai/clip-vit-base-patch32")
@@ -2028,8 +2117,8 @@ matches = mata.run("recognize", "query.jpg",
     model="openai/clip-vit-base-patch32",
     top_k=3)
 
-print(matches.top1.label)        # best match
-print(matches.top1.similarity)   # cosine similarity [0, 1]
+print(matches.entries[0].label)        # best match
+print(matches.entries[0].similarity)   # cosine similarity [0, 1]
 for entry in matches.entries:
     print(f"{entry.label}: {entry.similarity:.3f}")
 ```
@@ -2040,9 +2129,8 @@ for entry in matches.entries:
 from mata import Matches, MatchEntry
 
 matches.entries          # list[MatchEntry]
-matches.top1             # highest-similarity MatchEntry
-matches.to_json()        # JSON serialisation
 matches.to_dict()        # dict serialisation
+Matches.from_dict(data)  # reconstruct from dict
 
 entry.label              # gallery label string
 entry.similarity         # float in [0, 1]
@@ -2135,3 +2223,182 @@ from mata.core.graph import EarlyExit, EarlyExitException, While  # core
 **Date:** March 22, 2026
 **Status:** ✅ Production Ready
 ````
+
+---
+
+## 🎞️ Video Semantic Search Quick Reference (v1.9.6)
+
+> **New in v1.9.6:** Video semantic search via the `embed` task. Index a video by embedding each sampled frame, then retrieve relevant moments with natural-language text queries. Works with CLIP and any vision-encoder model.
+
+### One-liner Video Search
+
+```python
+import mata
+from mata.recognition import index_video
+
+# Step 1 — build an index (embed every frame at 1 fps)
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+vidx = index_video("dashcam.mp4", embedder, sample_fps=1.0)
+
+# Step 2 — search with natural language
+matches = vidx.search("red car running red light", top_k=5)
+for m in matches:
+    print(f"sim={m.similarity:.4f}  @ {m.start_s:.1f}s–{m.end_s:.1f}s")
+```
+
+### Saving and Loading a Video Index
+
+```python
+# Persist the index to disk
+vidx.save("my_video.npz")
+
+# Reload later
+from mata.recognition import VideoIndex
+vidx = VideoIndex.load("my_video.npz")
+
+matches = vidx.search("person carrying a bag", top_k=3)
+```
+
+### Multi-Query Search
+
+```python
+queries = ["red bus", "pedestrian crossing", "cyclist"]
+for q in queries:
+    print(f'\n"{q}"')
+    for m in vidx.search(q, top_k=3, threshold=0.20):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+### `VideoMatch` Fields
+
+| Field        | Type    | Description                    |
+| ------------ | ------- | ------------------------------ |
+| `label`      | `str`   | Frame label / identifier       |
+| `similarity` | `float` | Cosine similarity score [0, 1] |
+| `index`      | `int`   | Frame index in the gallery     |
+| `start_s`    | `float` | Start timestamp in seconds     |
+| `end_s`      | `float` | End timestamp in seconds       |
+
+### Supported Embedding Backends
+
+```python
+# HuggingFace CLIP (recommended)
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+# ONNX (CPU-efficient)
+embedder = mata.load("embed", "./osnet_x0_25.onnx")
+
+# X-CLIP (temporal multi-frame model, v1.9.6)
+embedder = mata.load("embed", "microsoft/xclip-base-patch32")
+```
+
+---
+
+## 🧠 Video Search Graph Nodes Quick Reference (v1.9.7)
+
+> **New in v1.9.7:** `IndexVideo` and `EmbeddingSearch` graph nodes for building video search pipelines as composable graphs. The `mata.infer()` function gains an optional `video=` kwarg.
+
+### Minimal Graph Pipeline
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+result = (
+    Graph("search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text="red car", top_k=5))
+).run(video="traffic.mp4", providers={"embedder": embedder})
+
+for qr in result["search_results"]:
+    for rank, m in enumerate(qr.matches, 1):
+        print(f"#{rank}  sim={m.similarity:.4f}  @ {m.start_s:.1f}s")
+```
+
+### `IndexVideo` Node Parameters
+
+| Parameter    | Default         | Description                                        |
+| ------------ | --------------- | -------------------------------------------------- |
+| `using`      | _required_      | Provider name → `embed` adapter                    |
+| `mode`       | `"frame"`       | `"frame"` (one embed/frame) or `"clip"` (windowed) |
+| `sample_fps` | `1.0`           | Frames per second to sample                        |
+| `out`        | `"video_index"` | Key for `VideoIndexData` output artifact           |
+
+### `EmbeddingSearch` Node Parameters
+
+| Parameter   | Default            | Description                                |
+| ----------- | ------------------ | ------------------------------------------ |
+| `using`     | _required_         | Provider name → `embed` adapter            |
+| `text`      | _required_         | Query string or `list[str]`                |
+| `src`       | `"video_index"`    | Input `VideoIndexData` artifact key        |
+| `out`       | `"search_results"` | Output `SearchResults` artifact key        |
+| `top_k`     | `5`                | Max matches per query                      |
+| `threshold` | `None`             | Min cosine similarity (disabled if `None`) |
+
+### Multi-Query with Threshold
+
+```python
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+graph = (
+    Graph("urban_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=2.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=["red bus", "jaywalking pedestrian", "cyclist"],
+        top_k=3,
+        threshold=0.18,
+    ))
+)
+
+result = graph.run(video="dashcam.mp4", providers={"embedder": embedder})
+for qr in result["search_results"].results:
+    print(f'\n"{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+### Qwen3-VL-Embedding
+
+```python
+# Multimodal embedding — understands both image content and text semantics
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+# Use with graph nodes exactly as CLIP
+graph = (
+    Graph("qwen_search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text="delivery truck", top_k=5))
+)
+```
+
+### `mata.infer()` with `video=` Input (v1.9.7)
+
+```python
+# image= is now optional; use video= for video-input graphs
+result = mata.infer(
+    graph,
+    video="dashcam.mp4",   # automatically wraps in VideoPath
+    providers={"embedder": embedder},
+)
+```
+
+### New Artifacts Summary
+
+| Artifact         | Produced by              | Consumed by       | Description                        |
+| ---------------- | ------------------------ | ----------------- | ---------------------------------- |
+| `VideoPath`      | `graph.run(video=)`      | `IndexVideo`      | Wraps video file path              |
+| `VideoIndexData` | `IndexVideo`             | `EmbeddingSearch` | Gallery + frame timing for a video |
+| `SearchResults`  | `EmbeddingSearch`        | downstream nodes  | Per-query `QueryResult` collection |
+| `QueryResult`    | (inside `SearchResults`) | —                 | Query string + top-K `VideoMatch`s |
+
+---
+
+**Version:** 1.9.7
+**Date:** April 3, 2026
+**Status:** ✅ Production Ready

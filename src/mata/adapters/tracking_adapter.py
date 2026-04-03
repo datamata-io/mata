@@ -233,6 +233,7 @@ class TrackingAdapter:
         # appearance distance branch when encoder is not None.
         if self._reid_encoder is not None and hasattr(self._tracker, "encoder"):
             self._tracker.encoder = self._reid_encoder
+            self._tracker.with_reid = True
 
         logger.debug(
             "TrackingAdapter initialised: tracker_type=%s, frame_rate=%d, reid=%s, bridge=%s",

@@ -19,6 +19,7 @@ from mata.nodes.depth import EstimateDepth
 # Core task nodes (Task 5.1)
 from mata.nodes.detect import Detect
 from mata.nodes.embed import Embed
+from mata.nodes.embedding_search import EmbeddingSearch
 from mata.nodes.expand_boxes import ExpandBoxes
 
 # Data transformation nodes (Task 5.2)
@@ -27,6 +28,7 @@ from mata.nodes.filter import Filter
 # Fusion nodes (Task 5.6)
 from mata.nodes.fuse import Fuse
 from mata.nodes.gallery_match import GalleryMatchNode
+from mata.nodes.index_video import IndexVideo
 from mata.nodes.keep_best_mask import KeepBestMask
 from mata.nodes.mask_to_box import MaskToBox
 from mata.nodes.merge import Merge
@@ -99,6 +101,9 @@ __all__ = [
     "ValkeyLoad",
     # Recognition nodes
     "GalleryMatchNode",
+    # Video search nodes
+    "IndexVideo",
+    "EmbeddingSearch",
     # Control flow nodes
     "EarlyExit",
     "EarlyExitException",

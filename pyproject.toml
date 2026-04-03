@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamata"
-version = "1.9.6"
+version = "1.9.7"
 description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -112,6 +112,11 @@ barcode-all = [
     "zxing-cpp>=2.0.0",
 ]
 
+# Qwen3-VL Embedding — enhanced multimodal preprocessing
+qwen3-embedding = [
+    "qwen-vl-utils>=0.0.14",
+]
+
 # Notebook / JupyterLab rich display
 notebook = [
     "ipython>=7.0",
@@ -131,7 +136,7 @@ redis = [
 
 # Full installation (all optional features except GPU ONNX)
 all = [
-    "datamata[onnx,eval,viz,ocr,notebook]",
+    "datamata[onnx,eval,viz,ocr,notebook,qwen3-embedding]",
 ]
 
 dev = [

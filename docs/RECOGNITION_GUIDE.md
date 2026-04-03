@@ -72,17 +72,33 @@ print(result.embeddings.shape)   # (5, 512)
 ### Video / text embeddings (v1.9.6+)
 
 ```python
-# Video clip embedding (X-CLIP)
+# Video clip embedding (X-CLIP) — pass pre-extracted frames
 frames = [frame1, frame2, frame3]
-emb = mata.run("embed", "video.mp4",
-               model="microsoft/xclip-base-patch32",
-               frames=frames)
+emb = mata.run("embed", frames,
+               model="microsoft/xclip-base-patch32")
 
-# Text query embedding
+# Video file embedding (auto-extracts frames)
 emb = mata.run("embed", "video.mp4",
+               model="microsoft/xclip-base-patch32")
+
+# Text query embedding — input must be None
+emb = mata.run("embed", None,
                model="microsoft/xclip-base-patch32",
                text="person running")
+
+# Mixed-modal: image + text → single joint embedding (Qwen3-VL-Embedding only)
+# The text is NOT a VLM prompt — it is co-embedded with the image.
+# The model attends to both modalities and produces one vector that
+# captures the image content steered by the text context.
+emb = mata.run("embed", "photo.jpg",
+               model="Qwen/Qwen3-VL-Embedding-2B",
+               text="a red truck on a highway", dtype="bfloat16")
 ```
+
+> **Mixed-modal vs VLM:** `mata.run("embed", image, text=...)` produces a
+> **vector** (no text generation). The `text=` parameter is semantic context
+> that steers the embedding, not an instruction to describe the image.
+> For text generation, use `mata.run("vlm", image, prompt="...")` instead.
 
 ### Pre-loaded adapter
 
@@ -358,7 +374,7 @@ results = mata.track(
     "rtsp://entrance/stream",
     model="facebook/detr-resnet-50",
     tracker="botsort",
-    reid_model="openai/clip-vit-base-patch32",
+    reid_model="openai/clip-vit-base-patch32",  # auto-enables BotSort ReID
     reid_bridge=bridge,
     stream=True,
 )
@@ -504,7 +520,7 @@ result = mata.run("recognize", "image.jpg",
 
 ### vs. Tracking ReID
 
-Tracking ReID (v1.9.2) maintains cross-frame identity _within a video_ using the same embed backbone. Gallery recognition operates _across sessions_ against a persistent `.npz` store.
+Tracking ReID (v1.9.2) maintains cross-frame identity _within a video_ using the same embed backbone. Supplying `reid_model=...` on a BotSort tracker is enough to activate the appearance-matching path. Gallery recognition operates _across sessions_ against a persistent `.npz` store.
 
 You can combine both: use tracking for intra-video identity and gallery lookup for cross-video identity resolution.
 

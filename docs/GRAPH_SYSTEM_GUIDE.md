@@ -1,6 +1,6 @@
 # MATA Graph System Architecture Guide
 
-> **Version**: 1.6.0 | **Last Updated**: February 12, 2026
+> **Version**: 1.9.5 | **Last Updated**: April 2, 2026
 
 ## Overview
 
@@ -16,14 +16,14 @@ The MATA Graph System is a **strongly-typed, task-centric** framework for buildi
 
 ### Key Concepts
 
-| Concept | Description |
-|---------|-------------|
-| **Artifact** | Strongly-typed, immutable data container (Image, Detections, Masks, etc.) |
-| **Node** | Processing unit with declared typed inputs/outputs and a `run()` method |
-| **Graph** | Fluent builder that chains nodes into a validated DAG |
-| **Provider** | Task-specific adapter (detector, segmenter, etc.) accessed via capability protocols |
-| **Scheduler** | Executes compiled graphs (sync, parallel, or optimized) |
-| **ExecutionContext** | Runtime state: artifact storage, provider access, metrics, tracing |
+| Concept              | Description                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| **Artifact**         | Strongly-typed, immutable data container (Image, Detections, Masks, etc.)           |
+| **Node**             | Processing unit with declared typed inputs/outputs and a `run()` method             |
+| **Graph**            | Fluent builder that chains nodes into a validated DAG                               |
+| **Provider**         | Task-specific adapter (detector, segmenter, etc.) accessed via capability protocols |
+| **Scheduler**        | Executes compiled graphs (sync, parallel, or optimized)                             |
+| **ExecutionContext** | Runtime state: artifact storage, provider access, metrics, tracing                  |
 
 ---
 
@@ -88,36 +88,41 @@ Artifacts are the strongly-typed data containers that flow between nodes. All ar
 
 ```
 Artifact (ABC)
-├── Image          — Multi-format image (PIL/numpy/tensor) with lazy conversion
-├── Detections     — Bounding boxes + entities with instance IDs
-├── Masks          — Per-instance segmentation masks (RLE/polygon/binary)
+├── Image           — Multi-format image (PIL/numpy/tensor) with lazy conversion
+├── Detections      — Bounding boxes + entities with instance IDs
+├── Masks           — Per-instance segmentation masks (RLE/polygon/binary)
 ├── Classifications — Sorted class predictions (label + score)
-├── DepthMap       — Per-pixel depth values (H×W float array)
-├── Keypoints      — Per-instance keypoint arrays (N×3: x, y, score)
-├── Tracks         — Temporal track objects with state management
-├── ROIs           — Cropped image regions mapped to instance IDs
-└── MultiResult    — Channel-based result bundle with provenance
+├── DepthMap        — Per-pixel depth values (H×W float array)
+├── Embeddings      — Feature embedding vectors (N×D float array)
+├── Keypoints       — Per-instance keypoint arrays (N×3: x, y, score)
+├── Tracks          — Temporal track objects with state management
+├── ROIs            — Cropped image regions mapped to instance IDs
+├── BarcodeData     — Decoded barcode/QR entries with metadata
+├── OCRText         — Structured OCR text blocks with bounding boxes
+├── Matches         — Gallery-based identity match results
+├── CrossMatches    — Cross-camera ReID match results
+└── MultiResult     — Channel-based result bundle with provenance
 ```
 
 ### Core Properties
 
-| Property | Description |
-|----------|-------------|
-| **Immutable** | All artifacts use `frozen=True` dataclasses. Operations return new instances. |
-| **Serializable** | Every artifact implements `to_dict()` / `from_dict()` for JSON serialization. |
-| **Validatable** | Optional `validate()` hook for custom assertion logic. |
-| **ID-tracked** | Detections, Masks, Keypoints, Tracks carry stable `instance_ids` for cross-referencing. |
+| Property         | Description                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Immutable**    | All artifacts use `frozen=True` dataclasses. Operations return new instances.           |
+| **Serializable** | Every artifact implements `to_dict()` / `from_dict()` for JSON serialization.           |
+| **Validatable**  | Optional `validate()` hook for custom assertion logic.                                  |
+| **ID-tracked**   | Detections, Masks, Keypoints, Tracks carry stable `instance_ids` for cross-referencing. |
 
 ### Entity vs Instance (VLM Integration)
 
 The graph system distinguishes between two types of detections:
 
-| | Entity | Instance |
-|---|--------|----------|
-| **Source** | VLM text output | Traditional CV models |
-| **Data** | Label + score + attributes | Label + score + bbox + mask |
-| **Spatial?** | No (semantic only) | Yes (bounding box required) |
-| **Use case** | Semantic understanding | Spatial localization |
+|              | Entity                     | Instance                    |
+| ------------ | -------------------------- | --------------------------- |
+| **Source**   | VLM text output            | Traditional CV models       |
+| **Data**     | Label + score + attributes | Label + score + bbox + mask |
+| **Spatial?** | No (semantic only)         | Yes (bounding box required) |
+| **Use case** | Semantic understanding     | Spatial localization        |
 
 The `Detections` artifact carries **both** `instances` and `entities` fields, enabling mixed VLM→spatial fusion workflows via the `PromoteEntities` node.
 
@@ -131,7 +136,9 @@ Nodes are the processing units of the graph. Each node declares its input/output
 
 ```python
 from mata.core.graph import Node
-from mata.core.artifacts import Image, Detections
+from mata.core.artifacts import Artifact, Image, Detections
+
+from mata.core.graph.context import ExecutionContext
 
 class Detect(Node):
     # 1. Declare typed I/O at class level
@@ -146,7 +153,7 @@ class Detect(Node):
         self.kwargs = kwargs
 
     # 3. Implement execution logic
-    def run(self, ctx, image: Image) -> dict[str, Artifact]:
+    def run(self, ctx: ExecutionContext, image: Image) -> dict[str, Artifact]:
         detector = ctx.get_provider("detect", self.provider_name)
         result = detector.predict(image, **self.kwargs)
         detections = Detections.from_vision_result(result)
@@ -163,18 +170,20 @@ class Detect(Node):
 
 ### Node Categories
 
-| Category | Nodes | Description |
-|----------|-------|-------------|
-| **Task** | Detect, Classify, SegmentImage, EstimateDepth | Run model inference via providers |
-| **Transform** | Filter, TopK, ExtractROIs, ExpandBoxes | Transform artifacts without models |
-| **Prompt** | PromptBoxes, PromptPoints, SegmentEverything | Feed prompts to SAM-style models |
-| **Refinement** | RefineMask, MaskToBox | Post-process masks and boxes |
-| **Tracking** | Track | Temporal tracking across frames |
-| **Fusion** | Fuse, Merge | Bundle or merge artifacts |
-| **VLM** | VLMDescribe, VLMDetect, VLMQuery, PromoteEntities | Vision-language model nodes |
-| **Visualization** | Annotate, NMS | Render results and filter overlaps |
-| **Control** | If, Pass | Conditional execution branches |
-| **Temporal** | Window | Frame buffering for video |
+| Category          | Nodes                                                              | Description                              |
+| ----------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| **Task**          | Detect, Classify, SegmentImage, EstimateDepth, Embed, OCR, Barcode | Run model inference via providers        |
+| **Transform**     | Filter, TopK, ExtractROIs, ExpandBoxes                             | Transform artifacts without models       |
+| **Prompt**        | PromptBoxes, PromptPoints, SegmentEverything                       | Feed prompts to SAM-style models         |
+| **Refinement**    | RefineMask, MaskToBox, KeepBestMask                                | Post-process masks and boxes             |
+| **Tracking**      | Track, ReID                                                        | Temporal tracking and re-identification  |
+| **Fusion**        | Fuse, Merge                                                        | Bundle or merge artifacts                |
+| **VLM**           | VLMDescribe, VLMDetect, VLMQuery, PromoteEntities                  | Vision-language model nodes              |
+| **Visualization** | Annotate, AnnotateRT, NMS                                          | Render results and filter overlaps       |
+| **Control**       | If, Pass, EarlyExit, While                                         | Conditional execution, early exit, loops |
+| **Temporal**      | Window                                                             | Frame buffering for video                |
+| **Storage**       | ValkeyStore, ValkeyLoad                                            | Cross-camera state via Valkey            |
+| **Recognition**   | GalleryMatchNode                                                   | Gallery-based identity matching          |
 
 ---
 
@@ -220,9 +229,18 @@ Parallel nodes have no dependencies between them and can execute simultaneously 
 graph = Graph()
 graph.add(Detect(using="detr", out="dets"), inputs={"image": "input.image"})
 graph.add(Filter(src="dets", out="filtered"), inputs={"detections": "Detect.dets"})
+
+# Conditional edge — node is skipped when condition returns False
+graph.add(
+    VLMDetect(using="vlm", out="vlm_dets"),
+    inputs={"image": "input.image"},
+    condition=lambda ctx: len(ctx.retrieve("dets").instances) > 0,
+)
 ```
 
 Use `.add()` with explicit `inputs` when auto-wiring is insufficient. Sources follow the format `"NodeName.output_name"` or `"input.artifact_name"` for graph inputs.
+
+Use the `condition` parameter on `.add()` to attach a per-node guard. The node is skipped when the condition callable returns `False`.
 
 ### Conditional Branching
 
@@ -241,18 +259,33 @@ graph = (Graph("conditional")
 
 Built-in predicates: `HasLabel`, `CountAbove`, `ScoreAbove`. Custom predicates are any callable `(ctx) -> bool`.
 
+Alternatively, use the `.conditional()` method for a more concise syntax:
+
+```python
+graph = (Graph("conditional")
+    .then(Detect(using="detr", out="dets"))
+    .conditional(
+        predicate=HasLabel("dets", "person"),
+        then_branch=SegmentImage(using="sam", out="masks"),
+        else_branch=None,  # Skips segmentation if no persons
+    )
+)
+```
+
+Both patterns are equivalent. `.conditional()` internally wraps the branches in an `If` node.
+
 ### DSL Helpers
 
 ```python
-from mata.core.graph.dsl import NodePipe, out, bind, sequential, parallel_tasks
+from mata.core.graph.dsl import NodePipe, out, bind, sequential, parallel_tasks, pipeline
 
 # Pipe syntax
-pipeline = (
+pipe = (
     NodePipe(Detect(using="detr", out="dets"))
     >> Filter(src="dets", score_gt=0.5, out="filtered")
     >> Fuse(dets="filtered", out="final")
 )
-graph = pipeline.build(name="my_pipeline")
+graph = pipe.build(name="my_pipeline")
 
 # Sequential helper
 graph = sequential([
@@ -265,6 +298,13 @@ graph = parallel_tasks([
     Detect(using="detr", out="dets"),
     EstimateDepth(using="depth", out="depth"),
 ], name="par_graph")
+
+# Multi-stage pipeline (parallel stages)
+graph = pipeline([
+    [Detect(using="detr", out="dets"), EstimateDepth(using="depth", out="depth")],
+    [Filter(src="dets", out="filtered")],
+    [Fuse(dets="filtered", depth="depth", out="scene")],
+], name="staged_pipeline")
 ```
 
 ---
@@ -284,13 +324,13 @@ compiled = graph.compile(providers={
 
 The `GraphValidator` runs the following checks at compile time:
 
-| Check | Description |
-|-------|-------------|
-| **Name collisions** | All node names must be unique |
+| Check                     | Description                                                            |
+| ------------------------- | ---------------------------------------------------------------------- |
+| **Name collisions**       | All node names must be unique                                          |
 | **Dependency resolution** | All input artifacts must be provided by upstream nodes or graph inputs |
-| **Type compatibility** | Connected artifacts must have compatible types |
-| **Cycle detection** | Graph must be a DAG (no circular dependencies) |
-| **Provider capabilities** | Referenced providers must exist in the registry |
+| **Type compatibility**    | Connected artifacts must have compatible types                         |
+| **Cycle detection**       | Graph must be a DAG (no circular dependencies)                         |
+| **Provider capabilities** | Referenced providers must exist in the registry                        |
 
 If validation fails, a `ValidationError` is raised with detailed error messages:
 
@@ -318,11 +358,11 @@ Uses NetworkX (if available) or a built-in Kahn's algorithm fallback.
 
 ### Schedulers
 
-| Scheduler | Description | Use Case |
-|-----------|-------------|----------|
-| `SyncScheduler` | Sequential execution in topological order | Default, simplest, debugging |
-| `ParallelScheduler` | ThreadPoolExecutor for parallel stages | Independent tasks (detect + classify + depth) |
-| `OptimizedParallelScheduler` | Device placement, multi-GPU, model unloading | Production with multiple GPUs |
+| Scheduler                    | Description                                  | Use Case                                      |
+| ---------------------------- | -------------------------------------------- | --------------------------------------------- |
+| `SyncScheduler`              | Sequential execution in topological order    | Default, simplest, debugging                  |
+| `ParallelScheduler`          | ThreadPoolExecutor for parallel stages       | Independent tasks (detect + classify + depth) |
+| `OptimizedParallelScheduler` | Device placement, multi-GPU, model unloading | Production with multiple GPUs                 |
 
 ### Execution Flow
 
@@ -363,16 +403,18 @@ Providers are task-specific adapters accessed through **capability protocols** (
 
 ### Capability Protocols
 
-| Protocol | Method | Returns | Task |
-|----------|--------|---------|------|
-| `Detector` | `predict(image, **kw)` | `Detections` | Object detection |
-| `Segmenter` | `segment(image, **kw)` | `Masks` | Image segmentation |
-| `Classifier` | `classify(image, **kw)` | `Classifications` | Image classification |
-| `DepthEstimator` | `estimate(image, **kw)` | `DepthResult` | Depth estimation |
-| `PoseEstimator` | `estimate(image, rois, **kw)` | `Keypoints` | Pose estimation |
-| `Tracker` | `update(dets, frame_id, **kw)` | `Tracks` | Object tracking |
-| `Embedder` | `embed(input, **kw)` | `np.ndarray` | Feature extraction |
-| `VisionLanguageModel` | `query(image, prompt, **kw)` | `VisionResult` | VLM queries |
+| Protocol              | Method                         | Returns          | Task                 |
+| --------------------- | ------------------------------ | ---------------- | -------------------- |
+| `Detector`            | `predict(image, **kw)`         | `Detections`     | Object detection     |
+| `Segmenter`           | `segment(image, **kw)`         | `Masks`          | Image segmentation   |
+| `Classifier`          | `classify(image, **kw)`        | `ClassifyResult` | Image classification |
+| `DepthEstimator`      | `estimate(image, **kw)`        | `DepthResult`    | Depth estimation     |
+| `PoseEstimator`       | `estimate(image, rois, **kw)`  | `Keypoints`      | Pose estimation      |
+| `Tracker`             | `update(dets, frame_id, **kw)` | `Tracks`         | Object tracking      |
+| `Embedder`            | `embed(input, **kw)`           | `np.ndarray`     | Feature extraction   |
+| `VisionLanguageModel` | `query(image, prompt, **kw)`   | `VisionResult`   | VLM queries          |
+
+> **Note:** The `Embedder` protocol returns raw `np.ndarray` for flexibility. Graph nodes that use embeddings wrap these in the `Embeddings` artifact for type-safe graph wiring.
 
 Any object implementing the required method signature is a valid provider (duck typing with runtime verification):
 
@@ -462,11 +504,11 @@ The `VideoProcessor` drives a compiled graph over video frames with configurable
 
 ### Frame Policies
 
-| Policy | Description |
-|--------|-------------|
-| `FramePolicyEveryN(n=5)` | Process every N-th frame |
-| `FramePolicyLatest()` | Drop old frames for real-time (camera/RTSP) |
-| `FramePolicyQueue(max_queue=10)` | Queue up to N frames, drop when full |
+| Policy                           | Description                                 |
+| -------------------------------- | ------------------------------------------- |
+| `FramePolicyEveryN(n=5)`         | Process every N-th frame                    |
+| `FramePolicyLatest()`            | Drop old frames for real-time (camera/RTSP) |
+| `FramePolicyQueue(max_queue=10)` | Queue up to N frames, drop when full        |
 
 ### VideoProcessor
 
@@ -536,16 +578,37 @@ json_str = result.to_json()
 
 Pre-built graph factories for common workflows:
 
-| Preset | Description | Providers Needed |
-|--------|-------------|------------------|
-| `grounding_dino_sam()` | Detect → Filter → SAM segment → Refine | detector, segmenter |
-| `segment_and_refine()` | Segment everything → Refine masks | segmenter |
-| `detection_pose()` | Detect → Filter persons → Pose estimate | detector, pose |
-| `full_scene_analysis()` | Parallel detect + classify + depth | detector, classifier, depth |
-| `detect_and_track()` | Detect → Filter → Track | detector, tracker |
-| `vlm_grounded_detection()` | VLM → Detect → Promote entities | vlm, detector |
-| `vlm_scene_understanding()` | Parallel VLM + detect + depth | vlm, detector, depth |
-| `vlm_multi_image_comparison()` | VLM multi-image query | vlm |
+| Preset                          | Description                                    | Providers Needed                       |
+| ------------------------------- | ---------------------------------------------- | -------------------------------------- |
+| **Traditional CV**              |                                                |                                        |
+| `grounding_dino_sam()`          | Detect → Filter → SAM segment → Refine         | detector, segmenter                    |
+| `segment_and_refine()`          | Segment everything → Refine masks              | segmenter                              |
+| `detection_pose()`              | Detect → Filter persons → Pose estimate        | detector, pose                         |
+| `full_scene_analysis()`         | Parallel detect + classify + depth             | detector, classifier, depth            |
+| `detect_and_track()`            | Detect → Filter → Track                        | detector, tracker                      |
+| `ensemble_detection()`          | Parallel dual-detector ensemble with NMS       | detector x2                            |
+| **Manufacturing**               |                                                |                                        |
+| `defect_detect_classify()`      | Zero-shot defect detection + classification    | detector, classifier                   |
+| `assembly_verification()`       | VLM assembly inspection + component detection  | vlm, detector                          |
+| `component_inspection()`        | Detect components + VLM per-component analysis | detector, vlm                          |
+| **Retail**                      |                                                |                                        |
+| `shelf_product_analysis()`      | Shelf product detection + brand classification | detector, classifier                   |
+| `stock_level_analysis()`        | Parallel VLM + detect + classify for stock     | vlm, detector, classifier              |
+| **Driving**                     |                                                |                                        |
+| `vehicle_distance_estimation()` | Parallel detection + depth for distance        | detector, depth                        |
+| `road_scene_analysis()`         | Complete road scene with 4 parallel tasks      | detector, classifier, depth, segmenter |
+| `traffic_tracking()`            | Detection + BYTETrack for traffic video        | detector, tracker                      |
+| `traffic_tracking_botsort()`    | Detection + BotSort (GMC, moving cameras)      | detector, tracker                      |
+| **Surveillance**                |                                                |                                        |
+| `crowd_monitoring()`            | Person detection + tracking                    | detector, tracker                      |
+| `crowd_monitoring_botsort()`    | Person detection + BotSort (panning cameras)   | detector, tracker                      |
+| `suspicious_object_detection()` | Zero-shot detect + SAM + VLM reasoning         | detector, segmenter, vlm               |
+| **Agriculture**                 |                                                |                                        |
+| `aerial_crop_analysis()`        | Parallel segmentation + depth for aerial       | segmenter, depth                       |
+| **VLM**                         |                                                |                                        |
+| `vlm_grounded_detection()`      | VLM → Detect → Promote entities                | vlm, detector                          |
+| `vlm_scene_understanding()`     | Parallel VLM + detect + depth                  | vlm, detector, depth                   |
+| `vlm_multi_image_comparison()`  | VLM multi-image query                          | vlm                                    |
 
 ```python
 from mata.presets import grounding_dino_sam
@@ -620,13 +683,13 @@ from mata.core.exceptions import (
 
 ## Performance Considerations
 
-| Aspect | Target | Notes |
-|--------|--------|-------|
-| Graph compilation | <100ms | Topological sort + validation |
-| Graph overhead | <10% | vs direct adapter calls |
-| Parallel speedup | 1.5–3× | For independent tasks (model dependent) |
-| Video processing | >20 FPS | RT-DETR + BYTETrack on GPU |
-| Memory | Efficient | Model unloading support in OptimizedParallelScheduler |
+| Aspect            | Target    | Notes                                                 |
+| ----------------- | --------- | ----------------------------------------------------- |
+| Graph compilation | <100ms    | Topological sort + validation                         |
+| Graph overhead    | <10%      | vs direct adapter calls                               |
+| Parallel speedup  | 1.5–3×    | For independent tasks (model dependent)               |
+| Video processing  | >20 FPS   | RT-DETR + BYTETrack on GPU                            |
+| Memory            | Efficient | Model unloading support in OptimizedParallelScheduler |
 
 ### Optimization Tips
 
@@ -642,5 +705,3 @@ from mata.core.exceptions import (
 
 - [API Reference](GRAPH_API_REFERENCE.md) — Complete reference for all nodes, artifacts, and APIs
 - [Cookbook](GRAPH_COOKBOOK.md) — Recipes and patterns for common workflows
-- [Migration Guide](MIGRATION_GUIDE.md) — Migrating from v1.5 standalone to v1.6 graph system
-- [Status](STATUS.md) — Current implementation status

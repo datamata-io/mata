@@ -3,6 +3,7 @@
 
 Demonstrates how to enable ReID in mata.track() to improve track-ID recovery
 after occlusion or target re-entry — using BotSort's appearance-distance branch.
+Supplying ``reid_model`` is sufficient to activate ReID after the C1 fix.
 
 Features demonstrated:
 - ``mata.track()`` with ``reid_model`` kwarg
@@ -172,7 +173,8 @@ def run_low_level(num_frames: int = 5) -> None:
         frame_rate=25,
         reid_encoder=mock_encoder,
     )
-    print(f"  TrackingAdapter created. reid_encoder set: {adapter._reid_encoder is not None}\n")
+    print(f"  TrackingAdapter created. reid_encoder set: {adapter._reid_encoder is not None}")
+    print(f"  tracker.with_reid auto-enabled: {getattr(adapter._tracker, 'with_reid', None)}\n")
 
     for frame_idx in range(num_frames):
         frame = np.zeros((480, 640, 3), dtype=np.uint8)  # blank synthetic frame
@@ -209,6 +211,7 @@ def print_config_example() -> None:
         source: "facebook/detr-resnet-50"
         tracker: botsort
         reid_model: "openai/clip-vit-base-patch32"
+        with_reid: true  # optional here; auto-enabled when reid_model is present
         frame_rate: 30
         tracker_config:
           track_high_thresh: 0.6
@@ -218,7 +221,7 @@ def print_config_example() -> None:
     print(config)
     print("  Then load with a single call:\n")
     print('  import mata')
-    print('  tracker = mata.load("track", "smart-cam")  # ReID loaded automatically')
+    print('  tracker = mata.load("track", "smart-cam")  # ReID auto-enabled from reid_model')
     print("  result  = tracker.update(frame)\n")
     print("  ✅ Config alias with reid_model demonstrated\n")
 

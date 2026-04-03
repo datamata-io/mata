@@ -1,6 +1,6 @@
 # MATA Multi‑Task Vision Architecture & Code Structure (Practical)
 
-This document proposes a **strongly‑typed, mnemonic, model‑agnostic** architecture for **multi‑task vision** in MATA (Model‑Agnostic Task Architecture).
+This document describes a **strongly‑typed, mnemonic, model‑agnostic** architecture for **multi‑task vision** in MATA (Model‑Agnostic Task Architecture).
 
 > Goal: **One input frame → multiple integrated outputs** (detections, masks, keypoints, tracks, attributes) via a **typed task graph** that is readable, safe, and extensible.
 
@@ -9,14 +9,17 @@ This document proposes a **strongly‑typed, mnemonic, model‑agnostic** archit
 ## 1) Design Principles
 
 ### 1.1 Model‑agnostic core
+
 - Nodes express **intent** (`Detect`, `PromptBoxes`, `RefineMask`, `Track`), not vendor/model names.
 - Models are plugged in as **providers/adapters** that implement capabilities.
 
 ### 1.2 Strong types at the artifact boundary
+
 - Every node has explicit **input/output artifact types** (e.g., `Image -> Detections`).
 - Graph validation prevents invalid chains before runtime.
 
 ### 1.3 Mnemonic graph DSL
+
 - Graph reads like a sentence:
   - `Detect → Filter → PromptBoxes → RefineMask → Fuse`
 - Support both:
@@ -24,6 +27,7 @@ This document proposes a **strongly‑typed, mnemonic, model‑agnostic** archit
   - **Explicit wiring** (`out = Node()(a, b)`)
 
 ### 1.4 Deterministic “multi‑task result bundle”
+
 - Unified schema with named **channels**:
   - `detections`, `masks`, `keypoints`, `tracks`, `overlays`, `metrics`, `provenance`
 
@@ -35,15 +39,15 @@ This document proposes a **strongly‑typed, mnemonic, model‑agnostic** archit
 
 Artifacts are the unit of graph wiring.
 
-| Artifact | Represents | Typical fields |
-|---|---|---|
-| `Image` | frame tensor + metadata | `width`, `height`, `color_space`, `timestamp` |
-| `Detections` | boxes + labels + scores | `boxes`, `labels`, `scores`, `instance_ids` |
-| `ROIs` | crops/views based on boxes | `roi_images`, `roi_map` |
-| `Masks` | per‑instance masks | `mask_rle`/`polygons`, `instance_ids` |
-| `Keypoints` | skeleton points | `points`, `scores`, `instance_ids` |
-| `Tracks` | temporal association | `track_id`, `history`, `velocity` |
-| `MultiResult` | result bundle | all channels + provenance |
+| Artifact      | Represents                 | Typical fields                                |
+| ------------- | -------------------------- | --------------------------------------------- |
+| `Image`       | frame tensor + metadata    | `width`, `height`, `color_space`, `timestamp` |
+| `Detections`  | boxes + labels + scores    | `boxes`, `labels`, `scores`, `instance_ids`   |
+| `ROIs`        | crops/views based on boxes | `roi_images`, `roi_map`                       |
+| `Masks`       | per‑instance masks         | `mask_rle`/`polygons`, `instance_ids`         |
+| `Keypoints`   | skeleton points            | `points`, `scores`, `instance_ids`            |
+| `Tracks`      | temporal association       | `track_id`, `history`, `velocity`             |
+| `MultiResult` | result bundle              | all channels + provenance                     |
 
 ### 2.2 Capability Interfaces (Provider Contracts)
 
@@ -103,12 +107,15 @@ Nodes are typed transformations with signatures like:
 ### 3.2 Execution Patterns Supported
 
 **Pattern A — Single multi‑head model** (optional later)
+
 - One provider implements multiple capabilities with shared backbone.
 
 **Pattern B — Parallel models** (common)
+
 - `Detect` + `Pose` + `Segment` run in parallel where possible.
 
 **Pattern C — Cascade/Conditional**
+
 - `Detect -> Pose(person only)` and `Detect -> Segment(targets only)`.
 
 ---
@@ -120,17 +127,17 @@ Nodes are typed transformations with signatures like:
 ```python
 results = mata.infer(
     image=image,
-    models={
-        "detector": transformer_or_pytorch_provider,
-        "segmenter": sam3_provider,
-    },
     graph=[
         Detect(using="detector", out="dets"),
         Filter(src="dets", score_gt=0.35, out="targets"),
         PromptBoxes(using="segmenter", image="image", dets="targets", out="masks"),
         RefineMask(src="masks", method="morph_close", radius=3, out="masks_ref"),
-        Fuse(dets="targets", masks="masks_ref", out="final"),
+        Fuse(detections="targets", masks="masks_ref", out="final"),
     ],
+    providers={
+        "detector": transformer_or_pytorch_provider,
+        "segmenter": sam3_provider,
+    },
 )
 ```
 
@@ -151,9 +158,9 @@ results.final.provenance   # model hashes, params, versions
 
 ### 5.1 Type system layers
 
-1) **Runtime‑enforced artifact dataclasses**  
-2) **Static typing via Protocols/Generics** (mypy/pyright friendly)  
-3) **Graph validator** checks:
+1. **Runtime‑enforced artifact dataclasses**
+2. **Static typing via Protocols/Generics** (mypy/pyright friendly)
+3. **Graph validator** checks:
    - Required inputs available
    - Input/output artifact compatibility
    - Dependency wiring correctness
@@ -172,15 +179,24 @@ class Image(Artifact):
 
 @dataclass(frozen=True)
 class Detections(Artifact):
-    boxes_xyxy: "np.ndarray"   # (N,4)
-    labels: list[str]
-    scores: "np.ndarray"       # (N,)
-    instance_ids: list[str]    # stable per-frame ids
+    instances: list[Instance]  # spatial detections with bbox/mask
+    instance_ids: list[str]    # stable per-frame ids (auto-generated)
+    entities: list[Entity]     # semantic detections from VLM
+    entity_ids: list[str]      # stable entity IDs (auto-generated)
+    meta: dict[str, Any]       # optional metadata
+
+    # Convenience property accessors:
+    # dets.boxes   -> (N,4) xyxy numpy array
+    # dets.scores  -> (N,) numpy array
+    # dets.labels  -> list[str]
 
 @dataclass(frozen=True)
 class Masks(Artifact):
-    mask_rle: list[dict]       # per instance RLE (or polygons)
-    instance_ids: list[str]    # must align to detections when prompted by boxes
+    instances: list[Instance]  # per-instance masks (RLE, polygon, or binary)
+    instance_ids: list[str]    # aligned to source detections when prompted by boxes
+    meta: dict[str, Any]       # optional metadata
+
+    # Supports RLE, polygon, and binary mask formats with conversion methods
 ```
 
 ---
@@ -215,66 +231,104 @@ Example:
 ```
 mata/
   __init__.py
+  __main__.py
+  api.py                   # Public API (mata.load/run/track/infer/val)
+  cli.py                   # CLI entry point
+  notebook.py              # Notebook display helpers
+  visualization.py         # Overlay rendering
+  visualization_cv2.py     # OpenCV visualization backend
 
   core/
     artifacts/
       base.py              # Artifact base + validation helpers
-      image.py             # Image, FrameMeta
-      detections.py        # Detections, Boxes, Labels
+      image.py             # Image (PIL/numpy/torch, lazy conversion)
+      detections.py        # Detections (Instance-based, VLM entity support)
       masks.py             # Masks (RLE/polygons/bitmaps)
       keypoints.py         # Keypoints
       tracks.py            # Tracks
+      rois.py              # ROIs (cropped regions)
       result.py            # MultiResult bundle
+      embeddings.py        # Embeddings artifact
+      classifications.py   # Classification artifact
+      depth_map.py         # Depth map artifact
+      matches.py           # Recognition matches
+      cross_matches.py     # Cross-camera / cross-gallery matches
+      barcode_data.py      # Barcode data
+      ocr_text.py          # OCR text artifact
+      converters.py        # Cross-artifact converters
 
     graph/
       node.py              # Node base class (typed IO signature)
       graph.py             # Graph builder + DAG compile
       validator.py         # type+dependency checks
-      scheduler.py         # parallel/async runner
+      scheduler.py         # SyncScheduler + ParallelScheduler
       context.py           # execution context, caching, device selection
-
-    io/
-      codecs.py            # RLE/poly encoding, overlay render
-      serializers.py       # JSON schema export for API responses
+      conditionals.py      # If / EarlyExit / While control flow
+      temporal.py          # FramePolicy*, VideoProcessor, Window
+      dsl.py               # Graph DSL helpers
 
     registry/
       providers.py         # Provider registry, capability lookup
-      typing.py            # Protocols: Detector, Segmenter, PoseEstimator
+      protocols.py         # Protocols: Detector, Segmenter, PoseEstimator, Embedder
 
     observability/
       metrics.py           # per-node latency, GPU stats hooks
       tracing.py           # spans/events
       provenance.py        # model hashes, config fingerprints
 
-  nodes/
-    detect.py              # Detect node
-    filter.py              # Filter/TopK
-    roi.py                 # Crop/ExtractROIs
-    prompts.py             # PromptBoxes/PromptPoints/SegmentEverything
-    mask_ops.py            # RefineMask/MaskToBox/ExpandBoxes
-    pose.py                # PoseFromDetections
-    tracking.py            # Track/Associate
-    fuse.py                # Fuse/Bundle
+    model_loader.py        # UniversalLoader (5-strategy detection)
+    model_registry.py      # YAML config model registry
+    types.py               # VisionResult, Instance, Entity, ClassifyResult, etc.
+    mask_utils.py          # RLE/polygon encoding/conversion
+    exceptions.py          # Custom exception hierarchy
+    exporters/             # JSON/CSV/image export
 
-  providers/
-    transformer_or_pytorch/
-      adapter.py           # implements Detector (and optional Segmenter/Pose)
-      config.py
-    sam3/
-      adapter.py           # implements Segmenter
-      config.py
-    rtdetr/
-      adapter.py           # implements Detector
-      config.py
+  nodes/                   # One file per node
+    annotate.py            # Annotate overlay output
+    barcode.py             # Barcode / QR decoding
+    classify.py            # Classify
+    depth.py               # EstimateDepth
+    detect.py              # Detect
+    embed.py               # Embed
+    expand_boxes.py        # ExpandBoxes
+    filter.py              # Filter
+    fuse.py                # Fuse / bundle outputs
+    gallery_match.py       # GalleryMatchNode
+    mask_to_box.py         # MaskToBox
+    nms.py                 # NMS
+    ocr.py                 # OCR
+    prompt_boxes.py        # PromptBoxes
+    prompt_points.py       # PromptPoints
+    refine_mask.py         # RefineMask
+    roi.py                 # ExtractROIs
+    segment.py             # SegmentImage
+    segment_everything.py  # SegmentEverything
+    topk.py                # TopK
+    track.py               # Track
+    vlm_query.py           # VLMQuery (agent tool-calling)
+    vlm_detect.py          # VLMDetect
+    vlm_describe.py        # VLMDescribe
+    ...                    # + annotate_rt, merge, promote_entities, reid, valkey_*
 
-  examples/
-    image_multitask.py
-    video_stream_multitask.py
+  adapters/                # Model adapters (flat structure)
+    huggingface_adapter.py          # HuggingFace detection
+    huggingface_sam_adapter.py      # SAM segmentation
+    huggingface_classify_adapter.py # HuggingFace classification
+    huggingface_depth_adapter.py    # Depth estimation
+    huggingface_vlm_adapter.py      # VLM backends
+    clip_adapter.py                 # CLIP zero-shot
+    embed_adapter.py                # Embedding extraction
+    reid_adapter.py                 # ReID for tracking
+    onnx_adapter.py                 # ONNX runtime
+    pytorch_adapter.py              # PyTorch runtime
+    torchscript_adapter.py          # TorchScript runtime
+    tracking_adapter.py             # Tracker orchestration
+    ...                             # + task/runtime-specific adapters
 
-  tests/
-    test_graph_validation.py
-    test_node_signatures.py
-    test_result_schema.py
+  recognition/             # Gallery-based identity matching
+  trackers/                # Vendored ByteTrack/BotSort + ReID bridge
+  training/                # Fine-tuning support
+  eval/                    # Validation/evaluation pipeline
 ```
 
 ---
@@ -282,24 +336,35 @@ mata/
 ## 8) Recommended Node Set (MVP → Pro)
 
 ### MVP nodes (ship first)
+
 - `Detect`
 - `Filter` / `TopK`
 - `PromptBoxes` (segment-from-box)
 - `RefineMask`
 - `Fuse` (bundle output)
 
-### Next wave
-- `PoseFromDetections`
-- `SegmentEverything` (if supported)
-- `MaskToBox` / `ExpandBoxes`
-- `Track` (BYTETrack/DeepSORT-like adapter)
-- `ClassifyROIs` (attributes)
+### Next wave (implemented)
 
-### Pro / advanced
-- Conditional branches (`If`, `Switch`)
-- Temporal windows (`Window(n=8)`)
-- Multi-camera joins (re-id)
-- Shared backbone providers
+- `Classify` for full images and ROI-based classification flows
+- `SegmentEverything` for SAM-style whole-image segmentation
+- `MaskToBox` / `ExpandBoxes` for mask-box conversion utilities
+- `Track` for vendored BYTETrack / BotSort workflows
+- `EstimateDepth` for monocular depth estimation
+- `Embed` for feature embedding extraction
+- `GalleryMatchNode` for gallery-based identity matching
+
+### Pro / advanced (implemented in selected modules)
+
+- Conditional branches via `If` plus control-flow primitives `EarlyExit` and `While`
+- Temporal windows via `Window(n=8)` and related temporal processing helpers
+- Multi-camera ReID via `ReIDBridge` in the tracking stack
+- VLM agent tool-calling via `VLMQuery(tools=[...])`
+
+### Not yet implemented as public node exports
+
+- `PoseFromDetections`
+- `Switch`
+- Shared backbone providers as a first-class public abstraction
 
 ---
 
@@ -341,6 +406,7 @@ mata/
 ```
 
 ### 9.2 Important rule: stable instance identity
+
 - `instance_ids` unify artifacts across channels within a frame:
   - detection `obj_1` ↔ mask `obj_1` ↔ keypoints `obj_1`
 
@@ -348,23 +414,25 @@ mata/
 
 ## 10) Practical Validation Rules (must‑have)
 
-1) `PromptBoxes(Image, Detections) -> Masks` requires `Detections.instance_ids` to exist  
-2) `Fuse` requires consistent `instance_ids` across artifacts (or explicit mapping)  
-3) Graph compilation fails if:
+1. `PromptBoxes(Image, Detections) -> Masks` requires `Detections.instance_ids` to exist
+2. `Fuse` requires consistent `instance_ids` across artifacts (or explicit mapping)
+3. Graph compilation fails if:
    - required artifact keys are missing
    - incompatible artifact types are wired
    - nodes produce duplicate keys unless explicitly allowed
-4) Provider selection fails fast if the bound provider does not implement required capability
+4. Provider selection fails fast if the bound provider does not implement required capability
 
 ---
 
 ## 11) Streaming Considerations (RTSP/Webcam)
 
 For real‑time use:
+
 - Add `FramePolicyLatest()` (drop old frames) vs `FramePolicyQueue(n)`
 - Tracking nodes should optionally run even if segmentation drops frames (decouple)
 
 Suggested streaming pipeline:
+
 - `Decode -> Detect -> Track` (fast lane)
 - `Decode -> Detect -> Segment` (slow lane, best-effort)
 - `JoinByTrackId/NearestTimestamp`
@@ -373,14 +441,14 @@ Suggested streaming pipeline:
 
 ## 12) Next Steps (Implementation Order)
 
-1) Implement `Artifact` base + canonical artifacts (`Image`, `Detections`, `Masks`, `MultiResult`)  
-2) Implement node base + graph compiler + validator  
-3) Add minimal scheduler (sync first, then parallel)  
-4) Build 2 providers:
+1. Implement `Artifact` base + canonical artifacts (`Image`, `Detections`, `Masks`, `MultiResult`)
+2. Implement node base + graph compiler + validator
+3. Add minimal scheduler (sync first, then parallel)
+4. Build 2 providers:
    - Detector provider (transformer_or_pytorch/RT-DETR adapter)
    - Segmenter provider (SAM3 adapter)
-5) Add `Fuse` + JSON serializer  
-6) Add 2 example scripts (image + stream)
+5. Add `Fuse` + JSON serializer
+6. Add 2 example scripts (image + stream)
 
 ---
 
