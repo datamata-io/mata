@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -104,80 +104,54 @@ class TrainingConfig:
         # task
         if self.task not in _VALID_TASKS:
             raise ConfigurationError(
-                f"Invalid task '{self.task}'. "
-                f"Must be one of: {', '.join(sorted(_VALID_TASKS))}."
+                f"Invalid task '{self.task}'. " f"Must be one of: {', '.join(sorted(_VALID_TASKS))}."
             )
 
         # optimizer
         if self.optimizer not in _VALID_OPTIMIZERS:
             raise ConfigurationError(
-                f"Invalid optimizer '{self.optimizer}'. "
-                f"Must be one of: {', '.join(sorted(_VALID_OPTIMIZERS))}."
+                f"Invalid optimizer '{self.optimizer}'. " f"Must be one of: {', '.join(sorted(_VALID_OPTIMIZERS))}."
             )
 
         # scheduler
         if self.scheduler not in _VALID_SCHEDULERS:
             raise ConfigurationError(
-                f"Invalid scheduler '{self.scheduler}'. "
-                f"Must be one of: {', '.join(sorted(_VALID_SCHEDULERS))}."
+                f"Invalid scheduler '{self.scheduler}'. " f"Must be one of: {', '.join(sorted(_VALID_SCHEDULERS))}."
             )
 
         # device
         if not _DEVICE_PATTERN.match(self.device):
             raise ConfigurationError(
-                f"Invalid device '{self.device}'. "
-                f"Must be 'auto', 'cpu', 'cuda', or 'cuda:<index>' (e.g. 'cuda:0')."
+                f"Invalid device '{self.device}'. " f"Must be 'auto', 'cpu', 'cuda', or 'cuda:<index>' (e.g. 'cuda:0')."
             )
 
         # numeric ranges
         if self.epochs <= 0:
-            raise ConfigurationError(
-                f"epochs must be > 0, got {self.epochs}."
-            )
+            raise ConfigurationError(f"epochs must be > 0, got {self.epochs}.")
         if self.batch_size <= 0:
-            raise ConfigurationError(
-                f"batch_size must be > 0, got {self.batch_size}."
-            )
+            raise ConfigurationError(f"batch_size must be > 0, got {self.batch_size}.")
         if self.lr <= 0:
-            raise ConfigurationError(
-                f"lr must be > 0, got {self.lr}."
-            )
+            raise ConfigurationError(f"lr must be > 0, got {self.lr}.")
         if self.weight_decay < 0:
-            raise ConfigurationError(
-                f"weight_decay must be >= 0, got {self.weight_decay}."
-            )
+            raise ConfigurationError(f"weight_decay must be >= 0, got {self.weight_decay}.")
         if self.warmup_epochs < 0:
-            raise ConfigurationError(
-                f"warmup_epochs must be >= 0, got {self.warmup_epochs}."
-            )
+            raise ConfigurationError(f"warmup_epochs must be >= 0, got {self.warmup_epochs}.")
         if self.warmup_epochs >= self.epochs:
-            raise ConfigurationError(
-                f"warmup_epochs ({self.warmup_epochs}) must be less than epochs ({self.epochs})."
-            )
+            raise ConfigurationError(f"warmup_epochs ({self.warmup_epochs}) must be less than epochs ({self.epochs}).")
         if self.save_every < 0:
-            raise ConfigurationError(
-                f"save_every must be >= 0, got {self.save_every}."
-            )
+            raise ConfigurationError(f"save_every must be >= 0, got {self.save_every}.")
         if self.val_every <= 0:
-            raise ConfigurationError(
-                f"val_every must be > 0, got {self.val_every}."
-            )
+            raise ConfigurationError(f"val_every must be > 0, got {self.val_every}.")
         if self.patience < 0:
-            raise ConfigurationError(
-                f"patience must be >= 0, got {self.patience}."
-            )
+            raise ConfigurationError(f"patience must be >= 0, got {self.patience}.")
         if self.num_workers < 0:
-            raise ConfigurationError(
-                f"num_workers must be >= 0, got {self.num_workers}."
-            )
+            raise ConfigurationError(f"num_workers must be >= 0, got {self.num_workers}.")
         if self.gradient_accumulation_steps < 1:
             raise ConfigurationError(
                 f"gradient_accumulation_steps must be >= 1, got {self.gradient_accumulation_steps}."
             )
         if self.max_grad_norm < 0:
-            raise ConfigurationError(
-                f"max_grad_norm must be >= 0 (0 = disabled), got {self.max_grad_norm}."
-            )
+            raise ConfigurationError(f"max_grad_norm must be >= 0 (0 = disabled), got {self.max_grad_norm}.")
 
         # resume path must exist if specified
         if self.resume is not None and not Path(self.resume).exists():
@@ -204,18 +178,12 @@ class TrainingConfig:
             with open(path) as f:
                 data = yaml.safe_load(f)
         except FileNotFoundError:
-            raise ConfigurationError(
-                f"Training config file not found: {path}"
-            )
+            raise ConfigurationError(f"Training config file not found: {path}")
         except yaml.YAMLError as exc:
-            raise ConfigurationError(
-                f"Failed to parse training config YAML at '{path}': {exc}"
-            )
+            raise ConfigurationError(f"Failed to parse training config YAML at '{path}': {exc}")
 
         if not isinstance(data, dict):
-            raise ConfigurationError(
-                f"Training config YAML must be a mapping, got {type(data).__name__}."
-            )
+            raise ConfigurationError(f"Training config YAML must be a mapping, got {type(data).__name__}.")
 
         # Filter to known fields only; unknown keys are silently ignored
         known_fields = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore[attr-defined]

@@ -26,7 +26,7 @@ Example usage:
 
 __version__ = "1.9.7"
 
-from .api import get_model_info, infer, list_models, load, register_model, run, track, val, verbose
+from .api import finetune, get_model_info, infer, list_models, load, register_model, run, track, train, val, verbose
 from .core import (
     BarcodeRegion,
     BarcodeResult,
@@ -94,6 +94,8 @@ __all__ = [
     "track",
     "infer",
     "val",
+    "train",
+    "finetune",
     "list_models",
     "get_model_info",
     "register_model",

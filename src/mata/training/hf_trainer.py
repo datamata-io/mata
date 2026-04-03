@@ -65,8 +65,7 @@ def _ensure_transformers() -> dict[str, Any]:
         }
     except ImportError as exc:
         raise ImportError(
-            "transformers is required for HFTrainingEngine. "
-            "Install with: pip install transformers torch"
+            "transformers is required for HFTrainingEngine. " "Install with: pip install transformers torch"
         ) from exc
 
     return _transformers
@@ -117,7 +116,9 @@ class _HistoryCallback:
     def __init__(self) -> None:
         self.history: dict[str, list[float]] = {}
 
-    def on_log(self, args: Any, state: Any, control: Any, logs: dict | None = None, **kwargs: Any) -> None:  # noqa: ARG002
+    def on_log(
+        self, args: Any, state: Any, control: Any, logs: dict | None = None, **kwargs: Any
+    ) -> None:  # noqa: ARG002
         """Collect numeric log entries."""
         if not logs:
             return
@@ -210,7 +211,8 @@ class _DetectionCollator:
 
             labels = target.get("labels")
             class_labels = (
-                labels if isinstance(labels, torch.Tensor)
+                labels
+                if isinstance(labels, torch.Tensor)
                 else torch.tensor(labels if labels is not None else [], dtype=torch.long)
             )
 
@@ -231,10 +233,7 @@ class _DetectionCollator:
                         }
                     )
                     continue
-                boxes_t = (
-                    boxes if isinstance(boxes, torch.Tensor)
-                    else torch.tensor(boxes, dtype=torch.float32)
-                )
+                boxes_t = boxes if isinstance(boxes, torch.Tensor) else torch.tensor(boxes, dtype=torch.float32)
                 annotations.append({"class_labels": class_labels, "boxes": boxes_t})
 
         # Encode images; attempt to let the processor pad them.
@@ -337,9 +336,7 @@ class HFTrainingEngine:
     # Model loading
     # ------------------------------------------------------------------
 
-    def _load_model_for_training(
-        self, id2label: "dict[int, str] | None" = None
-    ) -> None:
+    def _load_model_for_training(self, id2label: dict[int, str] | None = None) -> None:
         """Load the HF model with gradients enabled for training.
 
         Important: this method intentionally does **not** call ``.eval()``
@@ -394,9 +391,7 @@ class HFTrainingEngine:
                         len(id2label),
                         list(id2label.values()),
                     )
-                self.model = tf["AutoModelForImageClassification"].from_pretrained(
-                    self.model_id, **cls_kwargs
-                )
+                self.model = tf["AutoModelForImageClassification"].from_pretrained(self.model_id, **cls_kwargs)
 
             else:  # segment
                 # Mask2FormerForUniversalSegmentation is not covered by the
@@ -414,8 +409,7 @@ class HFTrainingEngine:
             raise
         except Exception as exc:
             raise TrainingError(
-                f"Failed to load model '{self.model_id}' for task '{self.task}': "
-                f"{type(exc).__name__}: {exc}"
+                f"Failed to load model '{self.model_id}' for task '{self.task}': " f"{type(exc).__name__}: {exc}"
             ) from exc
 
         # Move to the target device; model stays in train mode (the default
@@ -649,7 +643,7 @@ class HFTrainingEngine:
         # For classification, derive id2label from the dataset so the model
         # head is replaced to match the actual number of classes rather than
         # the pretrained head (e.g. 1000 ImageNet classes for ResNet-50).
-        train_id2label: "dict[int, str] | None" = None
+        train_id2label: dict[int, str] | None = None
         if self.task == "classify" and hasattr(train_dataset, "class_names"):
             train_id2label = train_dataset.class_names  # {0: "circle", 1: "square", …}
         self._load_model_for_training(id2label=train_id2label)
@@ -661,9 +655,7 @@ class HFTrainingEngine:
             self._freeze_layers(self.model, self.config.freeze_layers)
 
         # ── 3. TrainingArguments ────────────────────────────────────────
-        training_args = self._build_training_args(
-            train_size=len(train_dataset) if train_dataset is not None else None
-        )
+        training_args = self._build_training_args(train_size=len(train_dataset) if train_dataset is not None else None)
 
         # ── 4. Collator + metrics ────────────────────────────────────────
         data_collator = self._build_data_collator()
@@ -699,6 +691,7 @@ class HFTrainingEngine:
         # unpack the list-of-dicts that our collator builds.
         TrainerBase = tf["Trainer"]
         if self.task == "segment":
+
             class _SegmentTrainer(TrainerBase):  # type: ignore[valid-type]
                 """Unpacks collated `labels` into Mask2Former-native args."""
 
@@ -722,9 +715,7 @@ class HFTrainingEngine:
                         )
                     return (loss, outputs) if return_outputs else loss
 
-                def prediction_step(  # noqa: N805
-                    self_t, model, inputs, prediction_loss_only, ignore_keys=None
-                ):
+                def prediction_step(self_t, model, inputs, prediction_loss_only, ignore_keys=None):  # noqa: N805
                     """Eval step: compute only loss.
 
                     HF Trainer's default prediction_step (with
@@ -760,17 +751,13 @@ class HFTrainingEngine:
         try:
             trainer = TrainerCls(**trainer_kwargs)
         except Exception as exc:
-            raise TrainingError(
-                f"Failed to build HF Trainer: {type(exc).__name__}: {exc}"
-            ) from exc
+            raise TrainingError(f"Failed to build HF Trainer: {type(exc).__name__}: {exc}") from exc
 
         resume_from = self.config.resume or None
         try:
             trainer.train(resume_from_checkpoint=resume_from)
         except Exception as exc:
-            raise TrainingError(
-                f"Training failed: {type(exc).__name__}: {exc}"
-            ) from exc
+            raise TrainingError(f"Training failed: {type(exc).__name__}: {exc}") from exc
 
         # ── 7. Normalise history keys ────────────────────────────────────
         # Primary source: the _HistoryCBWrapper callback (fires on every logged
@@ -835,11 +822,7 @@ class HFTrainingEngine:
         final_metrics: dict[str, float] | None = None
         log_history = trainer.state.log_history
         if isinstance(log_history, list) and log_history:
-            final_metrics = {
-                k: v
-                for k, v in log_history[-1].items()
-                if isinstance(v, (int, float))
-            }
+            final_metrics = {k: v for k, v in log_history[-1].items() if isinstance(v, (int, float))}
 
         return TrainingResult(
             best_metrics=final_metrics,

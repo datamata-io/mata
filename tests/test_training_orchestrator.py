@@ -7,17 +7,15 @@ model downloads or data loading occurs.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
-from mata.core.exceptions import ConfigurationError, TrainingError
+from mata.core.exceptions import TrainingError
 from mata.training.config import TrainingConfig
 from mata.training.result import TrainingResult
 from mata.training.trainer import TrainingOrchestrator, _auto_save_dir
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -137,9 +135,7 @@ class TestResolveAlias:
         with patch("mata.core.model_registry.ModelRegistry") as MockReg:
             registry = MockReg.return_value
             registry.has_alias.side_effect = lambda task, src: src == "my-tv-model"
-            registry.get_config.return_value = {
-                "source": "torchvision/fasterrcnn_resnet50_fpn"
-            }
+            registry.get_config.return_value = {"source": "torchvision/fasterrcnn_resnet50_fpn"}
             engine = orch._detect_engine("my-tv-model")
         assert engine == "torchvision"
 
@@ -164,9 +160,7 @@ class TestCheckpointDetection:
     def test_hf_engine_from_checkpoint_config_json(self, tmp_path):
         ckpt = tmp_path / "ckpt"
         ckpt.mkdir()
-        (ckpt / "config.json").write_text(
-            json.dumps({"engine": "huggingface", "model": "facebook/detr-resnet-50"})
-        )
+        (ckpt / "config.json").write_text(json.dumps({"engine": "huggingface", "model": "facebook/detr-resnet-50"}))
         orch = TrainingOrchestrator(_make_config())
         assert orch._engine_from_checkpoint(ckpt) == "huggingface"
 
@@ -519,9 +513,7 @@ class TestEngineFromCheckpointFallbacks:
         """config.json with unknown engine and torchvision model_source → torchvision."""
         ckpt = tmp_path / "ckpt"
         ckpt.mkdir()
-        (ckpt / "config.json").write_text(
-            json.dumps({"engine": "X", "model": "torchvision/fasterrcnn_resnet50_fpn"})
-        )
+        (ckpt / "config.json").write_text(json.dumps({"engine": "X", "model": "torchvision/fasterrcnn_resnet50_fpn"}))
         orch = TrainingOrchestrator(_make_config())
         assert orch._engine_from_checkpoint(ckpt) == "torchvision"
 
@@ -545,12 +537,13 @@ class TestBuildDatasets:
         mock_val_ds = Mock()
         mock_collate = Mock()
 
-        with patch("mata.training.datasets.factory.DatasetFactory.create") as mock_create, \
-             patch("mata.training.augmentations.factory.AugmentationFactory.create",
-                   return_value=None):
+        with (
+            patch("mata.training.datasets.factory.DatasetFactory.create") as mock_create,
+            patch("mata.training.augmentations.factory.AugmentationFactory.create", return_value=None),
+        ):
             mock_create.side_effect = [
                 (mock_train_ds, mock_collate),  # train split
-                (mock_val_ds, mock_collate),    # val split
+                (mock_val_ds, mock_collate),  # val split
             ]
             train_ds, val_ds, collate_fn = orch._build_datasets(tmp_path)
 
@@ -564,8 +557,10 @@ class TestBuildDatasets:
         mock_ds = Mock()
         mock_collate = Mock()
 
-        with patch("mata.training.datasets.factory.DatasetFactory.create") as mock_create, \
-             patch("mata.training.augmentations.factory.AugmentationFactory.create") as mock_aug:
+        with (
+            patch("mata.training.datasets.factory.DatasetFactory.create") as mock_create,
+            patch("mata.training.augmentations.factory.AugmentationFactory.create") as mock_aug,
+        ):
             mock_create.side_effect = [
                 (mock_ds, mock_collate),
                 (mock_ds, mock_collate),
@@ -582,9 +577,12 @@ class TestBuildDatasets:
         mock_collate = Mock()
         mock_aug = Mock()
 
-        with patch("mata.training.datasets.factory.DatasetFactory.create") as mock_create, \
-             patch("mata.training.augmentations.factory.AugmentationFactory.create",
-                   return_value=mock_aug) as mock_aug_factory:
+        with (
+            patch("mata.training.datasets.factory.DatasetFactory.create") as mock_create,
+            patch(
+                "mata.training.augmentations.factory.AugmentationFactory.create", return_value=mock_aug
+            ) as mock_aug_factory,
+        ):
             mock_create.side_effect = [
                 (mock_ds, mock_collate),
                 (mock_ds, mock_collate),
@@ -606,10 +604,10 @@ class TestBuildDatasets:
                 return (mock_train_ds, mock_collate)
             raise RuntimeError("Val data not found")
 
-        with patch("mata.training.datasets.factory.DatasetFactory.create",
-                   side_effect=_create_side_effect), \
-             patch("mata.training.augmentations.factory.AugmentationFactory.create",
-                   return_value=None):
+        with (
+            patch("mata.training.datasets.factory.DatasetFactory.create", side_effect=_create_side_effect),
+            patch("mata.training.augmentations.factory.AugmentationFactory.create", return_value=None),
+        ):
             train_ds, val_ds, collate_fn = orch._build_datasets(tmp_path)
 
         assert train_ds is mock_train_ds
@@ -626,10 +624,10 @@ class TestBuildDatasets:
             create_calls.append((source, split))
             return (mock_ds, Mock())
 
-        with patch("mata.training.datasets.factory.DatasetFactory.create",
-                   side_effect=_create_side_effect), \
-             patch("mata.training.augmentations.factory.AugmentationFactory.create",
-                   return_value=None):
+        with (
+            patch("mata.training.datasets.factory.DatasetFactory.create", side_effect=_create_side_effect),
+            patch("mata.training.augmentations.factory.AugmentationFactory.create", return_value=None),
+        ):
             orch._build_datasets(tmp_path)
 
         sources = [s for s, _ in create_calls]

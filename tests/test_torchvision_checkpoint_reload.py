@@ -20,14 +20,12 @@ lightweight stand-ins that match the structural API used by the loader.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 import torch.nn as nn
-
 
 # ---------------------------------------------------------------------------
 # Helpers — minimal structural mocks
@@ -316,13 +314,9 @@ class TestCheckpointInference:
         def _fake_torchvision_adapter(task, model_name, **kwargs):
             from mata.adapters.torchvision_detect_adapter import TorchvisionDetectAdapter
 
-            with patch(
-                "mata.adapters.torchvision_detect_adapter._ensure_torchvision"
-            ) as _mock_tv:
+            with patch("mata.adapters.torchvision_detect_adapter._ensure_torchvision") as _mock_tv:
                 detection_models = MagicMock()
-                detection_models.fasterrcnn_resnet50_fpn.return_value = real_model_container[
-                    "model"
-                ]
+                detection_models.fasterrcnn_resnet50_fpn.return_value = real_model_container["model"]
                 transforms = MagicMock()
                 transforms.Compose.return_value = lambda x: x  # identity
                 transforms.ToTensor.return_value = MagicMock()

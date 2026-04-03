@@ -80,9 +80,7 @@ class BasicDetectionAugmentation:
                 ]
             )
 
-    def __call__(
-        self, image: Any, target: dict[str, Any]
-    ) -> tuple[Any, dict[str, Any]]:
+    def __call__(self, image: Any, target: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
         """Apply augmentations to image and target dict.
 
         Args:
@@ -194,9 +192,7 @@ class BasicClassificationAugmentation:
                 ]
             )
 
-    def __call__(
-        self, image: Any, target: dict[str, Any]
-    ) -> tuple[Any, dict[str, Any]]:
+    def __call__(self, image: Any, target: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
         """Apply augmentations to image and classification target.
 
         Args:
@@ -277,9 +273,7 @@ class BasicSegmentationAugmentation:
                 ]
             )
 
-    def __call__(
-        self, image: Any, target: dict[str, Any]
-    ) -> tuple[Any, dict[str, Any]]:
+    def __call__(self, image: Any, target: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
         """Apply augmentations to image, boxes, and masks.
 
         Args:
@@ -322,9 +316,7 @@ class BasicSegmentationAugmentation:
         if has_masks:
             tv_masks = tv_tensors.Mask(raw_masks)
         else:
-            tv_masks = tv_tensors.Mask(
-                torch.zeros((0, h, w), dtype=torch.uint8)
-            )
+            tv_masks = tv_tensors.Mask(torch.zeros((0, h, w), dtype=torch.uint8))
 
         image_t, tv_boxes_t, tv_masks_t = self._transform(image, tv_boxes, tv_masks)
 

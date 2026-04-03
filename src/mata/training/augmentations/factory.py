@@ -68,10 +68,7 @@ class AugmentationFactory:
         """
         _VALID_TASKS = {"detect", "classify", "segment"}
         if task not in _VALID_TASKS:
-            raise ValueError(
-                f"Unknown task {task!r}. Expected one of: "
-                + ", ".join(sorted(_VALID_TASKS))
-            )
+            raise ValueError(f"Unknown task {task!r}. Expected one of: " + ", ".join(sorted(_VALID_TASKS)))
 
         # ── albumentations route ─────────────────────────────────────────────
         if config is not None and config.get("type") == "albumentations":
@@ -106,12 +103,15 @@ class AugmentationFactory:
 
         if task == "detect":
             from mata.training.augmentations.basic import BasicDetectionAugmentation
+
             return BasicDetectionAugmentation(**kwargs)
 
         if task == "classify":
             from mata.training.augmentations.basic import BasicClassificationAugmentation
+
             return BasicClassificationAugmentation(**kwargs)
 
         # task == "segment"
         from mata.training.augmentations.basic import BasicSegmentationAugmentation
+
         return BasicSegmentationAugmentation(**kwargs)

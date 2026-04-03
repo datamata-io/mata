@@ -189,9 +189,11 @@ class LoggingCallback:
             self._file_handler.setFormatter(logging.Formatter("%(message)s"))
             # Attach to the module-level logger so log file receives all
             # training messages as well as the formatted table rows.
-            logger.logger.addHandler(  # type: ignore[attr-defined]
-                self._file_handler
-            ) if hasattr(logger, "logger") else None
+            (
+                logger.logger.addHandler(self._file_handler)  # type: ignore[attr-defined]
+                if hasattr(logger, "logger")
+                else None
+            )
 
         self._header_printed = False
 
@@ -283,7 +285,7 @@ class LoggingCallback:
 
             if torch.cuda.is_available():
                 mem_bytes = torch.cuda.memory_reserved()
-                mem_gb = mem_bytes / (1024 ** 3)
+                mem_gb = mem_bytes / (1024**3)
                 return f"{mem_gb:.1f}G"
         except Exception:  # noqa: BLE001
             pass
@@ -387,8 +389,7 @@ class EarlyStoppingCallback:
         if value is None:
             # Metric not available this epoch — don't count it.
             logger.debug(
-                "EarlyStoppingCallback: metric '%s' not found in metrics at "
-                "epoch %d; skipping.",
+                "EarlyStoppingCallback: metric '%s' not found in metrics at " "epoch %d; skipping.",
                 self.metric_key,
                 epoch + 1,
             )

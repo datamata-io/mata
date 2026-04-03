@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -184,9 +183,7 @@ class CheckpointManager:
         if not model_pth.exists():
             raise TrainingError(f"model_state.pth not found in '{ckpt_dir}'.")
         try:
-            result["model_state"] = torch.load(
-                model_pth, map_location="cpu", weights_only=True
-            )
+            result["model_state"] = torch.load(model_pth, map_location="cpu", weights_only=True)
         except Exception as exc:
             raise TrainingError(f"Failed to load model_state.pth: {exc}") from exc
 
@@ -194,9 +191,7 @@ class CheckpointManager:
         opt_pth = ckpt_dir / "optimizer_state.pth"
         if opt_pth.exists():
             try:
-                result["optimizer_state"] = torch.load(
-                    opt_pth, map_location="cpu", weights_only=False
-                )
+                result["optimizer_state"] = torch.load(opt_pth, map_location="cpu", weights_only=False)
             except Exception as exc:
                 raise TrainingError(f"Failed to load optimizer_state.pth: {exc}") from exc
         else:
@@ -207,7 +202,7 @@ class CheckpointManager:
         if not ts_path.exists():
             raise TrainingError(f"training_state.json not found in '{ckpt_dir}'.")
         try:
-            with open(ts_path, "r", encoding="utf-8") as fh:
+            with open(ts_path, encoding="utf-8") as fh:
                 result["training_state"] = json.load(fh)
         except (OSError, json.JSONDecodeError) as exc:
             raise TrainingError(f"Failed to parse training_state.json: {exc}") from exc
@@ -216,7 +211,7 @@ class CheckpointManager:
         cfg_path = ckpt_dir / "config.json"
         if cfg_path.exists():
             try:
-                with open(cfg_path, "r", encoding="utf-8") as fh:
+                with open(cfg_path, encoding="utf-8") as fh:
                     result["config"] = json.load(fh)
             except (OSError, json.JSONDecodeError) as exc:
                 raise TrainingError(f"Failed to parse config.json: {exc}") from exc
@@ -292,7 +287,7 @@ class CheckpointManager:
         config_data: dict[str, Any] = {}
         if cfg_path.exists():
             try:
-                with open(cfg_path, "r", encoding="utf-8") as fh:
+                with open(cfg_path, encoding="utf-8") as fh:
                     config_data = json.load(fh)
                 detected_engine = config_data.get("engine", "huggingface")
             except (OSError, json.JSONDecodeError) as exc:
@@ -301,13 +296,9 @@ class CheckpointManager:
         resolved_engine = engine if engine is not None else detected_engine
 
         if resolved_engine == "torchvision":
-            self._export_torchvision(
-                ckpt_dir, out_dir, model, config_data, torch
-            )
+            self._export_torchvision(ckpt_dir, out_dir, model, config_data, torch)
         else:
-            self._export_huggingface(
-                ckpt_dir, out_dir, model, processor, config_data, torch
-            )
+            self._export_huggingface(ckpt_dir, out_dir, model, processor, config_data, torch)
 
         logger.info("Exported inference checkpoint to %s", out_dir)
         return out_dir
@@ -326,6 +317,7 @@ class CheckpointManager:
         else:
             # No live model — copy the raw state dict
             import shutil
+
             src = ckpt_dir / "model_state.pth"
             if src.exists():
                 shutil.copy2(src, out_dir / "model_state.pth")
@@ -334,6 +326,7 @@ class CheckpointManager:
                 src_f = ckpt_dir / fname
                 if src_f.exists():
                     import shutil as _shutil
+
                     _shutil.copy2(src_f, out_dir / fname)
 
         if processor is not None and hasattr(processor, "save_pretrained"):
@@ -352,6 +345,7 @@ class CheckpointManager:
         else:
             # Copy existing model_state.pth → model.pth
             import shutil
+
             src = ckpt_dir / "model_state.pth"
             if src.exists():
                 shutil.copy2(src, out_dir / "model.pth")
@@ -397,6 +391,7 @@ class CheckpointManager:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _extract_scalar_metric(metrics: Any) -> float | None:
     """Try to extract a single float from a metrics object or dict."""

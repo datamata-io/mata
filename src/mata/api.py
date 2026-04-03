@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .core.artifacts.result import MultiResult
     from .core.graph.graph import Graph
     from .core.graph.node import Node
+    from .training.result import TrainingResult
 
 # Singleton universal loader instance
 _universal_loader: UniversalLoader | None = None
@@ -1405,6 +1406,154 @@ def val(
         split=split,
         **kwargs,
     ).run()
+
+
+def train(
+    task: str,
+    *,
+    model: str,
+    data: str | dict,
+    val_data: str | dict | None = None,
+    epochs: int = 10,
+    batch_size: int = 8,
+    lr: float = 1e-4,
+    optimizer: str = "adamw",
+    weight_decay: float = 0.01,
+    scheduler: str = "cosine",
+    warmup_epochs: int = 1,
+    device: str = "auto",
+    amp: bool = True,
+    save_dir: str = "runs/train",
+    save_every: int = 0,
+    val_every: int = 1,
+    patience: int = 0,
+    freeze_backbone: bool = False,
+    freeze_layers: list[str] | None = None,
+    augment: bool = True,
+    augment_config: dict | None = None,
+    resume: str | None = None,
+    num_workers: int = 4,
+    seed: int = 42,
+    verbose: bool = True,
+    **kwargs: Any,
+) -> TrainingResult:
+    """Train a model from scratch or continue training.
+
+    Args:
+        task: Task type — "detect", "classify", or "segment"
+        model: Model source (HuggingFace ID, torchvision/*, config alias, local path)
+        data: Training data (YAML config path, directory, or COCO JSON)
+        val_data: Validation data (same formats as data). Defaults to None.
+        epochs: Number of training epochs. Defaults to 10.
+        batch_size: Batch size. Defaults to 8.
+        lr: Learning rate. Defaults to 1e-4.
+        optimizer: Optimizer name ("adamw", "adam", "sgd"). Defaults to "adamw".
+        weight_decay: Weight decay for regularization. Defaults to 0.01.
+        scheduler: LR scheduler ("cosine", "linear", "step", "none"). Defaults to "cosine".
+        warmup_epochs: Epochs to warm up LR from 0. Defaults to 1.
+        device: Device to train on ("auto", "cuda", "cpu"). Defaults to "auto".
+        amp: Enable automatic mixed precision. Defaults to True.
+        save_dir: Root directory for saving checkpoints. Defaults to "runs/train".
+        save_every: Save checkpoint every N epochs (0 = only best/last). Defaults to 0.
+        val_every: Run validation every N epochs. Defaults to 1.
+        patience: Early stopping patience in epochs (0 = disabled). Defaults to 0.
+        freeze_backbone: Freeze backbone weights during training. Defaults to False.
+        freeze_layers: List of layer name patterns to freeze. Defaults to None.
+        augment: Enable data augmentation. Defaults to True.
+        augment_config: Augmentation configuration dict. Defaults to None.
+        resume: Path to checkpoint directory to resume from. Defaults to None.
+        num_workers: DataLoader worker processes. Defaults to 4.
+        seed: Random seed for reproducibility. Defaults to 42.
+        verbose: Print training progress. Defaults to True.
+        **kwargs: Additional keyword arguments for future extensibility.
+
+    Returns:
+        TrainingResult with metrics, checkpoint paths, and training history.
+
+    Example:
+        >>> result = mata.train("detect", model="facebook/detr-resnet-50",
+        ...     data="coco.yaml", epochs=10, lr=1e-4)
+        >>> print(f"Best mAP50: {result.best_metrics.box.map50:.3f}")
+    """
+    from mata.training import TrainingConfig, TrainingOrchestrator
+
+    config = TrainingConfig(
+        task=task,
+        model=model,
+        data=data,
+        val_data=val_data,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        optimizer=optimizer,
+        weight_decay=weight_decay,
+        scheduler=scheduler,
+        warmup_epochs=warmup_epochs,
+        device=device,
+        amp=amp,
+        save_dir=save_dir,
+        save_every=save_every,
+        val_every=val_every,
+        patience=patience,
+        freeze_backbone=freeze_backbone,
+        freeze_layers=freeze_layers,
+        augment=augment,
+        augment_config=augment_config,
+        resume=resume,
+        num_workers=num_workers,
+        seed=seed,
+        verbose=verbose,
+    )
+    config.validate()
+    return TrainingOrchestrator(config).train()
+
+
+def finetune(
+    task: str,
+    *,
+    model: str,
+    data: str | dict,
+    val_data: str | dict | None = None,
+    epochs: int = 5,
+    batch_size: int = 16,
+    lr: float = 1e-5,
+    freeze_backbone: bool = True,
+    **kwargs: Any,
+) -> TrainingResult:
+    """Fine-tune a pre-trained model on custom data.
+
+    Like train() but with fine-tuning defaults: lower LR, fewer epochs, frozen backbone.
+
+    Args:
+        task: Task type — "detect", "classify", or "segment"
+        model: Model source (HuggingFace ID, torchvision/*, config alias, local path)
+        data: Training data (YAML config path, directory, or COCO JSON)
+        val_data: Validation data. Defaults to None.
+        epochs: Number of fine-tuning epochs. Defaults to 5.
+        batch_size: Batch size. Defaults to 16.
+        lr: Learning rate. Defaults to 1e-5.
+        freeze_backbone: Freeze backbone weights. Defaults to True.
+        **kwargs: Additional keyword arguments forwarded to train().
+
+    Returns:
+        TrainingResult with metrics, checkpoint paths, and training history.
+
+    Example:
+        >>> result = mata.finetune("classify", model="microsoft/resnet-50",
+        ...     data="/data/flowers/", epochs=5)
+        >>> print(f"Top-1: {result.best_metrics.top1:.1%}")
+    """
+    return train(
+        task,
+        model=model,
+        data=data,
+        val_data=val_data,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        freeze_backbone=freeze_backbone,
+        **kwargs,
+    )
 
 
 def verbose(level: int = 2) -> None:

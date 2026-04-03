@@ -3,6 +3,7 @@
 Covers BasicDetectionAugmentation, BasicClassificationAugmentation,
 BasicSegmentationAugmentation, AlbumentationsWrapper, and AugmentationFactory.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -13,15 +14,15 @@ import torch
 from PIL import Image
 
 from mata.training.augmentations import (
-    AugmentationFactory,
     AlbumentationsWrapper,
+    AugmentationFactory,
     BasicClassificationAugmentation,
     BasicDetectionAugmentation,
     BasicSegmentationAugmentation,
 )
 
-
 # ─── helpers ────────────────────────────────────────────────────────────────
+
 
 def _make_pil(h: int = 100, w: int = 100, fill: int = 128) -> Image.Image:
     arr = np.full((h, w, 3), fill, dtype=np.uint8)
@@ -37,8 +38,8 @@ def _empty_detect_target() -> dict:
 
 def _detect_target(boxes: list, labels: list | None = None) -> dict:
     t = torch.tensor(boxes, dtype=torch.float32)
-    l = torch.zeros(len(boxes), dtype=torch.long) if labels is None else torch.tensor(labels, dtype=torch.long)
-    return {"boxes": t, "labels": l}
+    lbl = torch.zeros(len(boxes), dtype=torch.long) if labels is None else torch.tensor(labels, dtype=torch.long)
+    return {"boxes": t, "labels": lbl}
 
 
 def _seg_target(mask: torch.Tensor, boxes: torch.Tensor | None = None) -> dict:
@@ -52,6 +53,7 @@ def _seg_target(mask: torch.Tensor, boxes: torch.Tensor | None = None) -> dict:
 
 
 # ─── BasicDetectionAugmentation ─────────────────────────────────────────────
+
 
 class TestBasicDetectionAugmentation:
     """Tests for the detection augmentation pipeline."""
@@ -139,6 +141,7 @@ class TestBasicDetectionAugmentation:
 
 # ─── BasicClassificationAugmentation ────────────────────────────────────────
 
+
 class TestBasicClassificationAugmentation:
     """Tests for the classification augmentation pipeline."""
 
@@ -188,6 +191,7 @@ class TestBasicClassificationAugmentation:
 
 # ─── BasicSegmentationAugmentation ──────────────────────────────────────────
 
+
 class TestBasicSegmentationAugmentation:
     """Tests for the segmentation augmentation pipeline."""
 
@@ -223,7 +227,7 @@ class TestBasicSegmentationAugmentation:
         """Horizontal flip is applied to both image and mask simultaneously."""
         aug = BasicSegmentationAugmentation(
             size=50,
-            flip_prob=1.0,          # always flip
+            flip_prob=1.0,  # always flip
             jitter_brightness=0,
             jitter_contrast=0,
             jitter_saturation=0,
@@ -251,6 +255,7 @@ class TestBasicSegmentationAugmentation:
 
 # ─── AlbumentationsWrapper ───────────────────────────────────────────────────
 
+
 class TestAlbumentationsWrapper:
     """Tests for the optional albumentations integration."""
 
@@ -265,11 +270,13 @@ class TestAlbumentationsWrapper:
         """Wrapper calls the underlying transform and converts output to tensor."""
         mock_albu = MagicMock()
         with patch.dict("sys.modules", {"albumentations": mock_albu}):
-            mock_transform = MagicMock(return_value={
-                "image": np.zeros((20, 20, 3), dtype=np.uint8),
-                "bboxes": [],
-                "class_labels": [],
-            })
+            mock_transform = MagicMock(
+                return_value={
+                    "image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "bboxes": [],
+                    "class_labels": [],
+                }
+            )
             wrapper = AlbumentationsWrapper(mock_transform)
             img_t, out_t = wrapper(_make_pil(20, 20), _empty_detect_target())
 
@@ -281,11 +288,13 @@ class TestAlbumentationsWrapper:
         """Boxes are passed to albumentations in pascal_voc (xyxy) list format."""
         mock_albu = MagicMock()
         with patch.dict("sys.modules", {"albumentations": mock_albu}):
-            mock_transform = MagicMock(return_value={
-                "image": np.zeros((100, 100, 3), dtype=np.uint8),
-                "bboxes": [[10.0, 20.0, 50.0, 60.0]],
-                "class_labels": [1],
-            })
+            mock_transform = MagicMock(
+                return_value={
+                    "image": np.zeros((100, 100, 3), dtype=np.uint8),
+                    "bboxes": [[10.0, 20.0, 50.0, 60.0]],
+                    "class_labels": [1],
+                }
+            )
             wrapper = AlbumentationsWrapper(mock_transform)
             img = _make_pil(100, 100)
             target = {
@@ -309,12 +318,14 @@ class TestAlbumentationsWrapper:
         out_mask_np = np.zeros((30, 30), dtype=np.uint8)
         out_mask_np[5:15, 5:15] = 1
         with patch.dict("sys.modules", {"albumentations": mock_albu}):
-            mock_transform = MagicMock(return_value={
-                "image": np.zeros((30, 30, 3), dtype=np.uint8),
-                "bboxes": [],
-                "class_labels": [],
-                "masks": [out_mask_np],
-            })
+            mock_transform = MagicMock(
+                return_value={
+                    "image": np.zeros((30, 30, 3), dtype=np.uint8),
+                    "bboxes": [],
+                    "class_labels": [],
+                    "masks": [out_mask_np],
+                }
+            )
             wrapper = AlbumentationsWrapper(mock_transform)
             in_mask = torch.zeros(1, 30, 30, dtype=torch.uint8)
             in_mask[0, 5:15, 5:15] = 1
@@ -331,6 +342,7 @@ class TestAlbumentationsWrapper:
 
 
 # ─── AugmentationFactory ─────────────────────────────────────────────────────
+
 
 class TestAugmentationFactory:
     """Tests for the augmentation factory."""

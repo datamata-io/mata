@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, call
+from unittest.mock import Mock, patch
 
 import pytest
 import torch
@@ -17,10 +17,10 @@ from mata.core.exceptions import TrainingError
 from mata.training.config import TrainingConfig
 from mata.training.result import TrainingResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**kwargs) -> TrainingConfig:
     """Return a minimal valid TrainingConfig, overridable via kwargs."""
@@ -123,12 +123,14 @@ def _make_mock_transformers(trainer_instance=None):
 # Construction tests
 # ---------------------------------------------------------------------------
 
+
 class TestHFTrainingEngineInit:
     """Tests for HFTrainingEngine.__init__."""
 
     def test_valid_detect_task(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             engine = HFTrainingEngine("detect", "facebook/detr-resnet-50", _make_config())
             assert engine.task == "detect"
             assert engine.model_id == "facebook/detr-resnet-50"
@@ -136,6 +138,7 @@ class TestHFTrainingEngineInit:
     def test_valid_classify_task(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="classify", model="microsoft/resnet-50")
             engine = HFTrainingEngine("classify", "microsoft/resnet-50", cfg)
             assert engine.task == "classify"
@@ -143,6 +146,7 @@ class TestHFTrainingEngineInit:
     def test_valid_segment_task(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="segment", model="facebook/mask2former-swin-tiny-coco-instance")
             engine = HFTrainingEngine("segment", "facebook/mask2former-swin-tiny-coco-instance", cfg)
             assert engine.task == "segment"
@@ -150,12 +154,14 @@ class TestHFTrainingEngineInit:
     def test_invalid_task_raises_value_error(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             with pytest.raises(ValueError, match="unsupported task"):
                 HFTrainingEngine("ocr", "some-model", _make_config())
 
     def test_missing_transformers_raises_import_error(self):
         """If transformers is absent, __init__ should raise ImportError immediately."""
         from mata.training.hf_trainer import HFTrainingEngine
+
         with patch(
             "mata.training.hf_trainer._ensure_transformers",
             side_effect=ImportError("transformers not installed"),
@@ -166,6 +172,7 @@ class TestHFTrainingEngineInit:
     def test_model_and_processor_initially_none(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             engine = HFTrainingEngine("detect", "facebook/detr-resnet-50", _make_config())
             assert engine.model is None
             assert engine.processor is None
@@ -173,6 +180,7 @@ class TestHFTrainingEngineInit:
     def test_config_stored(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(epochs=5)
             engine = HFTrainingEngine("detect", "facebook/detr-resnet-50", cfg)
             assert engine.config is cfg
@@ -182,6 +190,7 @@ class TestHFTrainingEngineInit:
 # _load_model_for_training tests
 # ---------------------------------------------------------------------------
 
+
 class TestLoadModelForTraining:
     """Tests for HFTrainingEngine._load_model_for_training."""
 
@@ -189,6 +198,7 @@ class TestLoadModelForTraining:
         tf = _make_mock_transformers()
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task=task, **cfg_kwargs)
             engine = HFTrainingEngine(task, "facebook/detr-resnet-50", cfg)
         return engine, tf
@@ -197,9 +207,7 @@ class TestLoadModelForTraining:
         engine, tf = self._make_engine(task="detect")
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             engine._load_model_for_training()
-        tf["AutoModelForObjectDetection"].from_pretrained.assert_called_once_with(
-            "facebook/detr-resnet-50"
-        )
+        tf["AutoModelForObjectDetection"].from_pretrained.assert_called_once_with("facebook/detr-resnet-50")
         assert engine.model is not None
 
     def test_classify_loads_classification_model(self):
@@ -213,9 +221,7 @@ class TestLoadModelForTraining:
         engine, tf = self._make_engine(task="detect")
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             engine._load_model_for_training()
-        tf["AutoImageProcessor"].from_pretrained.assert_called_once_with(
-            "facebook/detr-resnet-50", use_fast=True
-        )
+        tf["AutoImageProcessor"].from_pretrained.assert_called_once_with("facebook/detr-resnet-50", use_fast=True)
         assert engine.processor is not None
 
     def test_model_not_in_eval_mode_after_load(self):
@@ -244,6 +250,7 @@ class TestLoadModelForTraining:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="segment")
             engine = HFTrainingEngine("segment", cfg.model, cfg)
 
@@ -277,6 +284,7 @@ class TestLoadModelForTraining:
 # _build_training_args tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildTrainingArgs:
     """Tests for HFTrainingEngine._build_training_args."""
 
@@ -284,6 +292,7 @@ class TestBuildTrainingArgs:
         tf = _make_mock_transformers()
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task=task, **cfg_kwargs)
             engine = HFTrainingEngine(task, cfg.model, cfg)
         return engine, tf
@@ -378,12 +387,14 @@ class TestBuildTrainingArgs:
 # _freeze_backbone tests
 # ---------------------------------------------------------------------------
 
+
 class TestFreezeBackbone:
     """Tests for HFTrainingEngine._freeze_backbone."""
 
     def _make_engine(self, task="detect"):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task=task)
             return HFTrainingEngine(task, cfg.model, cfg)
 
@@ -419,7 +430,8 @@ class TestFreezeBackbone:
     def test_no_trainable_params_if_no_matching_head(self):
         """Unknown task has empty head patterns → all frozen."""
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
-            from mata.training.hf_trainer import HFTrainingEngine, _TASK_HEAD_PATTERNS
+            from mata.training.hf_trainer import _TASK_HEAD_PATTERNS, HFTrainingEngine
+
             cfg = _make_config(task="detect")
             engine = HFTrainingEngine("detect", cfg.model, cfg)
             # Temporarily clear detect patterns
@@ -436,12 +448,14 @@ class TestFreezeBackbone:
 # _freeze_layers tests
 # ---------------------------------------------------------------------------
 
+
 class TestFreezeLayers:
     """Tests for HFTrainingEngine._freeze_layers."""
 
     def _make_engine(self):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config()
             return HFTrainingEngine("detect", cfg.model, cfg)
 
@@ -479,12 +493,14 @@ class TestFreezeLayers:
 # _build_data_collator tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildDataCollator:
     """Tests for HFTrainingEngine._build_data_collator."""
 
     def _make_engine(self, task):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task=task)
             engine = HFTrainingEngine(task, cfg.model, cfg)
             engine.processor = Mock()
@@ -493,24 +509,27 @@ class TestBuildDataCollator:
 
     def test_classify_returns_classification_collator(self):
         from mata.training.hf_trainer import _ClassificationCollator
+
         engine = self._make_engine("classify")
         collator = engine._build_data_collator()
         assert isinstance(collator, _ClassificationCollator)
 
     def test_detect_returns_detection_collator(self):
         from mata.training.hf_trainer import _DetectionCollator
+
         engine = self._make_engine("detect")
         collator = engine._build_data_collator()
         assert isinstance(collator, _DetectionCollator)
 
     def test_segment_returns_detection_collator(self):
         from mata.training.hf_trainer import _DetectionCollator
+
         engine = self._make_engine("segment")
         collator = engine._build_data_collator()
         assert isinstance(collator, _DetectionCollator)
 
     def test_detection_collator_has_correct_task(self):
-        from mata.training.hf_trainer import _DetectionCollator
+
         engine = self._make_engine("segment")
         collator = engine._build_data_collator()
         assert collator.task == "segment"
@@ -520,12 +539,14 @@ class TestBuildDataCollator:
 # _build_compute_metrics tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildComputeMetrics:
     """Tests for HFTrainingEngine._build_compute_metrics."""
 
     def _make_engine(self, task):
         with patch("mata.training.hf_trainer._ensure_transformers", return_value={}):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task=task)
             return HFTrainingEngine(task, cfg.model, cfg)
 
@@ -566,6 +587,7 @@ class TestBuildComputeMetrics:
 # ---------------------------------------------------------------------------
 # train() integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestTrain:
     """Integration tests for HFTrainingEngine.train()."""
@@ -624,9 +646,7 @@ class TestTrain:
         assert call_kwargs["resume_from_checkpoint"] is None
 
     def test_train_history_populated_from_logs(self):
-        state = _make_mock_trainer_state(
-            log_history=[{"loss": 0.8, "epoch": 1.0}, {"loss": 0.5, "epoch": 2.0}]
-        )
+        state = _make_mock_trainer_state(log_history=[{"loss": 0.8, "epoch": 1.0}, {"loss": 0.5, "epoch": 2.0}])
         mock_trainer = _make_mock_trainer(state=state)
         result, _ = self._run_train(trainer_instance=mock_trainer)
         assert "train_loss" in result.history
@@ -647,15 +667,16 @@ class TestTrain:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config()
             engine = HFTrainingEngine("detect", cfg.model, cfg)
 
-        dummy = [
-            (torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})
-        ]
+        dummy = [(torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})]
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             with patch("mata.training.checkpoint.CheckpointManager.save", return_value=Path("runs/last")):
-                with patch("mata.training.checkpoint.CheckpointManager.export_for_inference", return_value=Path("runs/best")):
+                with patch(
+                    "mata.training.checkpoint.CheckpointManager.export_for_inference", return_value=Path("runs/best")
+                ):
                     engine.train(train_dataset=dummy, val_dataset=dummy)
 
         trainer_kwargs = mock_trainer_cls.call_args[1]
@@ -671,15 +692,16 @@ class TestTrain:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config()
             engine = HFTrainingEngine("detect", cfg.model, cfg)
 
-        dummy = [
-            (torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})
-        ]
+        dummy = [(torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})]
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             with patch("mata.training.checkpoint.CheckpointManager.save", return_value=Path("runs/last")):
-                with patch("mata.training.checkpoint.CheckpointManager.export_for_inference", return_value=Path("runs/best")):
+                with patch(
+                    "mata.training.checkpoint.CheckpointManager.export_for_inference", return_value=Path("runs/best")
+                ):
                     engine.train(train_dataset=dummy, val_dataset=None)
 
         trainer_kwargs = mock_trainer_cls.call_args[1]
@@ -693,12 +715,11 @@ class TestTrain:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config()
             engine = HFTrainingEngine("detect", cfg.model, cfg)
 
-        dummy = [
-            (torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})
-        ]
+        dummy = [(torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})]
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             with pytest.raises(TrainingError, match="Training failed"):
                 engine.train(train_dataset=dummy)
@@ -707,16 +728,18 @@ class TestTrain:
         tf = _make_mock_transformers()
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(freeze_backbone=True)
             engine = HFTrainingEngine("detect", cfg.model, cfg)
 
-        dummy = [
-            (torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})
-        ]
+        dummy = [(torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})]
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             with patch.object(engine.__class__, "_freeze_backbone") as mock_freeze:
                 with patch("mata.training.checkpoint.CheckpointManager.save", return_value=Path("runs/last")):
-                    with patch("mata.training.checkpoint.CheckpointManager.export_for_inference", return_value=Path("runs/best")):
+                    with patch(
+                        "mata.training.checkpoint.CheckpointManager.export_for_inference",
+                        return_value=Path("runs/best"),
+                    ):
                         engine.train(train_dataset=dummy)
         mock_freeze.assert_called_once()
 
@@ -724,16 +747,18 @@ class TestTrain:
         tf = _make_mock_transformers()
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(freeze_backbone=False)
             engine = HFTrainingEngine("detect", cfg.model, cfg)
 
-        dummy = [
-            (torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})
-        ]
+        dummy = [(torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})]
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             with patch.object(engine.__class__, "_freeze_backbone") as mock_freeze:
                 with patch("mata.training.checkpoint.CheckpointManager.save", return_value=Path("runs/last")):
-                    with patch("mata.training.checkpoint.CheckpointManager.export_for_inference", return_value=Path("runs/best")):
+                    with patch(
+                        "mata.training.checkpoint.CheckpointManager.export_for_inference",
+                        return_value=Path("runs/best"),
+                    ):
                         engine.train(train_dataset=dummy)
         mock_freeze.assert_not_called()
 
@@ -748,9 +773,7 @@ class TestTrain:
     def test_history_key_normalisation_eval_to_val(self):
         """eval_loss → val_loss, eval_accuracy → val_accuracy."""
         state = _make_mock_trainer_state(
-            log_history=[
-                {"loss": 0.8, "eval_loss": 1.0, "eval_accuracy": 0.6, "epoch": 1.0}
-            ]
+            log_history=[{"loss": 0.8, "eval_loss": 1.0, "eval_accuracy": 0.6, "epoch": 1.0}]
         )
         mock_trainer = _make_mock_trainer(state=state)
         result, _ = self._run_train(trainer_instance=mock_trainer)
@@ -770,12 +793,11 @@ class TestTrain:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="segment")
             engine = HFTrainingEngine("segment", cfg.model, cfg)
 
-        dummy = [
-            (torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})
-        ]
+        dummy = [(torch.zeros(3, 32, 32), {"boxes": torch.zeros(0, 4), "labels": torch.zeros(0, dtype=torch.long)})]
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             with patch("mata.training.checkpoint.CheckpointManager.save", return_value=Path("runs/last")):
                 with patch(
@@ -790,6 +812,7 @@ class TestTrain:
 # Collator unit tests
 # ---------------------------------------------------------------------------
 
+
 class TestClassificationCollator:
     """Unit tests for _ClassificationCollator."""
 
@@ -800,8 +823,10 @@ class TestClassificationCollator:
         processor.return_value = {"pixel_values": torch.zeros(2, 3, 32, 32)}
         collator = _ClassificationCollator(processor=processor)
 
-        img1 = Mock(); img1.mode = "RGB"
-        img2 = Mock(); img2.mode = "RGB"
+        img1 = Mock()
+        img1.mode = "RGB"
+        img2 = Mock()
+        img2.mode = "RGB"
         batch = [
             (img1, {"label": 0}),
             (img2, {"label": 1}),
@@ -817,7 +842,8 @@ class TestClassificationCollator:
         processor.return_value = {"pixel_values": torch.zeros(1, 3, 32, 32)}
         collator = _ClassificationCollator(processor=processor)
 
-        img = Mock(); img.mode = "RGB"
+        img = Mock()
+        img.mode = "RGB"
         output = collator([(img, {"label": 2})])
         assert output["labels"].dtype == torch.long
 
@@ -832,7 +858,8 @@ class TestDetectionCollator:
         processor.return_value = {"pixel_values": torch.zeros(1, 3, 32, 32)}
         collator = _DetectionCollator(processor=processor, task="detect")
 
-        img = Mock(); img.mode = "RGB"
+        img = Mock()
+        img.mode = "RGB"
         target = {
             "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
             "labels": torch.tensor([1]),
@@ -848,7 +875,8 @@ class TestDetectionCollator:
         processor.return_value = {"pixel_values": torch.zeros(1, 3, 32, 32)}
         collator = _DetectionCollator(processor=processor, task="detect")
 
-        img = Mock(); img.mode = "RGB"
+        img = Mock()
+        img.mode = "RGB"
         output = collator([(img, {})])
         label = output["labels"][0]
         assert label["class_labels"].numel() == 0
@@ -858,6 +886,7 @@ class TestDetectionCollator:
 # ---------------------------------------------------------------------------
 # _HistoryCallback tests
 # ---------------------------------------------------------------------------
+
 
 class TestHistoryCallback:
     """Unit tests for _HistoryCallback."""
@@ -917,7 +946,7 @@ class TestEnsureTransformers:
 
     def _make_fake_transformers_module(self, *, include_mask2former: bool = True):
         """Build a types.ModuleType that emulates transformers for import."""
-        import types
+
         mod = types.ModuleType("transformers")
         mod.AutoConfig = Mock()
         mod.AutoImageProcessor = Mock()
@@ -937,6 +966,7 @@ class TestEnsureTransformers:
     def test_caches_result_after_first_call(self):
         """Two successive calls return the same dict object (cache populated)."""
         import sys
+
         import mata.training.hf_trainer as hf_mod
 
         fake_tf = self._make_fake_transformers_module()
@@ -1054,6 +1084,7 @@ class TestDetectionCollatorCoverageGaps:
     # Reusable helper: image without .mode (triggers the non-PIL else branch)
     class _RawTensor:
         """Non-PIL, non-mode image object for triggering the else branch."""
+
         pass
 
     def test_tensor_images_use_processor_encoding(self):
@@ -1200,6 +1231,7 @@ class TestLoadModelForTrainingClassifyWithId2Label:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="classify")
             engine = HFTrainingEngine("classify", cfg.model, cfg)
 
@@ -1226,6 +1258,7 @@ class TestLoadModelForTrainingSegmentMask2FormerNone:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="segment")
             engine = HFTrainingEngine("segment", cfg.model, cfg)
 
@@ -1243,6 +1276,7 @@ class TestLoadModelForTrainingSegmentMask2FormerNone:
 
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
             from mata.training.hf_trainer import HFTrainingEngine
+
             cfg = _make_config(task="segment")
             engine = HFTrainingEngine("segment", cfg.model, cfg)
 

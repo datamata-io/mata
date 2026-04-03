@@ -147,13 +147,8 @@ class TorchTrainingEngine:
         from mata.adapters.torchvision_detect_adapter import TorchvisionDetectAdapter
 
         if self.model_key not in TorchvisionDetectAdapter.MODEL_BUILDERS:
-            available = ", ".join(
-                f"torchvision/{k}" for k in sorted(TorchvisionDetectAdapter.MODEL_BUILDERS)
-            )
-            raise TrainingError(
-                f"Unknown torchvision model '{model_name}'. "
-                f"Supported models: {available}"
-            )
+            available = ", ".join(f"torchvision/{k}" for k in sorted(TorchvisionDetectAdapter.MODEL_BUILDERS))
+            raise TrainingError(f"Unknown torchvision model '{model_name}'. " f"Supported models: {available}")
 
     # ── Device resolution ──────────────────────────────────────────────────────
 
@@ -186,8 +181,7 @@ class TorchTrainingEngine:
             import torchvision.models.detection as detection_models
         except ImportError as exc:
             raise TrainingError(
-                "torchvision is required for TorchTrainingEngine. "
-                "Install with: pip install torchvision"
+                "torchvision is required for TorchTrainingEngine. " "Install with: pip install torchvision"
             ) from exc
 
         builder_fn = getattr(detection_models, self.model_key)
@@ -243,9 +237,7 @@ class TorchTrainingEngine:
             cls_head = model.head.classification_head
             in_channels = cls_head.cls_logits.in_channels
             num_anchors = cls_head.num_anchors
-            cls_head.cls_logits = nn.Conv2d(
-                in_channels, num_anchors * num_classes, kernel_size=3, padding=1
-            )
+            cls_head.cls_logits = nn.Conv2d(in_channels, num_anchors * num_classes, kernel_size=3, padding=1)
             cls_head.num_classes = num_classes
             logger.debug(
                 "Replaced RetinaNet head: in_channels=%d, num_anchors=%d, num_classes=%d",
@@ -258,9 +250,7 @@ class TorchTrainingEngine:
             cls_head = model.head.classification_head
             # FCOS is anchor-free: cls_logits out_channels = num_classes
             in_channels = cls_head.cls_logits.in_channels
-            cls_head.cls_logits = nn.Conv2d(
-                in_channels, num_classes, kernel_size=3, padding=1
-            )
+            cls_head.cls_logits = nn.Conv2d(in_channels, num_classes, kernel_size=3, padding=1)
             cls_head.num_classes = num_classes
             logger.debug(
                 "Replaced FCOS head: in_channels=%d, num_classes=%d",
@@ -270,6 +260,7 @@ class TorchTrainingEngine:
 
         elif self.model_key in _SSD_KEYS:
             cls_head = model.head.classification_head
+
             # SSDClassificationHead does not expose num_classes as a plain attribute.
             # Infer it from the paired regression head: each prediction Conv2d has
             # out_channels = num_anchors * 4 (regression) or num_anchors * C (cls).
@@ -294,18 +285,14 @@ class TorchTrainingEngine:
                     # SSD300: each feature-map level has a direct Conv2d
                     in_ch = module.in_channels
                     num_anchors_lvl = module.out_channels // old_num_classes
-                    new_modules.append(
-                        nn.Conv2d(in_ch, num_anchors_lvl * num_classes, kernel_size=3, padding=1)
-                    )
+                    new_modules.append(nn.Conv2d(in_ch, num_anchors_lvl * num_classes, kernel_size=3, padding=1))
                 elif isinstance(module, nn.Sequential):
                     # SSDLite: Sequential[depthwise_conv, ..., pointwise_conv]
                     layers = list(module.children())
                     last_conv = layers[-1]
                     in_ch_last = last_conv.in_channels
                     num_anchors_lvl = last_conv.out_channels // old_num_classes
-                    layers[-1] = nn.Conv2d(
-                        in_ch_last, num_anchors_lvl * num_classes, kernel_size=1
-                    )
+                    layers[-1] = nn.Conv2d(in_ch_last, num_anchors_lvl * num_classes, kernel_size=1)
                     new_modules.append(nn.Sequential(*layers))
                 else:
                     # Unknown module type — leave unchanged (defensive)
@@ -410,9 +397,7 @@ class TorchTrainingEngine:
         elif opt_name == "sgd":
             return optim.SGD(trainable, momentum=0.9, **kwargs)
         else:
-            raise TrainingError(
-                f"Unknown optimizer '{opt_name}'. Supported: adamw, adam, sgd."
-            )
+            raise TrainingError(f"Unknown optimizer '{opt_name}'. Supported: adamw, adam, sgd.")
 
     # ── LR Scheduler ──────────────────────────────────────────────────────────
 
@@ -437,6 +422,7 @@ class TorchTrainingEngine:
             return lr_sched.CosineAnnealingLR(optimizer, T_max=epochs)
 
         elif sched_name == "linear":
+
             def _linear_lambda(epoch: int) -> float:
                 if epochs <= 1:
                     return 1.0
@@ -452,9 +438,7 @@ class TorchTrainingEngine:
             return lr_sched.LambdaLR(optimizer, lr_lambda=lambda _: 1.0)
 
         else:
-            raise TrainingError(
-                f"Unknown scheduler '{sched_name}'. Supported: cosine, linear, step, none."
-            )
+            raise TrainingError(f"Unknown scheduler '{sched_name}'. Supported: cosine, linear, step, none.")
 
     # ── Validation ─────────────────────────────────────────────────────────────
 
@@ -514,15 +498,12 @@ class TorchTrainingEngine:
 
                 if val_result is not None:
                     map50 = _extract_val_metric(val_result)
-                    logger.info(
-                        "Epoch %d validation — mAP50: %.4f", epoch + 1, map50
-                    )
+                    logger.info("Epoch %d validation — mAP50: %.4f", epoch + 1, map50)
                     return {"map50": map50}
 
             except Exception as val_err:  # noqa: BLE001
                 logger.debug(
-                    "mata.val() integration unavailable (%s); "
-                    "falling back to loss-based validation.",
+                    "mata.val() integration unavailable (%s); " "falling back to loss-based validation.",
                     val_err,
                 )
 
@@ -556,15 +537,11 @@ class TorchTrainingEngine:
                     num_batches += 1
 
             avg_val_loss = total_loss / max(num_batches, 1)
-            logger.info(
-                "Epoch %d validation loss: %.4f", epoch + 1, avg_val_loss
-            )
+            logger.info("Epoch %d validation loss: %.4f", epoch + 1, avg_val_loss)
             return {"val_loss": avg_val_loss}
 
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Validation failed at epoch %d: %s — skipping.", epoch + 1, exc
-            )
+            logger.warning("Validation failed at epoch %d: %s — skipping.", epoch + 1, exc)
             return None
         finally:
             model.eval()
@@ -653,16 +630,9 @@ class TorchTrainingEngine:
             try:
                 resume_data = self.ckpt_manager.load(self.config.resume)
                 model.load_state_dict(resume_data["model_state"])
-                start_epoch = (
-                    resume_data.get("training_state", {}).get("epoch", 0) + 1
-                )
-                best_metric_val = (
-                    resume_data.get("training_state", {}).get("best_metric")
-                    or float("-inf")
-                )
-                history = resume_data.get("training_state", {}).get(
-                    "history", history
-                )
+                start_epoch = resume_data.get("training_state", {}).get("epoch", 0) + 1
+                best_metric_val = resume_data.get("training_state", {}).get("best_metric") or float("-inf")
+                history = resume_data.get("training_state", {}).get("history", history)
                 # Ensure mandatory keys survive resume from checkpoints that
                 # saved an empty history dict.
                 history.setdefault("train_loss", [])
@@ -674,9 +644,7 @@ class TorchTrainingEngine:
                     start_epoch,
                 )
             except Exception as exc:
-                raise TrainingError(
-                    f"Failed to resume from checkpoint '{self.config.resume}': {exc}"
-                ) from exc
+                raise TrainingError(f"Failed to resume from checkpoint '{self.config.resume}': {exc}") from exc
 
         # ── Optimizer & scheduler ─────────────────────────────────────────────
         optimizer = self._build_optimizer(model)
@@ -706,6 +674,7 @@ class TorchTrainingEngine:
         # ── Checkpoint save metadata — include engine/model_source so that
         # mata.load() can recognise this checkpoint as a torchvision model.
         import dataclasses as _dc
+
         _ckpt_meta: dict[str, Any] = _dc.asdict(self.config)
         _ckpt_meta["engine"] = "torchvision"
         _ckpt_meta["model_source"] = self.model_name
@@ -799,13 +768,9 @@ class TorchTrainingEngine:
                 if val_metrics is not None:
                     # Track val_map50 or val_loss in history
                     if "map50" in val_metrics:
-                        history.setdefault("val_map50", []).append(
-                            float(val_metrics["map50"])
-                        )
+                        history.setdefault("val_map50", []).append(float(val_metrics["map50"]))
                     if "val_loss" in val_metrics:
-                        history.setdefault("val_loss", []).append(
-                            float(val_metrics["val_loss"])
-                        )
+                        history.setdefault("val_loss", []).append(float(val_metrics["val_loss"]))
 
                     metric_val = _extract_val_metric(val_metrics)
 
@@ -814,8 +779,13 @@ class TorchTrainingEngine:
                         best_metrics = val_metrics
                         best_ckpt_path = save_dir / "best"
                         self.ckpt_manager.save(
-                            model, optimizer, scheduler, epoch,
-                            val_metrics, _ckpt_meta, best_ckpt_path,
+                            model,
+                            optimizer,
+                            scheduler,
+                            epoch,
+                            val_metrics,
+                            _ckpt_meta,
+                            best_ckpt_path,
                         )
                         best_checkpoint = str(best_ckpt_path)
                         no_improve_count = 0
@@ -831,8 +801,13 @@ class TorchTrainingEngine:
             if self.config.save_every > 0 and (epoch + 1) % self.config.save_every == 0:
                 periodic_path = save_dir / f"epoch{epoch + 1}"
                 self.ckpt_manager.save(
-                    model, optimizer, scheduler, epoch,
-                    val_metrics, _ckpt_meta, periodic_path,
+                    model,
+                    optimizer,
+                    scheduler,
+                    epoch,
+                    val_metrics,
+                    _ckpt_meta,
+                    periodic_path,
                 )
                 logger.debug("Periodic checkpoint saved to '%s'.", periodic_path)
 
@@ -844,8 +819,7 @@ class TorchTrainingEngine:
             # ── Early stopping ────────────────────────────────────────────────
             if self.config.patience > 0 and no_improve_count >= self.config.patience:
                 logger.info(
-                    "Early stopping triggered at epoch %d "
-                    "(no improvement for %d epochs).",
+                    "Early stopping triggered at epoch %d " "(no improvement for %d epochs).",
                     epoch + 1,
                     self.config.patience,
                 )
@@ -854,9 +828,13 @@ class TorchTrainingEngine:
         # ── Save last checkpoint ──────────────────────────────────────────────
         last_ckpt_path = save_dir / "last"
         self.ckpt_manager.save(
-            model, optimizer, scheduler,
+            model,
+            optimizer,
+            scheduler,
             epochs_completed - 1,
-            last_val_metrics, _ckpt_meta, last_ckpt_path,
+            last_val_metrics,
+            _ckpt_meta,
+            last_ckpt_path,
         )
         last_checkpoint = str(last_ckpt_path)
 

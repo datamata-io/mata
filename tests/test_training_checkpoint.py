@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-import shutil
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -19,7 +17,6 @@ from mata.training.checkpoint import (
     _extract_scalar_metric,
 )
 from mata.training.result import TrainingResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -312,7 +309,7 @@ class TestCheckpointManagerLoad:
             calls_kwargs.append(kwargs)
             return real_torch_load(*args, **kwargs)
 
-        with patch("torch.load", side_effect=spy_load) as mock_load:
+        with patch("torch.load", side_effect=spy_load):
             mgr.load(ckpt_dir)
 
         # First call (model_state.pth) must use weights_only=True
@@ -374,9 +371,7 @@ class TestCheckpointManagerExport:
         assert (out_dir / "model.pth").exists()
 
     def test_torchvision_export_creates_metadata_json(self, tmp_path):
-        ckpt_dir, model = self._make_ckpt(
-            tmp_path, engine="torchvision", model="torchvision/fasterrcnn_resnet50_fpn"
-        )
+        ckpt_dir, model = self._make_ckpt(tmp_path, engine="torchvision", model="torchvision/fasterrcnn_resnet50_fpn")
 
         out_dir = tmp_path / "export"
         mgr = CheckpointManager()
@@ -520,7 +515,9 @@ class TestCheckpointResume:
             opt.step()
             opt.zero_grad()
 
-            ckpt_dir = mgr.save(model, opt, None, epoch=epoch, metrics=epoch * 0.1, config=cfg, path=tmp_path / f"epoch{epoch}")
+            mgr.save(
+                model, opt, None, epoch=epoch, metrics=epoch * 0.1, config=cfg, path=tmp_path / f"epoch{epoch}"
+            )
 
         # Load the last checkpoint and verify
         last_ckpt = tmp_path / "epoch3"

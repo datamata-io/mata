@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from .albumentations import (
+    AlbumentationsWrapper,
+)  # class always importable; raises ImportError on instantiation if albumentations not installed
 from .basic import (
+    IMAGENET_MEAN,
+    IMAGENET_STD,
     BasicClassificationAugmentation,
     BasicDetectionAugmentation,
     BasicSegmentationAugmentation,
-    IMAGENET_MEAN,
-    IMAGENET_STD,
 )
-from .albumentations import AlbumentationsWrapper  # class always importable; raises ImportError on instantiation if albumentations not installed
 from .factory import AugmentationFactory
 
 __all__ = [

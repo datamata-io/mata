@@ -10,12 +10,11 @@ Covers the previously uncovered lines from the A3 coverage report:
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from mata.training.result import TrainingResult, _append_metrics
-
 
 # ---------------------------------------------------------------------------
 # TrainingResult.summary() — coverage gaps

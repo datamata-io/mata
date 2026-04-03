@@ -23,12 +23,12 @@ class TrainingResult:
             config.epochs if early stopping was triggered).
     """
 
-    best_metrics: Any = None   # DetMetrics | ClassifyMetrics | SegmentMetrics
+    best_metrics: Any = None  # DetMetrics | ClassifyMetrics | SegmentMetrics
     final_metrics: Any = None
     best_checkpoint: str = ""
     last_checkpoint: str = ""
     history: dict[str, list[float]] = field(default_factory=dict)
-    config: Any = None         # TrainingConfig
+    config: Any = None  # TrainingConfig
     epochs_completed: int = 0
 
     def summary(self) -> str:
@@ -85,8 +85,7 @@ class TrainingResult:
             import matplotlib.pyplot as plt  # type: ignore[import]
         except ImportError as exc:
             raise ImportError(
-                "matplotlib is required for plot_loss(). "
-                "Install it with: pip install matplotlib"
+                "matplotlib is required for plot_loss(). " "Install it with: pip install matplotlib"
             ) from exc
 
         fig, ax = plt.subplots()
@@ -123,8 +122,7 @@ class TrainingResult:
             import matplotlib.pyplot as plt  # type: ignore[import]
         except ImportError as exc:
             raise ImportError(
-                "matplotlib is required for plot_metrics(). "
-                "Install it with: pip install matplotlib"
+                "matplotlib is required for plot_metrics(). " "Install it with: pip install matplotlib"
             ) from exc
 
         metric_keys = [k for k in self.history if k.startswith("val_") and k != "val_loss"]
@@ -150,6 +148,7 @@ class TrainingResult:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _append_metrics(lines: list[str], metrics: Any) -> None:
     """Append formatted metric lines from a metrics object or dict."""

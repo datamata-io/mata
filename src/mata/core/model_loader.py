@@ -152,6 +152,8 @@ class UniversalLoader:
             result = self._load_legacy_plugin(task_str, resolved_source, **kwargs)
         elif source_type == "external_engine":
             result = self._load_from_external_engine(task_str, resolved_source, **kwargs)
+        elif source_type == "trained_checkpoint":
+            result = self._load_from_checkpoint(task_str, resolved_source, **kwargs)
         else:
             raise UnsupportedModelError(
                 f"Unknown source type: {source_type}. "
@@ -362,6 +364,10 @@ class UniversalLoader:
         if self._is_local_file(source):
             return "local_file", source
 
+        # Check if it's a trained checkpoint directory
+        if self._is_checkpoint_dir(source):
+            return "trained_checkpoint", source
+
         # Check if it looks like a file path (has extension) even if file doesn't exist yet
         # This handles relative paths that might be valid from different working directories
         path = Path(source)
@@ -401,6 +407,23 @@ class UniversalLoader:
         try:
             path = Path(source)
             return path.exists() and path.is_file()
+        except (OSError, ValueError):
+            return False
+
+    def _is_checkpoint_dir(self, source: str) -> bool:
+        """Check if source is a MATA training checkpoint directory.
+
+        A checkpoint directory contains:
+        - config.json (model metadata)
+        - model_state.pth (weights) OR model.safetensors (HF format)
+        """
+        try:
+            path = Path(source)
+            if not path.is_dir():
+                return False
+            has_config = (path / "config.json").exists()
+            has_weights = (path / "model_state.pth").exists() or (path / "model.safetensors").exists()
+            return has_config and has_weights
         except (OSError, ValueError):
             return False
 
@@ -789,6 +812,160 @@ class UniversalLoader:
             raise UnsupportedModelError(
                 f"Torchvision adapter not yet implemented for task '{task}'. " f"Supported tasks: detect, track"
             )
+
+    def _load_from_checkpoint(self, task: str, checkpoint_dir: str, **kwargs) -> Any:
+        """Load a trained model from a MATA checkpoint directory.
+
+        Reads config.json to determine the original model type and engine,
+        then loads the appropriate adapter with trained weights.
+
+        Args:
+            task: Task type
+            checkpoint_dir: Path to the checkpoint directory
+            **kwargs: Additional arguments passed to the adapter
+
+        Returns:
+            Model adapter instance with trained weights loaded
+
+        Raises:
+            UnsupportedModelError: If the engine in config.json is unknown
+        """
+        import json
+
+        path = Path(checkpoint_dir)
+        with open(path / "config.json") as f:
+            ckpt_config = json.load(f)
+
+        engine = ckpt_config.get("engine", "huggingface")
+
+        if engine == "huggingface":
+            # HF models: use from_pretrained(checkpoint_dir)
+            return self._load_from_huggingface(task, checkpoint_dir, **kwargs)
+        elif engine == "torchvision":
+            # Torchvision: load model + apply state_dict
+            model_name = ckpt_config["model_source"]
+            adapter = self._load_from_torchvision(task, model_name, **kwargs)
+            import torch
+            import torch.nn as nn
+
+            state_dict = torch.load(path / "model_state.pth", weights_only=True)
+            parsed_name = model_name.replace("torchvision/", "")
+
+            # Rebuild detection head to match checkpoint class count before loading.
+            def _adapt_torchvision_head_from_state_dict() -> None:
+                from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+
+                if parsed_name in {"fasterrcnn_resnet50_fpn", "fasterrcnn_resnet50_fpn_v2"}:
+                    cls_w = state_dict.get("roi_heads.box_predictor.cls_score.weight")
+                    if cls_w is None:
+                        return
+                    num_classes = int(cls_w.shape[0])
+                    in_features = adapter.model.roi_heads.box_predictor.cls_score.in_features
+                    adapter.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+                    return
+
+                if parsed_name in {"retinanet_resnet50_fpn", "retinanet_resnet50_fpn_v2"}:
+                    cls_w = state_dict.get("head.classification_head.cls_logits.weight")
+                    if cls_w is None:
+                        return
+                    cls_head = adapter.model.head.classification_head
+                    num_anchors = int(cls_head.num_anchors)
+                    num_classes = int(cls_w.shape[0] // max(num_anchors, 1))
+                    in_channels = int(cls_head.cls_logits.in_channels)
+                    cls_head.cls_logits = nn.Conv2d(
+                        in_channels,
+                        num_anchors * num_classes,
+                        kernel_size=3,
+                        padding=1,
+                    )
+                    cls_head.num_classes = num_classes
+                    return
+
+                if parsed_name == "fcos_resnet50_fpn":
+                    cls_w = state_dict.get("head.classification_head.cls_logits.weight")
+                    if cls_w is None:
+                        return
+                    cls_head = adapter.model.head.classification_head
+                    num_classes = int(cls_w.shape[0])
+                    in_channels = int(cls_head.cls_logits.in_channels)
+                    cls_head.cls_logits = nn.Conv2d(
+                        in_channels,
+                        num_classes,
+                        kernel_size=3,
+                        padding=1,
+                    )
+                    cls_head.num_classes = num_classes
+                    return
+
+                if parsed_name in {"ssd300_vgg16", "ssdlite320_mobilenet_v3_large"}:
+                    cls_head = adapter.model.head.classification_head
+
+                    def _ssd_last_conv(m: Any) -> Any:
+                        if isinstance(m, nn.Conv2d):
+                            return m
+                        for layer in reversed(list(m.children())):
+                            if isinstance(layer, nn.Conv2d):
+                                return layer
+                        return None
+
+                    _ssd_reg_conv = _ssd_last_conv(next(iter(adapter.model.head.regression_head.module_list), None))
+                    _ssd_cls_conv = _ssd_last_conv(next(iter(cls_head.module_list), None))
+                    if _ssd_reg_conv is not None and _ssd_cls_conv is not None:
+                        old_num_classes = int(_ssd_cls_conv.out_channels // max(_ssd_reg_conv.out_channels // 4, 1))
+                    else:
+                        old_num_classes = int(getattr(cls_head, "num_classes", 91))
+                    new_modules: list[Any] = []
+
+                    for idx, module in enumerate(cls_head.module_list):
+                        if isinstance(module, nn.Conv2d):
+                            key = f"head.classification_head.module_list.{idx}.weight"
+                            ckpt_w = state_dict.get(key)
+                            if ckpt_w is None:
+                                new_modules.append(module)
+                                continue
+                            in_ch = int(module.in_channels)
+                            out_ch_ckpt = int(ckpt_w.shape[0])
+                            num_anchors_lvl = int(module.out_channels // max(old_num_classes, 1))
+                            new_modules.append(
+                                nn.Conv2d(
+                                    in_ch,
+                                    num_anchors_lvl * out_ch_ckpt // max(num_anchors_lvl, 1),
+                                    kernel_size=3,
+                                    padding=1,
+                                )
+                            )
+                        elif isinstance(module, nn.Sequential):
+                            key = f"head.classification_head.module_list.{idx}.{len(module)-1}.weight"
+                            ckpt_w = state_dict.get(key)
+                            if ckpt_w is None:
+                                new_modules.append(module)
+                                continue
+                            layers = list(module.children())
+                            last_conv = layers[-1]
+                            in_ch_last = int(last_conv.in_channels)
+                            out_ch_ckpt = int(ckpt_w.shape[0])
+                            num_anchors_lvl = int(last_conv.out_channels // max(old_num_classes, 1))
+                            layers[-1] = nn.Conv2d(
+                                in_ch_last,
+                                num_anchors_lvl * out_ch_ckpt // max(num_anchors_lvl, 1),
+                                kernel_size=1,
+                            )
+                            new_modules.append(nn.Sequential(*layers))
+                        else:
+                            new_modules.append(module)
+
+                    cls_head.module_list = nn.ModuleList(new_modules)
+                    if new_modules and _ssd_reg_conv is not None:
+                        _new_first = _ssd_last_conv(new_modules[0])
+                        if _new_first is not None:
+                            cls_head.num_columns = _new_first.out_channels // max(_ssd_reg_conv.out_channels // 4, 1)
+
+            _adapt_torchvision_head_from_state_dict()
+            adapter.model.load_state_dict(state_dict)
+            adapter.model = adapter.model.to(adapter.device).eval()
+            return adapter
+        else:
+            raise UnsupportedModelError(f"Unknown engine in checkpoint: '{engine}'")
 
     def _load_from_file(self, task: str, file_path: str, **kwargs) -> Any:
         """Load model from local file based on extension.

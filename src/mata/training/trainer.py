@@ -10,15 +10,13 @@ Engine detection mirrors UniversalLoader._detect_source_type():
 from __future__ import annotations
 
 import json
-import os
 import random
-import re
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from mata.core.exceptions import ModelNotFoundError, TrainingError
+from mata.core.exceptions import TrainingError
 from mata.core.logging import get_logger
 from mata.training.config import TrainingConfig
 from mata.training.result import TrainingResult
@@ -106,9 +104,7 @@ class TrainingOrchestrator:
 
         while registry.has_alias(self.config.task, current):
             if current in visited:
-                logger.warning(
-                    f"Circular alias detected for '{current}'; stopping resolution."
-                )
+                logger.warning(f"Circular alias detected for '{current}'; stopping resolution.")
                 break
             visited.add(current)
             cfg = registry.get_config(self.config.task, current)
@@ -362,8 +358,6 @@ class TrainingOrchestrator:
                 config=self.config,
             )
         else:
-            raise TrainingError(
-                f"Unknown engine '{engine_name}'. Expected 'huggingface' or 'torchvision'."
-            )
+            raise TrainingError(f"Unknown engine '{engine_name}'. Expected 'huggingface' or 'torchvision'.")
 
         return engine.train(train_dataset, val_dataset)

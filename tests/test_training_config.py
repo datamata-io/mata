@@ -12,7 +12,6 @@ import pytest
 from mata.core.exceptions import ConfigurationError
 from mata.training.config import TrainingConfig
 
-
 # =============================================================================
 # Default construction
 # =============================================================================
@@ -338,18 +337,14 @@ class TestTrainingConfigInvalidNumericRanges:
 class TestTrainingConfigResumeValidation:
     def test_resume_nonexistent_path_raises(self, tmp_path):
         missing = str(tmp_path / "no_such_checkpoint")
-        cfg = TrainingConfig(
-            task="detect", model="m", data="d", epochs=2, resume=missing
-        )
+        cfg = TrainingConfig(task="detect", model="m", data="d", epochs=2, resume=missing)
         with pytest.raises(ConfigurationError, match="resume"):
             cfg.validate()
 
     def test_resume_existing_path_passes(self, tmp_path):
         ckpt_dir = tmp_path / "checkpoint"
         ckpt_dir.mkdir()
-        cfg = TrainingConfig(
-            task="detect", model="m", data="d", epochs=2, resume=str(ckpt_dir)
-        )
+        cfg = TrainingConfig(task="detect", model="m", data="d", epochs=2, resume=str(ckpt_dir))
         cfg.validate()  # must not raise
 
     def test_resume_none_passes(self):

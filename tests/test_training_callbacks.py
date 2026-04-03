@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,7 +11,6 @@ from mata.training.callbacks import (
     LoggingCallback,
     ValidationCallback,
 )
-
 
 # =============================================================================
 # ValidationCallback
@@ -78,10 +75,10 @@ class TestValidationCallback:
         cb = ValidationCallback(task="detect", val_data="data.yaml", val_every=2)
         mock_result = self._make_mock_result()
         with patch("mata.val", return_value=mock_result) as mock_val:
-            cb.on_epoch_end(0, model=None)   # epoch 1 — skip
-            cb.on_epoch_end(1, model=None)   # epoch 2 — fire
-            cb.on_epoch_end(2, model=None)   # epoch 3 — skip
-            cb.on_epoch_end(3, model=None)   # epoch 4 — fire
+            cb.on_epoch_end(0, model=None)  # epoch 1 — skip
+            cb.on_epoch_end(1, model=None)  # epoch 2 — fire
+            cb.on_epoch_end(2, model=None)  # epoch 3 — skip
+            cb.on_epoch_end(3, model=None)  # epoch 4 — fire
         assert mock_val.call_count == 2
 
     def test_skips_epochs_not_at_interval(self):
@@ -267,7 +264,7 @@ class TestEarlyStoppingCallback:
         cb = EarlyStoppingCallback(patience=2, metric_key="val_map50", mode="max")
         cb.on_epoch_end(0, {"val_map50": 0.9})
         assert cb.on_epoch_end(1, {"val_map50": 0.5}) is False  # 1st no-improve
-        assert cb.on_epoch_end(2, {"val_map50": 0.5}) is True   # 2nd — stop
+        assert cb.on_epoch_end(2, {"val_map50": 0.5}) is True  # 2nd — stop
 
     def test_reset_clears_state(self):
         cb = EarlyStoppingCallback(patience=3, metric_key="val_map50", mode="max")

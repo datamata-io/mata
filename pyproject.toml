@@ -123,6 +123,12 @@ notebook = [
     "matplotlib>=3.5.0",
 ]
 
+# Training extras — augmentations and progress bars (torch + transformers already in core)
+training = [
+    "albumentations>=1.3.0",
+    "tqdm>=4.65.0",
+]
+
 # Valkey/Redis result storage
 valkey = [
     "valkey>=6.0.0",
@@ -136,11 +142,11 @@ redis = [
 
 # Full installation (all optional features except GPU ONNX)
 all = [
-    "datamata[onnx,eval,viz,ocr,notebook,qwen3-embedding]",
+    "datamata[onnx,eval,viz,ocr,notebook,qwen3-embedding,training]",
 ]
 
 dev = [
-    "datamata[all,valkey,redis]",
+    "datamata[all,valkey,redis,training]",
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "black>=23.0.0",
@@ -169,6 +175,17 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files: mock classes are intentionally PascalCase (MockOrch, MockCfg, etc.)
+# and dimension variables H/W are conventional in vision code
+"tests/test_train_api.py" = ["N806"]
+"tests/test_hf_trainer.py" = ["N806"]
+"tests/test_training_augmentations.py" = ["N806"]
+# Training source: class references for dynamic dispatch are intentionally PascalCase
+"src/mata/training/hf_trainer.py" = ["N806"]
+"src/mata/training/augmentations/factory.py" = ["N806"]
+"tests/test_training_orchestrator.py" = ["N806"]
 
 [tool.mypy]
 python_version = "3.10"

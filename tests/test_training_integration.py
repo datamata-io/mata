@@ -25,7 +25,7 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 from PIL import Image as PILImage
 
 from mata.training.checkpoint import CheckpointManager
@@ -66,18 +66,11 @@ class _TinyDetector(nn.Module):
     ) -> dict[str, torch.Tensor] | list[dict]:
         # Aggregate each image to a scalar, then pass through tiny network
         x = torch.stack([img.mean().unsqueeze(0) for img in images])  # (B,1)
-        feats = self.backbone(x)                                       # (B,4)
-        logits = self._head(feats)                                     # (B,2)
+        feats = self.backbone(x)  # (B,4)
+        logits = self._head(feats)  # (B,2)
 
         if self.training and targets is not None:
-            labels = torch.stack(
-                [
-                    t["labels"][0].long()
-                    if len(t["labels"]) > 0
-                    else torch.tensor(0)
-                    for t in targets
-                ]
-            )
+            labels = torch.stack([t["labels"][0].long() if len(t["labels"]) > 0 else torch.tensor(0) for t in targets])
             loss = F.cross_entropy(logits, labels)
             return {"loss_classifier": loss}
 
@@ -276,9 +269,7 @@ class TestClassifyImageFolderLossDecreases:
         assert isinstance(result, TrainingResult)
         assert result.epochs_completed >= 1
         # After normalization in HFTrainingEngine.train() the key is "train_loss"
-        assert "train_loss" in result.history, (
-            f"Expected 'train_loss' in history, got: {sorted(result.history)}"
-        )
+        assert "train_loss" in result.history, f"Expected 'train_loss' in history, got: {sorted(result.history)}"
         assert len(result.history["train_loss"]) >= 1
 
 
@@ -296,9 +287,7 @@ class TestTorchDetectCheckpointProduced:
         dataset = _SyntheticDetectionDataset()
         config = _detect_config(tmp_path, epochs=1)
 
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine = TorchTrainingEngine("detect", config.model, config)
             result = engine.train(dataset)
 
@@ -315,9 +304,7 @@ class TestTorchDetectCheckpointProduced:
         dataset = _SyntheticDetectionDataset()
         config = _detect_config(tmp_path, epochs=1)
 
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine = TorchTrainingEngine("detect", config.model, config)
             result = engine.train(dataset)
 
@@ -342,9 +329,7 @@ class TestTorchDetectLossDecreases:
         dataset = _SyntheticDetectionDataset()
         config = _detect_config(tmp_path, epochs=2)
 
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine = TorchTrainingEngine("detect", config.model, config)
             result = engine.train(dataset)
 
@@ -374,9 +359,7 @@ class TestResumeFromCheckpoint:
 
         # --- First run: 1 epoch ---
         config1 = _detect_config(tmp_path, epochs=1, save_dir=str(run1_dir))
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine1 = TorchTrainingEngine("detect", config1.model, config1)
             result1 = engine1.train(dataset)
 
@@ -391,9 +374,7 @@ class TestResumeFromCheckpoint:
             save_dir=str(tmp_path / "run2"),
             resume=last_ckpt,
         )
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine2 = TorchTrainingEngine("detect", config2.model, config2)
             result2 = engine2.train(dataset)
 
@@ -406,9 +387,7 @@ class TestResumeFromCheckpoint:
         run1_dir = tmp_path / "run1"
 
         config1 = _detect_config(tmp_path, epochs=1, save_dir=str(run1_dir))
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine1 = TorchTrainingEngine("detect", config1.model, config1)
             result1 = engine1.train(dataset)
 
@@ -420,9 +399,7 @@ class TestResumeFromCheckpoint:
             save_dir=str(tmp_path / "run2"),
             resume=last_ckpt,
         )
-        with patch.object(
-            TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()
-        ):
+        with patch.object(TorchTrainingEngine, "_load_model_for_training", return_value=_TinyDetector()):
             engine2 = TorchTrainingEngine("detect", config2.model, config2)
             result2 = engine2.train(dataset)
 
@@ -450,10 +427,27 @@ class TestHFCheckpointExport:
         cfg.data = "synthetic"
         cfg.engine = "huggingface"
         for attr in (
-            "val_data", "epochs", "batch_size", "lr", "optimizer", "weight_decay",
-            "scheduler", "warmup_epochs", "device", "amp", "save_dir", "save_every",
-            "val_every", "patience", "freeze_backbone", "freeze_layers",
-            "augment", "resume", "num_workers", "seed", "verbose",
+            "val_data",
+            "epochs",
+            "batch_size",
+            "lr",
+            "optimizer",
+            "weight_decay",
+            "scheduler",
+            "warmup_epochs",
+            "device",
+            "amp",
+            "save_dir",
+            "save_every",
+            "val_every",
+            "patience",
+            "freeze_backbone",
+            "freeze_layers",
+            "augment",
+            "resume",
+            "num_workers",
+            "seed",
+            "verbose",
         ):
             setattr(cfg, attr, None)
         cfg.history = {}  # prevent MagicMock from failing json.dump
@@ -504,10 +498,27 @@ class TestTorchvisionCheckpointExport:
         cfg.data = "synthetic"
         cfg.engine = "torchvision"
         for attr in (
-            "val_data", "epochs", "batch_size", "lr", "optimizer", "weight_decay",
-            "scheduler", "warmup_epochs", "device", "amp", "save_dir", "save_every",
-            "val_every", "patience", "freeze_backbone", "freeze_layers",
-            "augment", "resume", "num_workers", "seed", "verbose",
+            "val_data",
+            "epochs",
+            "batch_size",
+            "lr",
+            "optimizer",
+            "weight_decay",
+            "scheduler",
+            "warmup_epochs",
+            "device",
+            "amp",
+            "save_dir",
+            "save_every",
+            "val_every",
+            "patience",
+            "freeze_backbone",
+            "freeze_layers",
+            "augment",
+            "resume",
+            "num_workers",
+            "seed",
+            "verbose",
         ):
             setattr(cfg, attr, None)
         cfg.history = {}  # prevent MagicMock from failing json.dump
@@ -625,8 +636,7 @@ class TestEarlyStopping:
         # Early stopping: epoch 0 → improve, epoch 1 → no improve → stop
         # epochs_completed should be 2 (epochs 0 and 1 complete before break)
         assert result.epochs_completed < config.epochs, (
-            f"Expected early stopping before epoch {config.epochs}, "
-            f"got epochs_completed={result.epochs_completed}"
+            f"Expected early stopping before epoch {config.epochs}, " f"got epochs_completed={result.epochs_completed}"
         )
         assert result.epochs_completed == 2
 
@@ -718,9 +728,7 @@ class TestFinetuneAPI:
         import mata
         from mata.training.trainer import TrainingOrchestrator
 
-        with patch.object(
-            TrainingOrchestrator, "train", return_value=TrainingResult(epochs_completed=3)
-        ):
+        with patch.object(TrainingOrchestrator, "train", return_value=TrainingResult(epochs_completed=3)):
             result = mata.finetune(
                 "detect",
                 model="torchvision/fasterrcnn_resnet50_fpn",
@@ -815,6 +823,4 @@ class TestPeriodicCheckpoints:
         checkpoints = ckpt_mgr.list_checkpoints(str(run_dir))
 
         # Expect: epoch1, epoch2, epoch3, last = at least 3 entries
-        assert len(checkpoints) >= 3, (
-            f"Expected >= 3 checkpoints, found: {checkpoints}"
-        )
+        assert len(checkpoints) >= 3, f"Expected >= 3 checkpoints, found: {checkpoints}"

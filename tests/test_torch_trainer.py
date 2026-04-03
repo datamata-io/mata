@@ -5,8 +5,7 @@ All tests use mocked torchvision models — no real model downloads occur.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import torch
@@ -16,10 +15,10 @@ from mata.core.exceptions import TrainingError
 from mata.training.config import TrainingConfig
 from mata.training.result import TrainingResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**kwargs) -> TrainingConfig:
     """Return a minimal valid TrainingConfig for torchvision detection."""
@@ -163,20 +162,24 @@ def _make_ssd_mock() -> nn.Module:
         def __init__(self):
             super().__init__()
             # SSD uses a module_list of direct Conv2d layers
-            self.module_list = nn.ModuleList([
-                nn.Conv2d(512, 4 * 91, kernel_size=3, padding=1),
-                nn.Conv2d(1024, 6 * 91, kernel_size=3, padding=1),
-            ])
+            self.module_list = nn.ModuleList(
+                [
+                    nn.Conv2d(512, 4 * 91, kernel_size=3, padding=1),
+                    nn.Conv2d(1024, 6 * 91, kernel_size=3, padding=1),
+                ]
+            )
             self.num_classes = 91
 
     class _MockSSDRegHead(nn.Module):
         def __init__(self):
             super().__init__()
             # Regression: num_anchors * 4 coords per cell (mirrors cls anchor counts)
-            self.module_list = nn.ModuleList([
-                nn.Conv2d(512,  4 * 4, kernel_size=3, padding=1),
-                nn.Conv2d(1024, 6 * 4, kernel_size=3, padding=1),
-            ])
+            self.module_list = nn.ModuleList(
+                [
+                    nn.Conv2d(512, 4 * 4, kernel_size=3, padding=1),
+                    nn.Conv2d(1024, 6 * 4, kernel_size=3, padding=1),
+                ]
+            )
 
     class _MockSSDHead(nn.Module):
         def __init__(self):
@@ -231,10 +234,8 @@ def _make_tiny_dataset(size: int = 4):
 
 def _make_engine(model_name="torchvision/fasterrcnn_resnet50_fpn", **cfg_kwargs):
     """Build a TorchTrainingEngine without importing torchvision."""
-    from mata.training.torch_trainer import TorchTrainingEngine
-
     # Patch MODEL_BUILDERS so validation doesn't require torchvision import
-    from mata.adapters.torchvision_detect_adapter import TorchvisionDetectAdapter
+    from mata.training.torch_trainer import TorchTrainingEngine
 
     cfg = _make_config(model=model_name, **cfg_kwargs)
     engine = TorchTrainingEngine("detect", model_name, cfg)
@@ -244,6 +245,7 @@ def _make_engine(model_name="torchvision/fasterrcnn_resnet50_fpn", **cfg_kwargs)
 # ---------------------------------------------------------------------------
 # Construction tests
 # ---------------------------------------------------------------------------
+
 
 class TestTorchTrainingEngineInit:
     """Tests for TorchTrainingEngine.__init__."""
@@ -286,7 +288,6 @@ class TestTorchTrainingEngineInit:
             TorchTrainingEngine("detect", "torchvision/nonexistent_model_xyz", cfg)
 
     def test_config_stored(self):
-        cfg = _make_config(epochs=5)
         engine = _make_engine(epochs=5)
         assert engine.config.epochs == 5
 
@@ -299,6 +300,7 @@ class TestTorchTrainingEngineInit:
 # _load_model_for_training tests
 # ---------------------------------------------------------------------------
 
+
 class TestLoadModelForTraining:
     """Tests for TorchTrainingEngine._load_model_for_training."""
 
@@ -307,6 +309,7 @@ class TestLoadModelForTraining:
         mock_model = _make_fasterrcnn_mock()
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=mock_model):
             result = engine._load_model_for_training()
 
@@ -319,6 +322,7 @@ class TestLoadModelForTraining:
         mock_builder = Mock(return_value=mock_model)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", mock_builder):
             engine._load_model_for_training()
 
@@ -335,6 +339,7 @@ class TestLoadModelForTraining:
             return mock_model
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", _builder_with_fallback):
             result = engine._load_model_for_training()
 
@@ -350,6 +355,7 @@ class TestLoadModelForTraining:
 # ---------------------------------------------------------------------------
 # _modify_head tests
 # ---------------------------------------------------------------------------
+
 
 class TestModifyHead:
     """Tests for TorchTrainingEngine._modify_head — head replacement."""
@@ -439,6 +445,7 @@ class TestModifyHead:
 # _freeze_backbone tests
 # ---------------------------------------------------------------------------
 
+
 class TestFreezeBackbone:
     """Tests for TorchTrainingEngine._freeze_backbone."""
 
@@ -487,6 +494,7 @@ class TestFreezeBackbone:
 # ---------------------------------------------------------------------------
 # _build_optimizer tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuildOptimizer:
     """Tests for TorchTrainingEngine._build_optimizer."""
@@ -537,6 +545,7 @@ class TestBuildOptimizer:
 # _build_scheduler tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildScheduler:
     """Tests for TorchTrainingEngine._build_scheduler."""
 
@@ -586,6 +595,7 @@ class TestBuildScheduler:
 # Training loop tests (mocked)
 # ---------------------------------------------------------------------------
 
+
 class TestTrainLoop:
     """Tests for TorchTrainingEngine.train() with mocked internals."""
 
@@ -597,12 +607,15 @@ class TestTrainLoop:
             mock_model = _make_fasterrcnn_mock()
 
         import torchvision.models.detection as det_mods
+
         mock_ckpt_manager = Mock()
 
         # Patch save_dir creation and checkpoint manager
-        with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=mock_model), \
-             patch.object(engine, "ckpt_manager", mock_ckpt_manager), \
-             patch("mata.training.torch_trainer.Path.mkdir"):
+        with (
+            patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=mock_model),
+            patch.object(engine, "ckpt_manager", mock_ckpt_manager),
+            patch("mata.training.torch_trainer.Path.mkdir"),
+        ):
             if tmp_path:
                 engine.config.save_dir = str(tmp_path)
             result = engine.train(train_ds, val_ds)
@@ -615,6 +628,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -626,6 +640,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -638,6 +653,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -650,6 +666,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -661,6 +678,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -674,6 +692,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         scaler_calls = []
 
         original_grad_scaler = torch.amp.GradScaler
@@ -682,9 +701,11 @@ class TestTrainLoop:
             scaler_calls.append(args)
             return original_grad_scaler(*args, **kwargs)
 
-        with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model), \
-             patch("torch.amp.GradScaler", side_effect=_track_scaler):
-            result = engine.train(dataset)
+        with (
+            patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model),
+            patch("torch.amp.GradScaler", side_effect=_track_scaler),
+        ):
+            engine.train(dataset)
 
         # use_amp = config.amp AND device.type == "cuda"; device is cpu → no scaler
         assert not scaler_calls
@@ -695,6 +716,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -713,9 +735,12 @@ class TestTrainLoop:
             return {"map50": 0.5}
 
         import torchvision.models.detection as det_mods
-        with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model), \
-             patch.object(engine, "_validate", side_effect=_mock_validate):
-            result = engine.train(dataset, val_ds)
+
+        with (
+            patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model),
+            patch.object(engine, "_validate", side_effect=_mock_validate),
+        ):
+            engine.train(dataset, val_ds)
 
         # val_every=2 with epochs=4 → validate at epochs 1 and 3 (0-indexed) = epochs 2 and 4
         assert len(validate_calls) == 2
@@ -737,8 +762,11 @@ class TestTrainLoop:
             return {"map50": 0.5}  # constant — no improvement after first
 
         import torchvision.models.detection as det_mods
-        with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model), \
-             patch.object(engine, "_validate", side_effect=_mock_validate):
+
+        with (
+            patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model),
+            patch.object(engine, "_validate", side_effect=_mock_validate),
+        ):
             result = engine.train(dataset, val_ds)
 
         # Should stop before epoch 10: 1 (improve) + 2 (patience) = 3 epochs
@@ -759,8 +787,11 @@ class TestTrainLoop:
             return r
 
         import torchvision.models.detection as det_mods
-        with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model), \
-             patch.object(engine, "_validate", side_effect=_mock_validate):
+
+        with (
+            patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model),
+            patch.object(engine, "_validate", side_effect=_mock_validate),
+        ):
             result = engine.train(dataset, val_ds)
 
         assert result.best_checkpoint != ""
@@ -771,6 +802,7 @@ class TestTrainLoop:
         dataset = _make_tiny_dataset(4)
 
         import torchvision.models.detection as det_mods
+
         with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model):
             result = engine.train(dataset)
 
@@ -783,8 +815,11 @@ class TestTrainLoop:
         mock_ckpt = Mock()
 
         import torchvision.models.detection as det_mods
-        with patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model), \
-             patch.object(engine, "ckpt_manager", mock_ckpt):
+
+        with (
+            patch.object(det_mods, "fasterrcnn_resnet50_fpn", return_value=model),
+            patch.object(engine, "ckpt_manager", mock_ckpt),
+        ):
             engine.train(dataset)
 
         # At minimum, last checkpoint should be saved
@@ -794,6 +829,7 @@ class TestTrainLoop:
 # ---------------------------------------------------------------------------
 # AMP (Automatic Mixed Precision) tests
 # ---------------------------------------------------------------------------
+
 
 class TestAMP:
     """Tests for AMP behavior on CPU vs CUDA."""
@@ -823,6 +859,7 @@ class TestAMP:
 # _resolve_device tests
 # ---------------------------------------------------------------------------
 
+
 class TestResolveDevice:
     """Tests for TorchTrainingEngine._resolve_device."""
 
@@ -848,31 +885,38 @@ class TestResolveDevice:
 # _extract_val_metric helper tests
 # ---------------------------------------------------------------------------
 
+
 class TestExtractValMetric:
     """Tests for the _extract_val_metric module-level helper."""
 
     def test_extracts_map50_from_dict(self):
         from mata.training.torch_trainer import _extract_val_metric
+
         assert _extract_val_metric({"map50": 0.42}) == pytest.approx(0.42)
 
     def test_extracts_map_when_no_map50(self):
         from mata.training.torch_trainer import _extract_val_metric
+
         assert _extract_val_metric({"map": 0.35}) == pytest.approx(0.35)
 
     def test_extracts_fitness_as_last_resort(self):
         from mata.training.torch_trainer import _extract_val_metric
+
         assert _extract_val_metric({"fitness": 0.77}) == pytest.approx(0.77)
 
     def test_returns_zero_for_none(self):
         from mata.training.torch_trainer import _extract_val_metric
+
         assert _extract_val_metric(None) == pytest.approx(0.0)
 
     def test_returns_zero_for_empty_dict(self):
         from mata.training.torch_trainer import _extract_val_metric
+
         assert _extract_val_metric({}) == pytest.approx(0.0)
 
     def test_extracts_map50_from_object(self):
         from mata.training.torch_trainer import _extract_val_metric
+
         obj = Mock()
         obj.map50 = 0.55
         obj.map = None
@@ -888,16 +932,20 @@ class TestGetTqdmGap:
     def test_returns_none_when_tqdm_not_installed(self):
         """_get_tqdm() returns None when tqdm is absent (lines 46-47)."""
         import sys
+
         with patch.dict(sys.modules, {"tqdm": None, "tqdm.auto": None}):
             # Reimport triggers the except ImportError branch
             import importlib
+
             import mata.training.torch_trainer as tt_mod
+
             tt_mod_reloaded = importlib.reload(tt_mod)
             result = tt_mod_reloaded._get_tqdm()
         assert result is None
 
     def test_returns_tqdm_class_when_installed(self):
         from mata.training.torch_trainer import _get_tqdm
+
         result = _get_tqdm()
         # tqdm IS installed in dev env
         assert result is not None
@@ -960,16 +1008,14 @@ def _make_ssd_nested_sequential_mock() -> nn.Module:
             super().__init__()
             # SSDLite: [Sequential(depthwise_conv, pointwise_conv)]
             dw = nn.Conv2d(256, 256, 3, groups=256, padding=1)
-            pw = nn.Conv2d(256, 6 * 91, 1)      # pointwise; out_ch = 6*91
+            pw = nn.Conv2d(256, 6 * 91, 1)  # pointwise; out_ch = 6*91
             self.module_list = nn.ModuleList([nn.Sequential(dw, pw)])
             self.num_classes = 91
 
     class _SSDLiteRegHead(nn.Module):
         def __init__(self):
             super().__init__()
-            self.module_list = nn.ModuleList([
-                nn.Conv2d(256, 6 * 4, kernel_size=3, padding=1)  # 6 anchors * 4 coords
-            ])
+            self.module_list = nn.ModuleList([nn.Conv2d(256, 6 * 4, kernel_size=3, padding=1)])  # 6 anchors * 4 coords
 
     class _SSDLiteHead(nn.Module):
         def __init__(self):
@@ -1007,9 +1053,7 @@ def _make_ssd_no_conv_cls_mock() -> nn.Module:
     class _SSDRegHead(nn.Module):
         def __init__(self):
             super().__init__()
-            self.module_list = nn.ModuleList([
-                nn.Conv2d(256, 6 * 4, kernel_size=3, padding=1)
-            ])
+            self.module_list = nn.ModuleList([nn.Conv2d(256, 6 * 4, kernel_size=3, padding=1)])
 
     class _SSDHead(nn.Module):
         def __init__(self):
@@ -1074,7 +1118,7 @@ class TestModifyHeadSSDGaps:
 
     def test_last_pred_conv_returns_none_path(self):
         """_last_pred_conv returns None when module has no Conv2d children (line 282)."""
-        from mata.training.torch_trainer import TorchTrainingEngine
+
         # Verify via the ssd_no_conv path that line 282 is reached
         engine = _make_engine("torchvision/ssd300_vgg16")
         model = _make_ssd_no_conv_cls_mock()
@@ -1096,7 +1140,7 @@ class TestModifyHeadUnknownModelKey:
         model = _make_fasterrcnn_mock()
         original_predictor = model.roi_heads.box_predictor
 
-        import logging
+
         with patch("mata.training.torch_trainer.logger") as mock_log:
             engine._modify_head(model, num_classes=5)
             mock_log.warning.assert_called_once()
@@ -1126,9 +1170,7 @@ class TestValidateDirect:
 
         # Patch both mata.val AND TorchvisionDetectAdapter to avoid real model I/O
         with patch("mata.val", return_value=mock_val_result):
-            with patch(
-                "mata.adapters.torchvision_detect_adapter.TorchvisionDetectAdapter"
-            ) as mock_adp_cls:
+            with patch("mata.adapters.torchvision_detect_adapter.TorchvisionDetectAdapter") as mock_adp_cls:
                 mock_adp_cls.return_value = Mock()
                 result = engine._validate(model, val_dataset, device, 0)
 
@@ -1176,5 +1218,3 @@ class TestValidateDirect:
             engine._validate(model, val_dataset, device, 0)
 
         assert not model.training
-
-

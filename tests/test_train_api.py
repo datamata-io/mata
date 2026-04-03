@@ -9,15 +9,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from typing import TYPE_CHECKING
+from unittest.mock import MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from mata.training.trainer import TrainingOrchestrator
 
 import mata
 from mata.core.exceptions import ConfigurationError
 from mata.training.config import TrainingConfig
 from mata.training.result import TrainingResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -385,7 +388,7 @@ class TestFinetuneAPI:
 class TestOrchestratorEngineDetection:
     """TrainingOrchestrator._detect_engine() — HF vs torchvision routing."""
 
-    def _make_orch(self, model: str) -> "TrainingOrchestrator":
+    def _make_orch(self, model: str) -> TrainingOrchestrator:
         from mata.training.trainer import TrainingOrchestrator
 
         cfg = TrainingConfig(
@@ -402,7 +405,7 @@ class TestOrchestratorEngineDetection:
         return TrainingOrchestrator(cfg)
 
     def test_hf_org_model_detected_as_huggingface(self):
-        from mata.training.trainer import TrainingOrchestrator
+
         orch = self._make_orch("facebook/detr-resnet-50")
         assert orch._detect_engine("facebook/detr-resnet-50") == "huggingface"
 
@@ -468,9 +471,7 @@ class TestOrchestratorAliasResolution:
         with patch("mata.core.model_registry.ModelRegistry") as MockReg:
             registry = MockReg.return_value
             registry.has_alias.side_effect = lambda task, src: src == "my-fast-detector"
-            registry.get_config.return_value = {
-                "source": "torchvision/fasterrcnn_resnet50_fpn"
-            }
+            registry.get_config.return_value = {"source": "torchvision/fasterrcnn_resnet50_fpn"}
             engine = orch._detect_engine("my-fast-detector")
 
         assert engine == "torchvision"
@@ -575,6 +576,7 @@ class TestCheckpointLoading:
     def test_loaded_hf_checkpoint_inference(self, tmp_path):
         """Adapter loaded from checkpoint can make predictions."""
         import numpy as np
+
         from mata.core.types import VisionResult
 
         ckpt = self._make_hf_checkpoint(tmp_path)
@@ -636,6 +638,7 @@ class TestCheckpointRoundTrip:
     def test_load_from_checkpoint_produces_predictions(self, tmp_path):
         """Checkpoint loaded via mata.load() produces VisionResult predictions."""
         import numpy as np
+
         from mata.core.types import VisionResult
 
         # Build a fake checkpoint directory
@@ -660,6 +663,7 @@ class TestCheckpointRoundTrip:
     def test_full_round_trip_train_save_load_predict(self, tmp_path):
         """Simulate train() → checkpoint dir → mata.load() → predict() lifecycle."""
         import numpy as np
+
         from mata.core.types import VisionResult
 
         # Step 1: "train" produces a result with a checkpoint path

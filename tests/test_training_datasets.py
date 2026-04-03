@@ -26,7 +26,6 @@ from mata.training.datasets import (
     segmentation_collate_fn,
 )
 
-
 # ===========================================================================
 # Helpers — synthetic data factories
 # ===========================================================================
@@ -72,13 +71,15 @@ def _make_coco_json(
 
     if include_crowd:
         # Add a crowd annotation for the first image
-        annotations.append({
-            "id": ann_id,
-            "image_id": images[0]["id"],
-            "category_id": 2,
-            "bbox": [0.0, 0.0, 16.0, 16.0],
-            "iscrowd": 1,
-        })
+        annotations.append(
+            {
+                "id": ann_id,
+                "image_id": images[0]["id"],
+                "category_id": 2,
+                "bbox": [0.0, 0.0, 16.0, 16.0],
+                "iscrowd": 1,
+            }
+        )
 
     return {"images": images, "annotations": annotations, "categories": categories}
 
@@ -185,9 +186,7 @@ def _setup_voc_dir(
         tree_out.write(str(root / "Annotations" / f"{img_id}.xml"))
 
     if use_imageset_file:
-        (root / "ImageSets" / "Main" / "trainval.txt").write_text(
-            "\n".join(ids) + "\n", encoding="utf-8"
-        )
+        (root / "ImageSets" / "Main" / "trainval.txt").write_text("\n".join(ids) + "\n", encoding="utf-8")
 
     return root
 
@@ -214,9 +213,7 @@ class TestCOCODetectionDataset:
     def test_explicit_paths_construction(self, tmp_path):
         """Dataset loads from explicit root + annotation_file paths."""
         images_dir, ann_path = _setup_coco_dir(tmp_path, num_images=2)
-        ds = COCODetectionDataset(
-            root=str(images_dir), annotation_file=str(ann_path)
-        )
+        ds = COCODetectionDataset(root=str(images_dir), annotation_file=str(ann_path))
         assert len(ds) == 2
 
     def test_len_matches_number_of_images(self, tmp_path):
@@ -281,9 +278,7 @@ class TestCOCODetectionDataset:
 
     def test_crowd_annotations_excluded(self, tmp_path):
         """Crowd annotations (iscrowd=1) are excluded from targets."""
-        images_dir, ann_path = _setup_coco_dir(
-            tmp_path, num_images=1, annotations_per_image=1, include_crowd=True
-        )
+        images_dir, ann_path = _setup_coco_dir(tmp_path, num_images=1, annotations_per_image=1, include_crowd=True)
         ds = COCODetectionDataset(root=str(images_dir), annotation_file=str(ann_path))
         _, target = ds[0]
         # 1 non-crowd annotation + 1 crowd annotation → only 1 box returned
@@ -770,11 +765,7 @@ class TestDatasetFactory:
         ann_file = ann_dir / "instances.json"
         ann_file.write_text(json.dumps(coco_data), encoding="utf-8")
 
-        yaml_content = (
-            f"path: {dataset_root}\n"
-            "train: images\n"
-            "annotations: annotations/instances.json\n"
-        )
+        yaml_content = f"path: {dataset_root}\n" "train: images\n" "annotations: annotations/instances.json\n"
         yaml_path = tmp_path / "coco_compat.yaml"
         yaml_path.write_text(yaml_content, encoding="utf-8")
 

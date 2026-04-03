@@ -56,15 +56,12 @@ class AlbumentationsWrapper:
             import albumentations  # noqa: F401
         except ImportError as exc:
             raise ImportError(
-                "albumentations is required for AlbumentationsWrapper. "
-                "Install it with: pip install albumentations"
+                "albumentations is required for AlbumentationsWrapper. " "Install it with: pip install albumentations"
             ) from exc
 
         self._transform = transform
 
-    def __call__(
-        self, image: Any, target: dict[str, Any]
-    ) -> tuple[Any, dict[str, Any]]:
+    def __call__(self, image: Any, target: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
         """Apply the albumentations pipeline to image and target.
 
         Args:
@@ -108,11 +105,7 @@ class AlbumentationsWrapper:
             call_kwargs["bboxes"] = boxes_list
 
             if raw_labels is not None:
-                labels_list = (
-                    raw_labels.tolist()
-                    if isinstance(raw_labels, torch.Tensor)
-                    else list(raw_labels)
-                )
+                labels_list = raw_labels.tolist() if isinstance(raw_labels, torch.Tensor) else list(raw_labels)
             else:
                 labels_list = [0] * len(boxes_list)
             call_kwargs["class_labels"] = labels_list
@@ -142,9 +135,7 @@ class AlbumentationsWrapper:
                 else torch.zeros((0, 4), dtype=torch.float32)
             )
             new_target["labels"] = (
-                torch.tensor(out_labels, dtype=torch.long)
-                if out_labels
-                else torch.zeros(0, dtype=torch.long)
+                torch.tensor(out_labels, dtype=torch.long) if out_labels else torch.zeros(0, dtype=torch.long)
             )
 
         if has_masks and "masks" in result:
