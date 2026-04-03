@@ -1,0 +1,31 @@
+# MATA Training Configuration — Image Classification
+# Usage: mata.train("classify", **TrainingConfig.from_yaml("training_classify.yaml"))
+#   or:  mata.finetune("classify", model="microsoft/resnet-50", data="data/flowers/")
+
+task: classify # Task type: detect | classify | segment
+model: microsoft/resnet-50 # HuggingFace model ID (or torchvision/*, alias, local path)
+data: data/imagenet/ # Training dataset — ImageFolder directory or COCO-style YAML
+val_data: null # Validation dataset — null uses 'val' split from data config
+
+epochs: 30 # Number of training epochs
+batch_size: 32 # Training batch size (higher is generally better for classify)
+lr: 1.0e-4 # Learning rate (use 1e-5 for fine-tuning pretrained models)
+optimizer: adamw # Optimizer: adamw | adam | sgd
+weight_decay: 0.01 # L2 regularization
+scheduler: cosine # LR scheduler: cosine | linear | step | none
+warmup_epochs: 3 # Epochs to linearly warm up LR from 0
+
+device: auto # Device: auto | cpu | cuda | cuda:0
+amp: true # Automatic mixed precision (requires CUDA)
+
+save_dir: runs/train/classify # Directory for checkpoints and logs
+save_every: 5 # Save checkpoint every N epochs (0 = best + last only)
+val_every: 1 # Validate every N epochs
+patience: 10 # Early stopping patience (0 = disabled)
+
+freeze_backbone: false # Freeze backbone weights (set true for fine-tuning)
+augment: true # Enable built-in data augmentation (random crop, flip, color jitter)
+
+num_workers: 4 # DataLoader worker processes
+seed: 42 # Random seed for reproducibility
+verbose: true # Print epoch tables to console
