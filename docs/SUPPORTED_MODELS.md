@@ -61,6 +61,8 @@ result  = mata.run("<task>", "image.jpg", model="<HuggingFace ID or file path>")
 - `facebook/sam-vit-large` — Slower, better quality
 - `facebook/sam-vit-huge` — Slowest, best quality
 
+> ⚠️ **Transformers v5.5.0 note:** `DetrForSegmentation` was refactored in transformers v5.5.0 (PR #41549). Validate panoptic segmentation with `pytest tests/test_segment_adapter.py -v -k detr` before bumping the transformers pin to `>=5.5.0`.
+
 ## Depth Estimation
 
 | Model                 | HuggingFace ID                              | Description                      |
@@ -77,30 +79,36 @@ result  = mata.run("<task>", "image.jpg", model="<HuggingFace ID or file path>")
 | **MedGemma**    | `google/medgemma-1.5-4b-it`           | `dtype="bfloat16"`         | Medical imaging        |
 | **LFM2.5-VL**   | `LiquidAI/LFM2.5-VL-1.6B`             | `dtype="bfloat16"`         | Lightweight general    |
 | **SmolVLM**     | `HuggingFaceTB/SmolVLM-256M-Instruct` | —                          | Edge / mobile          |
-| **Florence-2**  | `florence-community/Florence-2-large` | —                          | Grounding/captioning   |
+| **Florence-2**  | `florence-community/Florence-2-large` | `trust_remote_code=True` *(optional)* | Grounding/captioning   |
 | **PaliGemma 2** | `google/paligemma2-3b-pt-224`         | `dtype="bfloat16"` (gated) | Document understanding |
 | **LLaVA-NeXT**  | `llava-hf/llava-v1.6-mistral-7b-hf`   | —                          | High-quality VQA       |
-| **Moondream2**  | `vikhyatk/moondream2`                 | `trust_remote_code=True`   | Tiny / fast            |
+| **Moondream2**     | `vikhyatk/moondream2`                   | `trust_remote_code=True`                              | Tiny / fast                                                           |
+| **Phi-3.5 Vision** | `microsoft/Phi-3.5-vision-instruct`     | `dtype="bfloat16"`, `trust_remote_code=True`          | Code / diagrams — ❌ Deferred (FlashAttention2 — Linux only)           |
+| **InternVL2**      | `OpenGVLab/InternVL2-1B`                | `trust_remote_code=True`                              | ❌ Not supported (Accelerate meta-device incompatible)                 |
 
 See [VLM Model Support](VLM_MODEL_SUPPORT.md) for the full compatibility table.
 
 ## OCR / Text Extraction
 
-| Engine        | Model ID                           | Description                   |
-| ------------- | ---------------------------------- | ----------------------------- |
-| **EasyOCR**   | `easyocr`                          | 80+ languages, polygon bboxes |
-| **PaddleOCR** | `paddleocr`                        | Strong on non-Latin scripts   |
-| **Tesseract** | `tesseract`                        | Classic open-source engine    |
-| **GOT-OCR2**  | `stepfun-ai/GOT-OCR-2.0-hf`        | End-to-end HuggingFace OCR    |
-| **TrOCR**     | `microsoft/trocr-base-handwritten` | Single text-line crops        |
+| Engine           | Model ID                           | Description                                                  |
+| ---------------- | ---------------------------------- | ------------------------------------------------------------ |
+| **EasyOCR**      | `easyocr`                          | 80+ languages, polygon bboxes                                |
+| **PaddleOCR**    | `paddleocr`                        | Strong on non-Latin scripts — GPU ❌ unstable, CPU ✅ OK      |
+| **Tesseract**    | `tesseract`                        | Classic open-source engine — ❌ unstable on Windows           |
+| **GOT-OCR2**     | `stepfun-ai/GOT-OCR-2.0-hf`        | ⚠️ Known hallucinations — avoid until further notice         |
+| **TrOCR**        | `microsoft/trocr-base-handwritten` | Single text-line crops                                       |
+| **DeepSeek OCR** | `deepseek-ai/DeepSeek-OCR-2`       | ❌ Deferred — requires FlashAttention2 (Linux only)           |
 
 ## Embedding / ReID
 
-| Model             | Model ID                       | Output Dim | Description              |
-| ----------------- | ------------------------------ | ---------- | ------------------------ |
-| **CLIP ViT-B/32** | `openai/clip-vit-base-patch32` | 512        | General-purpose          |
-| **OSNet**         | `./osnet_x0_25.onnx`           | 256        | Person ReID (ONNX)       |
-| **DINOv2**        | `facebook/dinov2-small`        | 384        | Self-supervised features |
+| Model                        | Model ID                             | Output Dim | Description                              |
+| ---------------------------- | ------------------------------------ | ---------- | ---------------------------------------- |
+| **CLIP ViT-B/32**            | `openai/clip-vit-base-patch32`       | 512        | General-purpose                          |
+| **OSNet**                    | `./osnet_x0_25.onnx`                 | 256        | Person ReID (ONNX)                       |
+| **DINOv2**                   | `facebook/dinov2-small`              | 384        | Self-supervised features                 |
+| **X-CLIP**                   | `microsoft/xclip-base-patch32`       | 512        | Video-language encoder                   |
+| **Qwen3-VL-Embedding (2B)**  | `Qwen/Qwen3-VL-Embedding-2B`         | up to 4096 | Multimodal: text / image / video         |
+| **Qwen3-VL-Embedding (8B)**  | `Qwen/Qwen3-VL-Embedding-8B`         | up to 4096 | Multimodal: text / image / video (large) |
 
 ## Barcode / QR
 
