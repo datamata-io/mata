@@ -129,6 +129,8 @@ result.save("depth.png", colormap="magma")
 
 Compose multi-task workflows as typed directed graphs. Run independent tasks in parallel for 1.5-3x speedup:
 
+**Example 1 — Parallel multi-task scene analysis (image):**
+
 ```python
 from mata.nodes import Detect, Classify, EstimateDepth, Fuse
 from mata.core.graph import Graph
@@ -143,11 +145,41 @@ result = mata.infer(
         Fuse(dets="dets", classification="cls", depth="depth", out="scene")
     ),
     providers={
-        "detector": mata.load("detect", "facebook/detr-resnet-50"),
+        "detector":   mata.load("detect",   "facebook/detr-resnet-50"),
         "classifier": mata.load("classify", "openai/clip-vit-base-patch32"),
-        "depth": mata.load("depth", "depth-anything/Depth-Anything-V2-Small-hf"),
+        "depth":      mata.load("depth",    "depth-anything/Depth-Anything-V2-Small-hf"),
     }
 )
+```
+
+**Example 2 — Natural-language video semantic search:**
+
+```python
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+result = (
+    Graph("urban_traffic_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=1.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=[
+            "person dangerously jaywalking between moving vehicles",
+            "cyclist weaving through fast-moving traffic at night",
+            "vehicle making an abrupt lane change near pedestrians",
+        ],
+        top_k=3,
+        threshold=0.18,
+    ))
+).run(video="dashcam.mp4", providers={"embedder": embedder})
+
+for qr in result["search_results"].results:
+    print(f'"{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
 ```
 
 Control flow primitives (v1.9.5) — `EarlyExit`, `While`, and `Graph.add(condition=...)` for quality gates, feedback loops, and adaptive pipelines.

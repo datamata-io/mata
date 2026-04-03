@@ -2,28 +2,28 @@
 
 ## 📋 Table of Contents
 
-| Section | Version |
-|---------|─────────|
-| [Universal Loader](#-what-changed) | v1.5 |
-| [Configuration](#-configuration-file) | v1.5 |
-| [Segmentation & SAM](#-segmentation-quick-reference) | v1.5.1 |
-| [Save / Export](#-result-saving-quick-reference) | v1.5 |
-| [CLIP Zero-Shot](#-zero-shot-classification-quick-reference) | v1.5.2 |
-| [Vision-Language Models (VLM)](#-vision-language-models-quick-reference) | v1.5.3 |
-| [Graph System](#️-graph-system-quick-reference-v16) | v1.6 |
-| [VLM Agent Mode](#-vlm-agent-mode-quick-reference-v17) | v1.7 |
-| [Object Tracking](#-object-tracking-quick-reference-v18) | v1.8 |
-| [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
-| [Feature Embedding](#-feature-embedding-quick-reference-v192b2) | v1.9.2 Beta Release 2 |
-| [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193) | v1.9.3 |
-| [Notebook Display](#-jupyter-notebook-display-quick-reference-v194) | v1.9.4 |
-| [CLI Reference](#-cli-quick-reference-v195) | v1.9.5 |
-| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195) | v1.9.5 |
-| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195) | v1.9.5 |
-| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6 |
-| [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197) | v1.9.7 |
-| [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
-| [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
+| Section                                                                        | Version               |
+| ------------------------------------------------------------------------------ | --------------------- |
+| [Universal Loader](#-what-changed)                                             | v1.5                  |
+| [Configuration](#-configuration-file)                                          | v1.5                  |
+| [Segmentation & SAM](#-segmentation-quick-reference)                           | v1.5.1                |
+| [Save / Export](#-result-saving-quick-reference)                               | v1.5                  |
+| [CLIP Zero-Shot](#-zero-shot-classification-quick-reference)                   | v1.5.2                |
+| [Vision-Language Models (VLM)](#-vision-language-models-quick-reference)       | v1.5.3                |
+| [Graph System](#️-graph-system-quick-reference-v16)                             | v1.6                  |
+| [VLM Agent Mode](#-vlm-agent-mode-quick-reference-v17)                         | v1.7                  |
+| [Object Tracking](#-object-tracking-quick-reference-v18)                       | v1.8                  |
+| [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19)            | v1.9                  |
+| [Feature Embedding](#-feature-embedding-quick-reference-v192b2)                | v1.9.2 Beta Release 2 |
+| [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193)                   | v1.9.3                |
+| [Notebook Display](#-jupyter-notebook-display-quick-reference-v194)            | v1.9.4                |
+| [CLI Reference](#-cli-quick-reference-v195)                                    | v1.9.5                |
+| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195)           | v1.9.5                |
+| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195)                | v1.9.5                |
+| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6                |
+| [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197)          | v1.9.7                |
+| [Evaluation](#-evaluation-quick-reference-v18)                                 | v1.8                  |
+| [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19)              | v1.9                  |
 
 ---
 
@@ -222,7 +222,7 @@ pytest tests/ -v
 
 ---
 
-## �️ Graph System Quick Reference (v1.6)
+## 🕸️ Graph System Quick Reference (v1.6)
 
 ### `mata.infer()` — Multi-task DAG execution
 
@@ -532,8 +532,6 @@ result = mata.run("segment", "image.jpg", model="facebook/sam3",
 
 **Requirements:** `transformers>=4.46.0` for SAM3 support
 
-````
-
 **SAM Models**:
 
 - `facebook/sam-vit-base` - Fast (recommended)
@@ -580,6 +578,7 @@ result.save("crops.png", crop_dir="my_crops")
 ### Format Auto-Detection
 
 Extension determines format:
+
 - `.json` → JSON serialization
 - `.csv` → Tabular export (spreadsheet-compatible)
 - `.png`, `.jpg` → Image overlay with bboxes/masks
@@ -722,11 +721,13 @@ results = [
 ```
 
 **Supported CLIP Models:**
+
 - `openai/clip-vit-base-patch32` - Fast (recommended)
 - `openai/clip-vit-base-patch16` - Better quality
 - `openai/clip-vit-large-patch14` - Best quality
 
 **Template Shortcuts:**
+
 - `"basic"` - Single template: `"a photo of a {}"`
 - `"ensemble"` - 6 templates (default, +2-5% accuracy)
 - `"detailed"` - 18 templates (+5-8% accuracy)
@@ -734,6 +735,7 @@ results = [
 - Custom list: Multiple templates for ensemble
 
 **When to Use CLIP:**
+
 - Open-vocabulary classification (any categories)
 - No training data available
 - Rapid prototyping (instant model, no download)
@@ -904,12 +906,14 @@ for entity in result.entities:
 ```
 
 **Available output modes:**
+
 - `"json"` - Generic JSON object
 - `"detect"` - Object detection format: `[{"label": str, "confidence": float, "bbox": [x1,y1,x2,y2] (optional)}]`
 - `"classify"` - Classification format: `[{"label": str, "confidence": float}]`
 - `"describe"` - Description format: `{"description": str, "objects": [...], "scene": str}`
 
 **How it works:**
+
 1. VLM adapter injects a JSON schema instruction into the system prompt
 2. Model generates response (may or may not be valid JSON)
 3. Parser extracts JSON from text (handles markdown fences, embedded JSON)
@@ -917,6 +921,7 @@ for entity in result.entities:
 5. If parsing fails: graceful degradation (entities=[], raw text preserved)
 
 **Entity dataclass:**
+
 ```python
 @dataclass(frozen=True)
 class Entity:
@@ -1014,6 +1019,7 @@ for entity in result.entities:
 ```
 
 **Multi-image metadata:**
+
 ```python
 result.meta["image_count"]     # Total images processed
 result.meta["image_paths"]     # List of all image paths
@@ -1021,23 +1027,25 @@ result.meta["image_path"]      # First image (backward compat)
 ```
 
 **Available VLM Models:**
+
 - `Qwen/Qwen3-VL-2B-Instruct` - Fast, chat-capable (recommended for dev, ~4GB GPU RAM)
 
 **VLM-Specific Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | `str` | **Required** | Text prompt/question for the model |
-| `system_prompt` | `str` | `None` | System-level instruction to configure model behavior |
-| `max_new_tokens` | `int` | `512` | Maximum number of tokens to generate |
-| `temperature` | `float` | `0.7` | Sampling temperature (0.0 = deterministic, 1.0 = creative) |
-| `top_p` | `float` | `0.8` | Nucleus sampling threshold (0.0-1.0) |
-| `top_k` | `int` | `20` | Top-k sampling (limits token pool) |
-| `output_mode` | `str` | `None` | Structured output mode: `"json"`, `"detect"`, `"classify"`, `"describe"` (v1.5.4+) |
-| `images` | `list` | `None` | Additional images for multi-image queries (v1.5.4+) |
-| `auto_promote` | `bool` | `False` | Auto-promote entities with bbox/mask to Instance objects (v1.5.4+) |
+| Parameter        | Type    | Default      | Description                                                                        |
+| ---------------- | ------- | ------------ | ---------------------------------------------------------------------------------- |
+| `prompt`         | `str`   | **Required** | Text prompt/question for the model                                                 |
+| `system_prompt`  | `str`   | `None`       | System-level instruction to configure model behavior                               |
+| `max_new_tokens` | `int`   | `512`        | Maximum number of tokens to generate                                               |
+| `temperature`    | `float` | `0.7`        | Sampling temperature (0.0 = deterministic, 1.0 = creative)                         |
+| `top_p`          | `float` | `0.8`        | Nucleus sampling threshold (0.0-1.0)                                               |
+| `top_k`          | `int`   | `20`         | Top-k sampling (limits token pool)                                                 |
+| `output_mode`    | `str`   | `None`       | Structured output mode: `"json"`, `"detect"`, `"classify"`, `"describe"` (v1.5.4+) |
+| `images`         | `list`  | `None`       | Additional images for multi-image queries (v1.5.4+)                                |
+| `auto_promote`   | `bool`  | `False`      | Auto-promote entities with bbox/mask to Instance objects (v1.5.4+)                 |
 
 **When to Use VLM:**
+
 - Image captioning and description
 - Visual question answering (VQA)
 - Scene understanding and analysis
@@ -1079,7 +1087,7 @@ models:
     inspector:
       source: "Qwen/Qwen3-VL-2B-Instruct"
       max_new_tokens: 512
-      temperature: 0.3  # More focused for technical analysis
+      temperature: 0.3 # More focused for technical analysis
       system_prompt: "You are a quality control inspector. Be precise and technical."
 ```
 
@@ -1169,19 +1177,19 @@ AgentResult → Detections artifact (accumulated across all tool calls)
 
 ### VLM Node Types in Agent Mode
 
-| Node | Output artifact | Agent-capable |
-|------|----------------|---------------|
-| `VLMQuery` | Text + accumulated detections | ✅ |
-| `VLMDetect` | Structured `Detections` | ✅ |
-| `VLMDescribe` | Narrative text description | ✅ |
+| Node          | Output artifact               | Agent-capable |
+| ------------- | ----------------------------- | ------------- |
+| `VLMQuery`    | Text + accumulated detections | ✅            |
+| `VLMDetect`   | Structured `Detections`       | ✅            |
+| `VLMDescribe` | Narrative text description    | ✅            |
 
 ### Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `tools` | `list[str]` | `None` | Provider keys or `"zoom"`/`"crop"`. `None` = standard mode. |
-| `max_iterations` | `int` | `5` | Safety cap on agent loop iterations |
-| `on_error` | `str` | `"retry"` | Error recovery: `"retry"`, `"skip"`, `"fail"` |
+| Parameter        | Type        | Default   | Description                                                 |
+| ---------------- | ----------- | --------- | ----------------------------------------------------------- |
+| `tools`          | `list[str]` | `None`    | Provider keys or `"zoom"`/`"crop"`. `None` = standard mode. |
+| `max_iterations` | `int`       | `5`       | Safety cap on agent loop iterations                         |
+| `on_error`       | `str`       | `"retry"` | Error recovery: `"retry"`, `"skip"`, `"fail"`               |
 
 **Documentation:** [VLM_TOOL_CALLING_SUMMARY.md](docs/VLM_TOOL_CALLING_SUMMARY.md) · [examples/](examples/)
 
@@ -1255,16 +1263,16 @@ tracker.reset()  # clear all tracker state
 
 ### Supported Source Types
 
-| Source | Example | Notes |
-|--------|---------|-------|
-| Video file | `"video.mp4"` | `.mp4` `.avi` `.mkv` `.mov` `.wmv` |
-| RTSP stream | `"rtsp://..."` | Live camera feed |
-| HTTP stream | `"http://..."` or `"https://..."` | IP cameras |
-| Webcam | `0` (integer) | Device index |
-| Image directory | `"frames/"` | Sorted alphabetically |
-| Single image | `"frame.jpg"` | 1-frame result list |
-| numpy array | `np.ndarray` (H×W×3 BGR) | Direct frame |
-| PIL Image | `Image.open(...)` | Direct frame |
+| Source          | Example                           | Notes                              |
+| --------------- | --------------------------------- | ---------------------------------- |
+| Video file      | `"video.mp4"`                     | `.mp4` `.avi` `.mkv` `.mov` `.wmv` |
+| RTSP stream     | `"rtsp://..."`                    | Live camera feed                   |
+| HTTP stream     | `"http://..."` or `"https://..."` | IP cameras                         |
+| Webcam          | `0` (integer)                     | Device index                       |
+| Image directory | `"frames/"`                       | Sorted alphabetically              |
+| Single image    | `"frame.jpg"`                     | 1-frame result list                |
+| numpy array     | `np.ndarray` (H×W×3 BGR)          | Direct frame                       |
+| PIL Image       | `Image.open(...)`                 | Direct frame                       |
 
 ### Tracker Selection
 
@@ -1291,12 +1299,12 @@ models:
       tracker: botsort
       frame_rate: 30
       tracker_config:
-        track_high_thresh: 0.6   # high-conf detection threshold
-        track_low_thresh: 0.1    # low-conf (second-stage) threshold
-        new_track_thresh: 0.7    # minimum score to start new track
-        track_buffer: 60         # frames to keep lost tracks (2s @ 30fps)
-        match_thresh: 0.8        # maximum IoU distance for matching
-        gmc_method: sparseOptFlow  # BotSort: global motion compensation
+        track_high_thresh: 0.6 # high-conf detection threshold
+        track_low_thresh: 0.1 # low-conf (second-stage) threshold
+        new_track_thresh: 0.7 # minimum score to start new track
+        track_buffer: 60 # frames to keep lost tracks (2s @ 30fps)
+        match_thresh: 0.8 # maximum IoU distance for matching
+        gmc_method: sparseOptFlow # BotSort: global motion compensation
 ```
 
 ```python
@@ -1502,7 +1510,7 @@ result = mata.infer("video.mp4", crowd_monitoring_botsort(), providers={...})
 
 ---
 
-## � OCR / Text Extraction Quick Reference (v1.9)
+## 📝 OCR / Text Extraction Quick Reference (v1.9)
 
 ### Load backends
 
@@ -1551,13 +1559,13 @@ data     = result.to_dict()
 
 ### Backend comparison
 
-| Backend | Alias | Bbox | Confidence | GPU | Languages |
-|---|---|---|---|---|---|
-| EasyOCR | `"easyocr"` | ✅ xyxy | ✅ float | ✅ `gpu=True` | 80+ |
-| PaddleOCR | `"paddleocr"` | ✅ xyxy | ✅ float | ✅ `use_gpu=True` | 80+ |
-| Tesseract | `"tesseract"` | ✅ xyxy | ✅ normalized | ❌ | 100+ |
-| TrOCR | HF model ID | ❌ (whole-image) | ❌ (1.0 placeholder) | ✅ `device=` | EN (printed/handwritten) |
-| GOT-OCR2 | HF model ID | ❌ (whole-image) | ❌ (1.0 placeholder) | ✅ `device=` | Multi |
+| Backend   | Alias         | Bbox             | Confidence           | GPU               | Languages                |
+| --------- | ------------- | ---------------- | -------------------- | ----------------- | ------------------------ |
+| EasyOCR   | `"easyocr"`   | ✅ xyxy          | ✅ float             | ✅ `gpu=True`     | 80+                      |
+| PaddleOCR | `"paddleocr"` | ✅ xyxy          | ✅ float             | ✅ `use_gpu=True` | 80+                      |
+| Tesseract | `"tesseract"` | ✅ xyxy          | ✅ normalized        | ❌                | 100+                     |
+| TrOCR     | HF model ID   | ❌ (whole-image) | ❌ (1.0 placeholder) | ✅ `device=`      | EN (printed/handwritten) |
+| GOT-OCR2  | HF model ID   | ❌ (whole-image) | ❌ (1.0 placeholder) | ✅ `device=`      | Multi                    |
 
 > **TrOCR note:** designed for pre-cropped single text-line images.
 > Use GOT-OCR2 or an external engine for full-page documents.
@@ -1568,7 +1576,7 @@ data     = result.to_dict()
 models:
   ocr:
     default-ocr:
-      source: "easyocr"           # "easyocr" | "paddleocr" | "tesseract" | HF ID
+      source: "easyocr" # "easyocr" | "paddleocr" | "tesseract" | HF ID
       lang: "en"
     doc-ocr:
       source: "stepfun-ai/GOT-OCR-2.0-hf"
@@ -1686,10 +1694,10 @@ loaded = BarcodeResult.from_json(json_str)
 
 ### Engine comparison
 
-| Engine | Alias | Bbox | License | Install |
-|--------|-------|------|---------|--------|
-| pyzbar | `"pyzbar"` | ✅ xyxy | MIT | `pip install datamata[barcode]` |
-| zxing-cpp | `"zxing"` | ✅ xyxy (from corners) | Apache 2.0 | `pip install datamata[barcode-zxing]` |
+| Engine    | Alias      | Bbox                   | License    | Install                               |
+| --------- | ---------- | ---------------------- | ---------- | ------------------------------------- |
+| pyzbar    | `"pyzbar"` | ✅ xyxy                | MIT        | `pip install datamata[barcode]`       |
+| zxing-cpp | `"zxing"`  | ✅ xyxy (from corners) | Apache 2.0 | `pip install datamata[barcode-zxing]` |
 
 **Supported symbologies (pyzbar):** QR_CODE, EAN_13, EAN_8, UPC_A, UPC_E, CODE_128, CODE_39, CODE_93, ITF, CODABAR, DATA_MATRIX, PDF_417, AZTEC (12+)
 
@@ -1772,7 +1780,7 @@ result = mata.infer(graph, image="shelf.jpg", providers={
 
 ---
 
-## � Jupyter Notebook Display Quick Reference (v1.9.4)
+## 📓 Jupyter Notebook Display Quick Reference (v1.9.4)
 
 > **New in v1.9.4:** All MATA result types have `_repr_html_()` and `_repr_png_()` methods, so they render automatically as rich tables and charts in Jupyter Notebook and JupyterLab.
 
@@ -1829,14 +1837,14 @@ png_bytes = render_depth_png(depth_result)
 
 ### Display Behaviour Summary
 
-| Result Type       | Renders As                        | Method              |
-| ----------------- | --------------------------------- | ------------------- |
-| `VisionResult`    | HTML table with optional overlay  | `_repr_html_()`     |
-| `ClassifyResult`  | SVG bar chart + score table       | `_repr_html_()`     |
-| `DepthResult`     | Magma colourmap PNG               | `_repr_png_()`      |
-| `OCRResult`       | HTML table of text regions        | `_repr_html_()`     |
-| `BarcodeResult`   | HTML table of codes + symbologies | `_repr_html_()`     |
-| `EmbedResult`     | Shape + statistics summary        | `_repr_html_()`     |
+| Result Type      | Renders As                        | Method          |
+| ---------------- | --------------------------------- | --------------- |
+| `VisionResult`   | HTML table with optional overlay  | `_repr_html_()` |
+| `ClassifyResult` | SVG bar chart + score table       | `_repr_html_()` |
+| `DepthResult`    | Magma colourmap PNG               | `_repr_png_()`  |
+| `OCRResult`      | HTML table of text regions        | `_repr_html_()` |
+| `BarcodeResult`  | HTML table of codes + symbologies | `_repr_html_()` |
+| `EmbedResult`    | Shape + statistics summary        | `_repr_html_()` |
 
 ### Dependencies
 
@@ -1854,7 +1862,7 @@ pip install pillow
 
 ---
 
-## �📊 Evaluation Quick Reference (v1.8)
+## 📊 Evaluation Quick Reference (v1.8)
 
 ### `mata.val()` — YOLO-style validation
 
@@ -1897,28 +1905,28 @@ metrics = mata.val(
 
 ### Metrics by Task
 
-| Task | Metric class | Key properties |
-|------|-------------|----------------|
-| `detect` | `DetMetrics` | `box.map`, `box.map50`, `box.map75`, `box.mp`, `box.mr`, `box.maps` |
-| `segment` | `SegmentMetrics` | `box.map50`, `box.map`, `seg.map50`, `seg.map` |
-| `classify` | `ClassifyMetrics` | `top1`, `top5`, `fitness` |
-| `depth` | `DepthMetrics` | `abs_rel`, `sq_rel`, `rmse`, `delta_1`, `delta_2`, `delta_3` |
+| Task       | Metric class      | Key properties                                                      |
+| ---------- | ----------------- | ------------------------------------------------------------------- |
+| `detect`   | `DetMetrics`      | `box.map`, `box.map50`, `box.map75`, `box.mp`, `box.mr`, `box.maps` |
+| `segment`  | `SegmentMetrics`  | `box.map50`, `box.map`, `seg.map50`, `seg.map`                      |
+| `classify` | `ClassifyMetrics` | `top1`, `top5`, `fitness`                                           |
+| `depth`    | `DepthMetrics`    | `abs_rel`, `sq_rel`, `rmse`, `delta_1`, `delta_2`, `delta_3`        |
 
 ### `mata.val()` Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `task` | `str` | _required_ | `"detect"`, `"segment"`, `"classify"`, `"depth"` |
-| `model` | `str \| adapter` | `None` | Model ID, path, alias, or pre-loaded adapter |
-| `data` | `str \| dict` | `None` | Dataset YAML path or config dict |
-| `predictions` | `list` | `None` | Pre-run predictions (standalone mode) |
-| `ground_truth` | `str \| list` | `None` | COCO JSON path (standalone mode) |
-| `conf` | `float` | `0.001` | Confidence threshold for filtering |
-| `iou` | `float` | `0.50` | IoU threshold for TP/FP matching |
-| `verbose` | `bool` | `True` | Print per-class metrics table |
-| `plots` | `bool` | `False` | Save PR curve, F1 curve, confusion matrix |
-| `save_dir` | `str` | `""` | Output directory for plots |
-| `split` | `str` | `"val"` | Dataset split: `"val"`, `"test"`, `"train"` |
+| Parameter      | Type             | Default    | Description                                      |
+| -------------- | ---------------- | ---------- | ------------------------------------------------ |
+| `task`         | `str`            | _required_ | `"detect"`, `"segment"`, `"classify"`, `"depth"` |
+| `model`        | `str \| adapter` | `None`     | Model ID, path, alias, or pre-loaded adapter     |
+| `data`         | `str \| dict`    | `None`     | Dataset YAML path or config dict                 |
+| `predictions`  | `list`           | `None`     | Pre-run predictions (standalone mode)            |
+| `ground_truth` | `str \| list`    | `None`     | COCO JSON path (standalone mode)                 |
+| `conf`         | `float`          | `0.001`    | Confidence threshold for filtering               |
+| `iou`          | `float`          | `0.50`     | IoU threshold for TP/FP matching                 |
+| `verbose`      | `bool`           | `True`     | Print per-class metrics table                    |
+| `plots`        | `bool`           | `False`    | Save PR curve, F1 curve, confusion matrix        |
+| `save_dir`     | `str`            | `""`       | Output directory for plots                       |
+| `split`        | `str`            | `"val"`    | Dataset split: `"val"`, `"test"`, `"train"`      |
 
 **Documentation:** [Validation Guide](docs/VALIDATION_GUIDE.md)
 
@@ -1965,13 +1973,13 @@ n_receivers = publish_valkey(result, url="valkey://localhost:6379",
 
 ### URI formats
 
-| Format | Example |
-| ------ | ------- |
-| Basic | `valkey://localhost:6379/key` |
-| With DB | `valkey://localhost:6379/0/key` |
+| Format    | Example                              |
+| --------- | ------------------------------------ |
+| Basic     | `valkey://localhost:6379/key`        |
+| With DB   | `valkey://localhost:6379/0/key`      |
 | With auth | `valkey://user:pass@host:6379/0/key` |
-| Redis | `redis://localhost:6379/key` |
-| Redis TLS | `rediss://host:6379/key` |
+| Redis     | `redis://localhost:6379/key`         |
+| Redis TLS | `rediss://host:6379/key`             |
 
 ### Graph nodes: `ValkeyStore` / `ValkeyLoad`
 
@@ -1999,12 +2007,12 @@ ValkeyLoad(
 
 ### Auto-detection of result type
 
-| Key in stored data | Detected type | Output artifact |
-| ------------------ | ------------- | --------------- |
-| `instances` | `vision` | `Detections` |
-| `predictions` | `classify` | `Classifications` |
-| `depth` | `depth` | `DepthMap` |
-| `regions` | `ocr` | _(raw dict)_ |
+| Key in stored data | Detected type | Output artifact   |
+| ------------------ | ------------- | ----------------- |
+| `instances`        | `vision`      | `Detections`      |
+| `predictions`      | `classify`    | `Classifications` |
+| `depth`            | `depth`       | `DepthMap`        |
+| `regions`          | `ocr`         | _(raw dict)_      |
 
 ### Named connections (YAML config)
 
@@ -2018,7 +2026,7 @@ storage:
       ttl: 3600
     production:
       url: "valkey://prod-cluster:6379"
-      password_env: "VALKEY_PASSWORD"  # read from env, never stored in plaintext
+      password_env: "VALKEY_PASSWORD" # read from env, never stored in plaintext
       tls: true
 ```
 
@@ -2076,18 +2084,18 @@ mata val segment --data coco.yaml --model facebook/mask2former-swin-tiny-coco-in
 
 ### Common flags
 
-| Flag | Description | Commands |
-|------|-------------|----------|
-| `--model MODEL` | HuggingFace ID, local path, or config alias | all |
-| `--conf FLOAT` | Confidence threshold (default 0.5) | run, track |
-| `--iou FLOAT` | IoU threshold for NMS | track, val |
-| `--save` | Save output to disk | run, track |
-| `--json` | Print JSON to stdout | run, recognize |
-| `--device DEVICE` | `cpu`, `cuda`, `cuda:0` | run, track |
-| `--tracker NAME` | `botsort` (default) or `bytetrack` | track |
-| `--reid-model MODEL` | Appearance ReID model | track |
-| `--top-k INT` | Top-K matches | recognize |
-| `--threshold FLOAT` | Min cosine similarity | recognize |
+| Flag                 | Description                                 | Commands       |
+| -------------------- | ------------------------------------------- | -------------- |
+| `--model MODEL`      | HuggingFace ID, local path, or config alias | all            |
+| `--conf FLOAT`       | Confidence threshold (default 0.5)          | run, track     |
+| `--iou FLOAT`        | IoU threshold for NMS                       | track, val     |
+| `--save`             | Save output to disk                         | run, track     |
+| `--json`             | Print JSON to stdout                        | run, recognize |
+| `--device DEVICE`    | `cpu`, `cuda`, `cuda:0`                     | run, track     |
+| `--tracker NAME`     | `botsort` (default) or `bytetrack`          | track          |
+| `--reid-model MODEL` | Appearance ReID model                       | track          |
+| `--top-k INT`        | Top-K matches                               | recognize      |
+| `--threshold FLOAT`  | Min cosine similarity                       | recognize      |
 
 **Examples:** [examples/cli/](examples/cli/)
 
@@ -2216,13 +2224,6 @@ from mata.core.graph import EarlyExit, EarlyExitException, While  # core
 
 **Tests:** `tests/test_graph_control_flow.py`
 **Notebook:** [examples/notebooks/12_graph_control_flow.ipynb](examples/notebooks/12_graph_control_flow.ipynb)
-
----
-
-**Version:** 1.9.5
-**Date:** March 22, 2026
-**Status:** ✅ Production Ready
-````
 
 ---
 
