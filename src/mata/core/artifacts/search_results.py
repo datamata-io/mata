@@ -6,13 +6,14 @@ their originating text query for easy iteration in downstream code.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 from mata.core.artifacts.base import Artifact
 
 if TYPE_CHECKING:
-    from mata.recognition.video_index import VideoMatch
+    pass
 
 
 @dataclass(frozen=True)

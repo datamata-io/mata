@@ -1,6 +1,6 @@
 # MATA Graph System — API Reference
 
-> **Version**: 1.9.5 | **Last Updated**: March 22, 2026
+> **Version**: 1.9.7 | **Last Updated**: April 3, 2026
 
 ---
 
@@ -11,16 +11,17 @@
 3. [Built-in Nodes](#built-in-nodes)
 4. [Storage Nodes](#storage-nodes)
 5. [Recognition Nodes (v1.9.5)](#recognition-nodes-v195)
-6. [Graph Builder](#graph-builder)
-7. [Schedulers](#schedulers)
-8. [Execution Context](#execution-context)
-9. [Providers & Protocols](#providers--protocols)
-10. [Conditional Execution](#conditional-execution)
-11. [Temporal / Video](#temporal--video)
-12. [Observability](#observability)
-13. [DSL Helpers](#dsl-helpers)
-14. [Presets](#presets)
-15. [Converters & Utilities](#converters--utilities)
+6. [Video Search Nodes (v1.9.7)](#video-search-nodes-v197)
+7. [Graph Builder](#graph-builder)
+8. [Schedulers](#schedulers)
+9. [Execution Context](#execution-context)
+10. [Providers & Protocols](#providers--protocols)
+11. [Conditional Execution](#conditional-execution)
+12. [Temporal / Video](#temporal--video)
+13. [Observability](#observability)
+14. [DSL Helpers](#dsl-helpers)
+15. [Presets](#presets)
+16. [Converters & Utilities](#converters--utilities)
 
 ---
 
@@ -330,7 +331,115 @@ Frozen dataclass representing a single cross-camera match.
 | `to_dict()`       | `dict`       | Serialize to dictionary   |
 | `from_dict(data)` | `CrossMatch` | Construct from dictionary |
 
-#### `CrossMatches`
+#### `VideoPath`
+
+Frozen artifact wrapping a video file path. Enables auto-wiring of `input.video` in graph execution when using `mata.infer(video=...)` or `Graph.run(video=...)`.
+
+```python
+from mata.core.artifacts import VideoPath
+```
+
+| Attribute | Type   | Description                          |
+| --------- | ------ | ------------------------------------ |
+| `path`    | `str`  | Absolute or relative video file path |
+| `meta`    | `dict` | Optional provenance metadata         |
+
+**Methods:**
+
+| Method            | Returns     | Description                       |
+| ----------------- | ----------- | --------------------------------- |
+| `to_dict()`       | `dict`      | Serialize to JSON-compatible dict |
+| `from_dict(data)` | `VideoPath` | Reconstruct from dict             |
+
+**Example:**
+
+```python
+vp = VideoPath(path="dashcam.mp4")
+print(vp.path)  # "dashcam.mp4"
+```
+
+---
+
+### `VideoIndexData`
+
+Frozen artifact wrapping a `VideoIndex` instance. Produced by the `IndexVideo` node; consumed by `EmbeddingSearch` and any node doing similarity search over video frames.
+
+```python
+from mata.core.artifacts import VideoIndexData
+```
+
+| Attribute | Type         | Description                                      |
+| --------- | ------------ | ------------------------------------------------ |
+| `index`   | `VideoIndex` | Gallery + frame timing data from `index_video()` |
+| `meta`    | `dict`       | Optional provenance metadata                     |
+
+**Methods:**
+
+| Method            | Returns          | Description                                     |
+| ----------------- | ---------------- | ----------------------------------------------- |
+| `validate()`      | `None`           | Raises `ValueError` if `index` is `None`        |
+| `to_dict()`       | `dict`           | Serialize (delegates to `VideoIndex.to_dict()`) |
+| `from_dict(data)` | `VideoIndexData` | Reconstruct from dict                           |
+
+---
+
+### `SearchResults`
+
+Frozen artifact holding per-query video search results. Produced by the `EmbeddingSearch` node; one `QueryResult` entry per text query.
+
+```python
+from mata.core.artifacts import SearchResults, QueryResult
+```
+
+#### `QueryResult`
+
+Frozen dataclass for a single text query's matches.
+
+| Attribute | Type                | Description                                                 |
+| --------- | ------------------- | ----------------------------------------------------------- |
+| `query`   | `str`               | The natural-language text query string                      |
+| `matches` | `tuple[VideoMatch]` | Top-K `VideoMatch` results ordered by descending similarity |
+
+**`VideoMatch` attributes:**
+
+| Attribute    | Type    | Description                    |
+| ------------ | ------- | ------------------------------ |
+| `label`      | `str`   | Frame label / identifier       |
+| `similarity` | `float` | Cosine similarity score [0, 1] |
+| `index`      | `int`   | Frame index in the gallery     |
+| `start_s`    | `float` | Start timestamp in seconds     |
+| `end_s`      | `float` | End timestamp in seconds       |
+
+#### `SearchResults`
+
+| Attribute | Type                 | Description                                    |
+| --------- | -------------------- | ---------------------------------------------- |
+| `results` | `tuple[QueryResult]` | One `QueryResult` per query                    |
+| `meta`    | `dict`               | Optional provenance metadata (model, top_k, …) |
+
+**Methods & operators:**
+
+| Method / Op       | Returns         | Description                       |
+| ----------------- | --------------- | --------------------------------- |
+| `len(sr)`         | `int`           | Number of queries                 |
+| `for qr in sr`    | `QueryResult`   | Iterate over per-query results    |
+| `sr[i]`           | `QueryResult`   | Access by index                   |
+| `to_dict()`       | `dict`          | Serialize to JSON-compatible dict |
+| `from_dict(data)` | `SearchResults` | Reconstruct from dict             |
+
+**Example:**
+
+```python
+for qr in result["search_results"].results:
+    print(f'"{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+---
+
+### `CrossMatches`
 
 Artifact container for all cross-camera matches in a single frame.
 
@@ -1484,6 +1593,166 @@ for m in result.matches:
 ```
 
 **Related:** `Gallery` class — `mata.recognition.Gallery` | `Matches` artifact — `mata.core.artifacts.Matches`
+
+---
+
+## Video Search Nodes (v1.9.7)
+
+Video search nodes connect embedding pipelines to searchable video indices for natural-language video retrieval. They are the graph-layer counterpart of `mata.recognition.index_video()` and `VideoIndex.search()`.
+
+```python
+from mata.nodes import IndexVideo, EmbeddingSearch
+```
+
+---
+
+### `IndexVideo`
+
+Samples frames from a video, embeds them with the specified provider, and stores the result as a `VideoIndexData` artifact for downstream search.
+
+```python
+IndexVideo(
+    using: str,
+    mode: str = "frame",
+    sample_fps: float = 1.0,
+    out: str = "video_index",
+    name: str | None = None,
+    **embed_kwargs,
+)
+```
+
+**Parameters:**
+
+| Parameter        | Type          | Default         | Description                                                                                         |
+| ---------------- | ------------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| `using`          | `str`         | _required_      | Provider name resolved to an `embed` adapter at runtime                                             |
+| `mode`           | `str`         | `"frame"`       | `"frame"` — one embedding per sampled frame; `"clip"` — one embedding per fixed-length clip segment |
+| `sample_fps`     | `float`       | `1.0`           | Frames per second to sample from the video                                                          |
+| `out`            | `str`         | `"video_index"` | Output artifact key                                                                                 |
+| `name`           | `str \| None` | `None`          | Optional human-readable node name                                                                   |
+| `**embed_kwargs` | `Any`         | —               | Extra kwargs forwarded to `index_video()` (e.g. `embed_dim=`)                                       |
+
+**I/O:**
+
+| I/O    | Name          | Type             |
+| ------ | ------------- | ---------------- |
+| Input  | `video`       | `VideoPath`      |
+| Output | `video_index` | `VideoIndexData` |
+
+**Metrics recorded:** `indexed_frames` (int).
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+graph = (
+    Graph("search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text=["red car", "pedestrian"]))
+)
+result = graph.run(video="traffic.mp4", providers={"embedder": embedder})
+```
+
+---
+
+### `EmbeddingSearch`
+
+Searches a `VideoIndexData` artifact with one or more text queries. Embeds each query using the specified provider and performs cosine nearest-neighbour search.
+
+```python
+EmbeddingSearch(
+    using: str,
+    text: str | list[str],
+    src: str = "video_index",
+    out: str = "search_results",
+    top_k: int = 5,
+    threshold: float | None = None,
+    name: str | None = None,
+    **embed_kwargs,
+)
+```
+
+**Parameters:**
+
+| Parameter   | Type               | Default            | Description                                             |
+| ----------- | ------------------ | ------------------ | ------------------------------------------------------- |
+| `using`     | `str`              | _required_         | Provider name resolved to an `embed` adapter at runtime |
+| `text`      | `str \| list[str]` | _required_         | One or more natural-language query strings              |
+| `src`       | `str`              | `"video_index"`    | Input artifact key for the `VideoIndexData` artifact    |
+| `out`       | `str`              | `"search_results"` | Output artifact key for the `SearchResults` artifact    |
+| `top_k`     | `int`              | `5`                | Maximum matches to return per query                     |
+| `threshold` | `float \| None`    | `None`             | Minimum cosine similarity; `None` disables filtering    |
+| `name`      | `str \| None`      | `None`             | Optional human-readable node name                       |
+
+**I/O:**
+
+| I/O    | Name             | Type             |
+| ------ | ---------------- | ---------------- |
+| Input  | `video_index`    | `VideoIndexData` |
+| Output | `search_results` | `SearchResults`  |
+
+**Metrics recorded:** `num_queries` (int).
+
+**Full example:**
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+# Works with any embed-capable model
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+graph = (
+    Graph("urban_traffic_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=1.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=["red bus", "jaywalking pedestrian", "cyclist"],
+        top_k=3,
+        threshold=0.18,
+    ))
+)
+
+result = graph.run(video="dashcam.mp4", providers={"embedder": embedder})
+
+sr = result["search_results"]
+for qr in sr:
+    print(f'Query: "{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+**Also works with CLIP (`mode="frame"` recommended):**
+
+```python
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+graph = (
+    Graph("clip_search")
+    .then(IndexVideo(using="embedder", sample_fps=2.0))  # mode="frame" default
+    .then(EmbeddingSearch(using="embedder", text="bus", top_k=5, threshold=0.22))
+)
+result = graph.run(video="video.mp4", providers={"embedder": embedder})
+```
+
+> **CLIP vs X-CLIP in chunk mode**
+>
+> `mode="chunk"` embeds a window of frames as a single vector. The two supported encoders use different strategies:
+>
+> | Encoder                                                   | Chunk strategy                                                                          | Temporal awareness                             |
+> | --------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+> | `microsoft/xclip-base-patch32`                            | `predict_video([f1, f2, ...])` — native temporal transformer                            | ✓ Captures motion and actions across frames    |
+> | `openai/clip-vit-base-patch32` (and other image encoders) | Each frame embedded independently via `predict()`, then **mean-pooled + L2-normalised** | ✗ Bag-of-frames only; no cross-frame reasoning |
+>
+> Use `mode="frame"` (the default) with CLIP — it embeds one frame at a time and avoids the mean-pool approximation entirely. Reserve `mode="chunk"` for X-CLIP or other models with a native `predict_video()` interface.
+
+**Related:** `mata.recognition.index_video()`, `VideoIndex`, `VideoIndexData` artifact, `SearchResults` artifact, `VideoPath` artifact.
 
 ---
 

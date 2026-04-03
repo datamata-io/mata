@@ -147,6 +147,11 @@ class Gallery:
         thresh = threshold if threshold is not None else self._similarity_thresh
         q = self._normalize(np.asarray(query, dtype=np.float32).ravel())
         matrix = self._get_matrix()
+        if q.shape[0] != matrix.shape[1]:
+            raise ValueError(
+                f"Query dimension {q.shape[0]} does not match gallery dimension {matrix.shape[1]}. "
+                "Did you forget to embed the query before calling search()?"
+            )
         similarities = matrix @ q  # (N,) cosine similarities
         order = np.argsort(similarities)[::-1]
         results: list[GalleryMatch] = []

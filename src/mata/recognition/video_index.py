@@ -234,8 +234,10 @@ def index_video(
 
 
 def _resolve_mode(adapter: Any, mode: IndexMode) -> Literal["frame", "chunk"]:
-    if mode in {"frame", "chunk"}:
-        return mode
+    if mode == "frame":
+        return "frame"
+    if mode == "chunk":
+        return "chunk"
     encoder = getattr(adapter, "_encoder", None)
     if encoder is not None and hasattr(encoder, "predict_video"):
         return "chunk"

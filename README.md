@@ -257,6 +257,8 @@ mata.run() / mata.load() / mata.infer()
    Export (JSON / CSV / image overlay / crops)
 ```
 
+For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN_AND_ARCHITECTURE.md](docs/MATA_DESIGN_AND_ARCHITECTURE.md).
+
 ## Roadmap
 
 > **v1.9.7 is the final feature release.** The 1.9.x line is now in maintenance mode.

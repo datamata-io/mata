@@ -169,9 +169,9 @@ class TestIndexVideoNode:
         assert call_kwargs.get("embed_dim") == 128
 
     def test_is_exported_from_nodes(self):
-        from mata.nodes import IndexVideo as IV
+        import mata.nodes as nodes
 
-        assert IV is IndexVideo
+        assert nodes.IndexVideo is IndexVideo
 
 
 # ===========================================================================
@@ -334,9 +334,9 @@ class TestEmbeddingSearchNode:
         assert len(sr.results[0].matches) == 0
 
     def test_is_exported_from_nodes(self):
-        from mata.nodes import EmbeddingSearch as ES
+        from mata.nodes import EmbeddingSearch as _EmbeddingSearch
 
-        assert ES is EmbeddingSearch
+        assert _EmbeddingSearch is EmbeddingSearch
 
 
 # ===========================================================================
@@ -379,11 +379,11 @@ class TestSearchResultsArtifact:
         sr.validate()  # should not raise
 
     def test_search_results_exported_from_artifacts(self):
-        from mata.core.artifacts import QueryResult as QR
-        from mata.core.artifacts import SearchResults as SR
+        from mata.core.artifacts import QueryResult as _QueryResult
+        from mata.core.artifacts import SearchResults as _SearchResults
 
-        assert QR is QueryResult
-        assert SR is SearchResults
+        assert _QueryResult is QueryResult
+        assert _SearchResults is SearchResults
 
 
 # ===========================================================================
@@ -417,9 +417,9 @@ class TestVideoPathArtifact:
         assert vp.path == "/some/path.mp4"
 
     def test_exported_from_artifacts(self):
-        from mata.core.artifacts import VideoPath as VP
+        from mata.core.artifacts import VideoPath as _VideoPath
 
-        assert VP is VideoPath
+        assert _VideoPath is VideoPath
 
 
 # ===========================================================================
@@ -447,6 +447,6 @@ class TestVideoIndexDataArtifact:
         vd.validate()
 
     def test_exported_from_artifacts(self):
-        from mata.core.artifacts import VideoIndexData as VID
+        from mata.core.artifacts import VideoIndexData as _VideoIndexData
 
-        assert VID is VideoIndexData
+        assert _VideoIndexData is VideoIndexData

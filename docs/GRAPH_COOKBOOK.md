@@ -1,6 +1,6 @@
 # MATA Graph Cookbook
 
-> **Version**: 1.9.2 | **Last Updated**: March 19, 2026
+> **Version**: 1.9.7 | **Last Updated**: April 3, 2026
 
 Practical recipes and patterns for common computer vision workflows using the MATA graph system.
 
@@ -1550,3 +1550,148 @@ for match_entry in result.matches:
 - `threshold` filters out low-confidence matches; unmatched instances have `match_entry.label == "unknown"`.
 - Use `mata.run("recognize", image, gallery=gallery, model="openai/clip-vit-base-patch32")` for the one-liner equivalent.
 - See [Recognition API Reference](GRAPH_API_REFERENCE.md#recognition-nodes-v195) for full `GalleryMatchNode` docs.
+
+---
+
+## Video Semantic Search (v1.9.7)
+
+### Recipe 40: Index a Video and Search by Natural Language
+
+Build a searchable index from a video file, then find moments matching free-text descriptions.
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+# Load an embed-capable model
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+graph = (
+    Graph("video_search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text="red car", top_k=5))
+)
+
+result = graph.run(video="traffic.mp4", providers={"embedder": embedder})
+
+for qr in result["search_results"]:
+    for rank, m in enumerate(qr.matches, 1):
+        print(f"#{rank}  sim={m.similarity:.4f}  @ {m.start_s:.1f}s–{m.end_s:.1f}s")
+```
+
+**Key points:**
+
+- `IndexVideo` samples the video at `sample_fps` frames per second, embeds each frame, and stores the gallery as a `VideoIndexData` artifact.
+- `EmbeddingSearch` embeds the query text(s) and runs cosine nearest-neighbour search against the gallery.
+- The same `"embedder"` provider is shared by both nodes.
+
+---
+
+### Recipe 41: Multi-Query Video Search with Threshold
+
+Filter low-confidence matches by supplying `threshold`:
+
+```python
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+graph = (
+    Graph("multi_query_search")
+    .then(IndexVideo(using="embedder", sample_fps=2.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=["pedestrian crossing", "red bus", "cyclist"],
+        top_k=3,
+        threshold=0.20,
+    ))
+)
+
+result = graph.run(video="dashcam.mp4", providers={"embedder": embedder})
+
+for qr in result["search_results"].results:
+    print(f'\nQuery: "{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+---
+
+### Recipe 42: High-Quality Search with Qwen3-VL-Embedding
+
+Qwen3-VL-Embedding is a multimodal encoder that understands visual content at a deeper semantic level:
+
+```python
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+graph = (
+    Graph("semantic_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=1.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=["vehicle collision", "jaywalking pedestrian"],
+        top_k=5,
+        threshold=0.18,
+    ))
+)
+
+result = graph.run(video="cctv_footage.mp4", providers={"embedder": embedder})
+```
+
+---
+
+### Recipe 43: Reuse a Saved Video Index
+
+Index once, search many times without re-encoding:
+
+```python
+from mata.recognition import VideoIndex, index_video
+
+# Step 1 — build and persist the index
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+vidx = index_video("long_video.mp4", embedder, sample_fps=1.0)
+vidx.save("long_video.npz")
+
+# Step 2 — load and search later (no re-encoding)
+vidx = VideoIndex.load("long_video.npz")
+matches = vidx.search("fire and smoke", top_k=5)
+for m in matches:
+    print(f"sim={m.similarity:.4f}  @ {m.start_s:.1f}s")
+```
+
+---
+
+### Recipe 44: Combined Detect + Video Search Pipeline
+
+Run object detection on frames while simultaneously building a searchable text index:
+
+```python
+from mata.nodes import Detect, IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+graph = Graph("detect_and_search")
+graph.add(Detect(using="detector"), inputs={"image": "input.image"})
+graph.add(IndexVideo(using="embedder", sample_fps=1.0), inputs={"video": "input.video"})
+graph.add(
+    EmbeddingSearch(using="embedder", text="person running", top_k=5),
+    inputs={"video_index": "video_index"},
+)
+
+result = graph.run(
+    video="scene.mp4",
+    image="thumbnail.jpg",
+    providers={"detector": detector, "embedder": embedder},
+)
+
+print("Detections:", result["detections"])
+print("Search matches:", result["search_results"][0].matches)
+```
+
+**Key points:**
+
+- `IndexVideo` and `EmbeddingSearch` consume `VideoPath` / `VideoIndexData` artifacts; `Detect` consumes image artifacts — they can share a graph without conflict.
+- Use `mata.infer(video=..., image=..., ...)` when supplying both video and image inputs.
+- See [Video Search Nodes API Reference](GRAPH_API_REFERENCE.md#video-search-nodes-v197) for full parameter tables.

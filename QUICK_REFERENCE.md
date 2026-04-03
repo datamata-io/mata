@@ -1,4 +1,4 @@
-﻿# MATA Quick Reference — v1.5 to v1.9.4
+﻿# MATA Quick Reference — v1.5 to v1.9.7
 
 ## 📋 Table of Contents
 
@@ -16,6 +16,12 @@
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19) | v1.9 |
 | [Feature Embedding](#-feature-embedding-quick-reference-v192b2) | v1.9.2 Beta Release 2 |
 | [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193) | v1.9.3 |
+| [Notebook Display](#-jupyter-notebook-display-quick-reference-v194) | v1.9.4 |
+| [CLI Reference](#-cli-quick-reference-v195) | v1.9.5 |
+| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195) | v1.9.5 |
+| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195) | v1.9.5 |
+| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6 |
+| [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197) | v1.9.7 |
 | [Evaluation](#-evaluation-quick-reference-v18) | v1.8 |
 | [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19) | v1.9 |
 
@@ -155,7 +161,7 @@ import mata
 
 # Register an alias at runtime
 mata.register_model("detect", "production-model", {
-    "source": "s3://models/rtdetr_prod.onnx",
+    "source": "/models/rtdetr_prod.onnx",
     "threshold": 0.7
 })
 
@@ -1766,7 +1772,89 @@ result = mata.infer(graph, image="shelf.jpg", providers={
 
 ---
 
-## 📊 Evaluation Quick Reference (v1.8)
+## � Jupyter Notebook Display Quick Reference (v1.9.4)
+
+> **New in v1.9.4:** All MATA result types have `_repr_html_()` and `_repr_png_()` methods, so they render automatically as rich tables and charts in Jupyter Notebook and JupyterLab.
+
+### Automatic Rich Display
+
+```python
+import mata
+
+# Detection — renders an HTML table of labels, scores, bbox coords + optional overlay
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+result   # auto-renders in Jupyter
+
+# Classification — renders an SVG bar chart + score table
+result = mata.run("classify", "image.jpg", model="openai/clip-vit-base-patch32")
+result
+
+# Depth — renders a colormapped PNG (magma)
+result = mata.run("depth", "image.jpg", model="depth-anything/Depth-Anything-V2-Small-hf")
+result
+
+# Barcode — renders decoded payloads and symbology types
+result = mata.run("barcode", "qr.jpg", model="pyzbar")
+result
+
+# Embeddings — renders shape + min/max/mean stats
+result = mata.run("embed", "image.jpg", model="openai/clip-vit-base-patch32")
+result
+
+# OCR — renders recognized text fragments
+result = mata.run("ocr", "document.jpg", model="easyocr")
+result
+```
+
+### Manual Rendering Functions
+
+Import render helpers directly if you need the HTML string or PNG bytes outside a notebook:
+
+```python
+from mata.notebook import (
+    render_vision_html,    # detect / segment / track results
+    render_classify_html,  # classification results
+    render_depth_png,      # depth map (returns PNG bytes)
+    render_ocr_html,       # OCR results
+    render_barcode_html,   # barcode / QR results
+    render_embed_html,     # embedding vectors
+)
+
+# Get HTML string
+html_str = render_vision_html(result)
+
+# Get PNG bytes (depth)
+png_bytes = render_depth_png(depth_result)
+```
+
+### Display Behaviour Summary
+
+| Result Type       | Renders As                        | Method              |
+| ----------------- | --------------------------------- | ------------------- |
+| `VisionResult`    | HTML table with optional overlay  | `_repr_html_()`     |
+| `ClassifyResult`  | SVG bar chart + score table       | `_repr_html_()`     |
+| `DepthResult`     | Magma colourmap PNG               | `_repr_png_()`      |
+| `OCRResult`       | HTML table of text regions        | `_repr_html_()`     |
+| `BarcodeResult`   | HTML table of codes + symbologies | `_repr_html_()`     |
+| `EmbedResult`     | Shape + statistics summary        | `_repr_html_()`     |
+
+### Dependencies
+
+All Jupyter / matplotlib imports are **guarded** — `mata.notebook` is importable in non-Jupyter environments. The render functions return `None` if optional dependencies are unavailable.
+
+```bash
+# Required for depth PNG rendering
+pip install matplotlib
+
+# Required for image overlay in VisionResult
+pip install pillow
+```
+
+**Notebook:** [examples/notebooks/](examples/notebooks/)
+
+---
+
+## �📊 Evaluation Quick Reference (v1.8)
 
 ### `mata.val()` — YOLO-style validation
 
@@ -2135,3 +2223,182 @@ from mata.core.graph import EarlyExit, EarlyExitException, While  # core
 **Date:** March 22, 2026
 **Status:** ✅ Production Ready
 ````
+
+---
+
+## 🎞️ Video Semantic Search Quick Reference (v1.9.6)
+
+> **New in v1.9.6:** Video semantic search via the `embed` task. Index a video by embedding each sampled frame, then retrieve relevant moments with natural-language text queries. Works with CLIP and any vision-encoder model.
+
+### One-liner Video Search
+
+```python
+import mata
+from mata.recognition import index_video
+
+# Step 1 — build an index (embed every frame at 1 fps)
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+vidx = index_video("dashcam.mp4", embedder, sample_fps=1.0)
+
+# Step 2 — search with natural language
+matches = vidx.search("red car running red light", top_k=5)
+for m in matches:
+    print(f"sim={m.similarity:.4f}  @ {m.start_s:.1f}s–{m.end_s:.1f}s")
+```
+
+### Saving and Loading a Video Index
+
+```python
+# Persist the index to disk
+vidx.save("my_video.npz")
+
+# Reload later
+from mata.recognition import VideoIndex
+vidx = VideoIndex.load("my_video.npz")
+
+matches = vidx.search("person carrying a bag", top_k=3)
+```
+
+### Multi-Query Search
+
+```python
+queries = ["red bus", "pedestrian crossing", "cyclist"]
+for q in queries:
+    print(f'\n"{q}"')
+    for m in vidx.search(q, top_k=3, threshold=0.20):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+### `VideoMatch` Fields
+
+| Field        | Type    | Description                    |
+| ------------ | ------- | ------------------------------ |
+| `label`      | `str`   | Frame label / identifier       |
+| `similarity` | `float` | Cosine similarity score [0, 1] |
+| `index`      | `int`   | Frame index in the gallery     |
+| `start_s`    | `float` | Start timestamp in seconds     |
+| `end_s`      | `float` | End timestamp in seconds       |
+
+### Supported Embedding Backends
+
+```python
+# HuggingFace CLIP (recommended)
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+# ONNX (CPU-efficient)
+embedder = mata.load("embed", "./osnet_x0_25.onnx")
+
+# X-CLIP (temporal multi-frame model, v1.9.6)
+embedder = mata.load("embed", "microsoft/xclip-base-patch32")
+```
+
+---
+
+## 🧠 Video Search Graph Nodes Quick Reference (v1.9.7)
+
+> **New in v1.9.7:** `IndexVideo` and `EmbeddingSearch` graph nodes for building video search pipelines as composable graphs. The `mata.infer()` function gains an optional `video=` kwarg.
+
+### Minimal Graph Pipeline
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+result = (
+    Graph("search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text="red car", top_k=5))
+).run(video="traffic.mp4", providers={"embedder": embedder})
+
+for qr in result["search_results"]:
+    for rank, m in enumerate(qr.matches, 1):
+        print(f"#{rank}  sim={m.similarity:.4f}  @ {m.start_s:.1f}s")
+```
+
+### `IndexVideo` Node Parameters
+
+| Parameter    | Default         | Description                                        |
+| ------------ | --------------- | -------------------------------------------------- |
+| `using`      | _required_      | Provider name → `embed` adapter                    |
+| `mode`       | `"frame"`       | `"frame"` (one embed/frame) or `"clip"` (windowed) |
+| `sample_fps` | `1.0`           | Frames per second to sample                        |
+| `out`        | `"video_index"` | Key for `VideoIndexData` output artifact           |
+
+### `EmbeddingSearch` Node Parameters
+
+| Parameter   | Default            | Description                                |
+| ----------- | ------------------ | ------------------------------------------ |
+| `using`     | _required_         | Provider name → `embed` adapter            |
+| `text`      | _required_         | Query string or `list[str]`                |
+| `src`       | `"video_index"`    | Input `VideoIndexData` artifact key        |
+| `out`       | `"search_results"` | Output `SearchResults` artifact key        |
+| `top_k`     | `5`                | Max matches per query                      |
+| `threshold` | `None`             | Min cosine similarity (disabled if `None`) |
+
+### Multi-Query with Threshold
+
+```python
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+graph = (
+    Graph("urban_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=2.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=["red bus", "jaywalking pedestrian", "cyclist"],
+        top_k=3,
+        threshold=0.18,
+    ))
+)
+
+result = graph.run(video="dashcam.mp4", providers={"embedder": embedder})
+for qr in result["search_results"].results:
+    print(f'\n"{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+### Qwen3-VL-Embedding
+
+```python
+# Multimodal embedding — understands both image content and text semantics
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+# Use with graph nodes exactly as CLIP
+graph = (
+    Graph("qwen_search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text="delivery truck", top_k=5))
+)
+```
+
+### `mata.infer()` with `video=` Input (v1.9.7)
+
+```python
+# image= is now optional; use video= for video-input graphs
+result = mata.infer(
+    graph,
+    video="dashcam.mp4",   # automatically wraps in VideoPath
+    providers={"embedder": embedder},
+)
+```
+
+### New Artifacts Summary
+
+| Artifact         | Produced by              | Consumed by       | Description                        |
+| ---------------- | ------------------------ | ----------------- | ---------------------------------- |
+| `VideoPath`      | `graph.run(video=)`      | `IndexVideo`      | Wraps video file path              |
+| `VideoIndexData` | `IndexVideo`             | `EmbeddingSearch` | Gallery + frame timing for a video |
+| `SearchResults`  | `EmbeddingSearch`        | downstream nodes  | Per-query `QueryResult` collection |
+| `QueryResult`    | (inside `SearchResults`) | —                 | Query string + top-K `VideoMatch`s |
+
+---
+
+**Version:** 1.9.7
+**Date:** April 3, 2026
+**Status:** ✅ Production Ready

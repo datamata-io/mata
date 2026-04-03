@@ -332,15 +332,22 @@ class TestHuggingFaceReIDAdapter:
             adapter._load_clip()
             mock_model.to.assert_called_once_with("cpu")
 
-    def test_extract_single_clip_returns_numpy(self):
-        """_extract_single for CLIP arch returns a 1-D float32 array."""
+    def test_extract_single_clip_uses_vision_model_and_projection(self):
+        """_extract_single for CLIP arch uses vision_model + visual_projection.
+
+        Uses the sub-model path for transformers >=5.2 compatibility
+        (get_image_features() returns raw hidden states in newer versions).
+        """
         import torch
 
         adapter = self._make_adapter_with_arch("openai/clip-vit-base-patch32", "clip", dim=512)
 
-        mock_features = torch.ones(1, 512)
+        projected = torch.ones(1, 512)
         mock_model = MagicMock()
-        mock_model.get_image_features.return_value = mock_features
+        mock_vision_out = MagicMock()
+        mock_vision_out.pooler_output = torch.zeros(1, 768)  # raw pooler before projection
+        mock_model.vision_model.return_value = mock_vision_out
+        mock_model.visual_projection.return_value = projected
 
         mock_processor = MagicMock()
         mock_processor.return_value = {"pixel_values": torch.zeros(1, 3, 224, 224)}
@@ -349,14 +356,14 @@ class TestHuggingFaceReIDAdapter:
         adapter._processor = mock_processor
         adapter.device = "cpu"
 
-        with patch(
-            "torch.no_grad",
-            return_value=MagicMock(__enter__=Mock(return_value=None), __exit__=Mock(return_value=False)),
-        ):
-            # Call _extract_single with mocked model
-            result_tensor = mock_features[0].cpu().float().numpy()
-            assert result_tensor.shape == (512,)
-            assert result_tensor.dtype == np.float32
+        crop = np.zeros((64, 64, 3), dtype=np.uint8)
+        result = adapter._extract_single(crop)
+
+        mock_model.vision_model.assert_called_once()
+        mock_model.visual_projection.assert_called_once()
+        mock_model.get_image_features.assert_not_called()
+        assert result.shape == (512,)
+        assert result.dtype == np.float32
 
     def test_extract_single_generic_mean_pool(self):
         """generic arch falls back to mean pooling of last_hidden_state."""
@@ -394,7 +401,11 @@ class TestHuggingFaceReIDAdapterPredictText:
     """Tests for HuggingFaceReIDAdapter.predict_text() — CLIP text encoder."""
 
     def _make_clip_adapter(self, dim: int = 512):
-        """Build a CLIP-arch adapter with mocked model and processor."""
+        """Build a CLIP-arch adapter with mocked model and processor.
+
+        Mocks the sub-model + projection path used after the transformers >=5.2
+        compatibility fix (vision_model/text_model + visual/text_projection).
+        """
         import torch
 
         from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
@@ -406,11 +417,18 @@ class TestHuggingFaceReIDAdapterPredictText:
 
         text_features = torch.randn(1, dim)
         mock_model = MagicMock()
-        mock_model.get_text_features.return_value = text_features
+        # text_model returns an output whose pooler_output feeds text_projection
+        mock_text_out = MagicMock()
+        mock_text_out.pooler_output = torch.randn(1, dim)
+        mock_model.text_model.return_value = mock_text_out
+        mock_model.text_projection.return_value = text_features
         adapter._model = mock_model
 
         mock_processor = MagicMock()
-        mock_processor.return_value = {"input_ids": torch.zeros(1, 10, dtype=torch.long)}
+        mock_processor.return_value = {
+            "input_ids": torch.zeros(1, 10, dtype=torch.long),
+            "attention_mask": torch.ones(1, 10, dtype=torch.long),
+        }
         adapter._processor = mock_processor
 
         adapter.device = "cpu"
@@ -426,8 +444,8 @@ class TestHuggingFaceReIDAdapterPredictText:
         import torch
 
         adapter, _ = self._make_clip_adapter(dim=512)
-        # Override mock to return batch of 3
-        adapter._model.get_text_features.return_value = torch.randn(3, 512)
+        # Override mock to return batch of 3 from text_projection
+        adapter._model.text_projection.return_value = torch.randn(3, 512)
         result = adapter.predict_text(["cat", "dog", "bird"])
         assert result.shape == (3, 512)
 
@@ -443,10 +461,12 @@ class TestHuggingFaceReIDAdapterPredictText:
         adapter.predict_text("test")
         assert adapter.embedding_dim == 512
 
-    def test_predict_text_calls_get_text_features(self):
+    def test_predict_text_calls_text_model_and_projection(self):
+        """predict_text() uses text_model + text_projection (not get_text_features)."""
         adapter, _ = self._make_clip_adapter()
         adapter.predict_text("hello world")
-        adapter._model.get_text_features.assert_called_once()
+        adapter._model.text_model.assert_called_once()
+        adapter._model.text_projection.assert_called_once()
 
     def test_predict_text_calls_processor_with_text(self):
         adapter, _ = self._make_clip_adapter()
@@ -479,70 +499,11 @@ class TestHuggingFaceReIDAdapterPredictText:
         with pytest.raises(NotImplementedError, match="CLIP model"):
             adapter.predict_text("query")
 
-    def test_predict_text_model_output_fallback_pooler(self):
-        """predict_text() handles BaseModelOutputWithPooling via pooler_output."""
-        from unittest.mock import MagicMock
-
-        import torch
-
-        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
-
-        adapter = object.__new__(HuggingFaceReIDAdapter)
-        adapter.model_id = "openai/clip-vit-base-patch32"
-        adapter._embedding_dim = None
-        adapter._arch = "clip"
-
-        # Simulate model returning a ModelOutput instead of a tensor
-        mock_output = MagicMock()
-        del mock_output.cpu  # not a tensor
-        mock_output.pooler_output = torch.randn(1, 512)
-        mock_output.last_hidden_state = torch.randn(1, 10, 512)
-
-        mock_model = MagicMock()
-        mock_model.get_text_features.return_value = mock_output
-
-        mock_processor = MagicMock()
-        mock_processor.return_value = {"input_ids": torch.zeros(1, 10, dtype=torch.long)}
-
-        adapter._model = mock_model
-        adapter._processor = mock_processor
-        adapter.device = "cpu"
-
-        result = adapter.predict_text("red truck")
-        assert result.shape == (1, 512)
-        assert result.dtype == np.float32
-
-    def test_predict_text_model_output_fallback_cls_token(self):
-        """predict_text() falls back to CLS token when pooler_output is None."""
-        from unittest.mock import MagicMock
-
-        import torch
-
-        from mata.adapters.reid_adapter import HuggingFaceReIDAdapter
-
-        adapter = object.__new__(HuggingFaceReIDAdapter)
-        adapter.model_id = "openai/clip-vit-base-patch32"
-        adapter._embedding_dim = None
-        adapter._arch = "clip"
-
-        mock_output = MagicMock()
-        del mock_output.cpu  # not a tensor
-        mock_output.pooler_output = None
-        mock_output.last_hidden_state = torch.randn(1, 10, 512)
-
-        mock_model = MagicMock()
-        mock_model.get_text_features.return_value = mock_output
-
-        mock_processor = MagicMock()
-        mock_processor.return_value = {"input_ids": torch.zeros(1, 10, dtype=torch.long)}
-
-        adapter._model = mock_model
-        adapter._processor = mock_processor
-        adapter.device = "cpu"
-
-        result = adapter.predict_text("red truck")
-        assert result.shape == (1, 512)
-        assert result.dtype == np.float32
+    def test_predict_text_not_get_text_features(self):
+        """predict_text() must NOT call get_text_features (deprecated in transformers >=5.2)."""
+        adapter, _ = self._make_clip_adapter()
+        adapter.predict_text("hello world")
+        adapter._model.get_text_features.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

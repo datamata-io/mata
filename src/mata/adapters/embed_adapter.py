@@ -71,15 +71,19 @@ class EmbedAdapter:
             return self._encoder.predict(crops)
         elif isinstance(input, list):
             # Video clip: list of BGR numpy frames → (1, D)
-            if not hasattr(self._encoder, "predict_video"):
-                from mata.core.exceptions import UnsupportedModelError
-
-                raise UnsupportedModelError(
-                    "Video clip embedding (list of frames) requires an X-CLIP encoder. "
-                    f"The current encoder ({type(self._encoder).__name__}) does not support predict_video(). "
-                    "Load with: mata.load('embed', 'microsoft/xclip-base-patch32')"
-                )
-            return self._encoder.predict_video(input)
+            # Prefer predict_video() for X-CLIP (true temporal encoder).
+            # For image encoders (e.g. CLIP, ViT, ONNX) that lack predict_video(),
+            # fall back to embedding each frame individually and mean-pooling — a
+            # standard temporal aggregation strategy that keeps chunk mode working.
+            if hasattr(self._encoder, "predict_video"):
+                return self._encoder.predict_video(input)
+            if not input:
+                return np.empty((1, 0), dtype=np.float32)
+            frame_embeddings = self._encoder.predict(input)  # (N, D)
+            mean_emb = frame_embeddings.mean(axis=0, keepdims=True)  # (1, D)
+            norm = np.linalg.norm(mean_emb, axis=1, keepdims=True)
+            norm = np.where(norm > 1e-9, norm, 1.0)
+            return (mean_emb / norm).astype(np.float32)
         elif isinstance(input, str):
             # Text query → (1, D) in same space as video/image embeddings
             if not hasattr(self._encoder, "predict_text"):

@@ -337,8 +337,11 @@ class HuggingFaceReIDAdapter(ReIDAdapter):
             if self._arch == "clip":
                 inputs = self._processor(images=pil_image, return_tensors="pt")
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
-                # Get image features from CLIP's vision encoder
-                image_features = self._model.get_image_features(**inputs)
+                # Use sub-model + projection directly; get_image_features() returns the
+                # raw vision hidden state (1, 50, 768) in newer transformers (>=5.2)
+                # instead of the projected (1, 512) embedding.
+                vision_out = self._model.vision_model(pixel_values=inputs["pixel_values"])
+                image_features = self._model.visual_projection(vision_out.pooler_output)  # (1, D)
                 embedding = image_features[0].cpu().float().numpy()
             else:
                 inputs = self._processor(images=pil_image, return_tensors="pt")
@@ -385,17 +388,15 @@ class HuggingFaceReIDAdapter(ReIDAdapter):
         with torch.no_grad():
             inputs = self._processor(text=texts, return_tensors="pt", padding=True)
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            text_features = self._model.get_text_features(**inputs)
+            # Use sub-model + projection directly; get_text_features() returns raw token
+            # embeddings in newer transformers (>=5.2) instead of the projected (B, D) tensor.
+            text_out = self._model.text_model(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+            )
+            text_features = self._model.text_projection(text_out.pooler_output)  # (B, D)
 
-        # CLIPModel.get_text_features() returns a tensor, but some CLIP variants
-        # return a BaseModelOutputWithPooling object instead.
-        if isinstance(text_features, torch.Tensor):
-            embeddings = text_features.cpu().float().numpy()
-        elif hasattr(text_features, "pooler_output") and text_features.pooler_output is not None:
-            embeddings = text_features.pooler_output.cpu().float().numpy()
-        else:
-            # Last resort: CLS token from last hidden state
-            embeddings = text_features.last_hidden_state[:, 0].cpu().float().numpy()
+        embeddings = text_features.cpu().float().numpy()
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         norms = np.where(norms > 1e-9, norms, 1.0)
         embeddings = embeddings / norms

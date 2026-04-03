@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from mata.core.artifacts.base import Artifact
 
 if TYPE_CHECKING:
-    from mata.recognition.video_index import VideoIndex
+    pass
 
 
 @dataclass(frozen=True)

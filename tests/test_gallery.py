@@ -204,6 +204,20 @@ class TestGallerySearch:
         results = g.search(v, threshold=0.0)
         assert len(results) >= 1
 
+    def test_search_dimension_mismatch_raises_value_error(self):
+        """Gallery.search() raises a descriptive ValueError on dim mismatch.
+
+        Guards against the CLIP indexing bug where frames were stored at
+        the raw hidden-state dimension (e.g. 38400) but queries arrive at
+        the projected dimension (512), or vice versa.
+        """
+        g = Gallery()
+        g.add("item", _unit(512))  # gallery built with 512-dim embeddings
+        wrong_dim_query = _unit(38400)  # simulate unembedded raw vector
+
+        with pytest.raises(ValueError, match="dimension"):
+            g.search(wrong_dim_query)
+
 
 # ---------------------------------------------------------------------------
 # TestGallerySearchBatch

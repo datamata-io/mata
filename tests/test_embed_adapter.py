@@ -346,17 +346,24 @@ class TestEmbedAdapterXCLIPDispatch:
 
         np.testing.assert_array_equal(result_embed, result_method)
 
-    def test_embed_list_no_predict_video_raises(self):
-        """list input on a non-xclip encoder must raise UnsupportedModelError."""
-        from mata.adapters.embed_adapter import EmbedAdapter
-        from mata.core.exceptions import UnsupportedModelError
+    def test_embed_list_no_predict_video_falls_back_to_mean_pool(self):
+        """list input on a non-xclip encoder mean-pools individual frame embeddings.
 
-        encoder = _make_non_xclip_encoder()
+        Image encoders like CLIP lack predict_video(); embed() falls back to
+        calling predict() on each frame and averaging the results.
+        """
+        from mata.adapters.embed_adapter import EmbedAdapter
+
+        encoder = _make_non_xclip_encoder()  # has predict() but no predict_video()
         adapter = EmbedAdapter(encoder=encoder)
         frame = np.zeros((224, 224, 3), dtype=np.uint8)
 
-        with pytest.raises(UnsupportedModelError):
-            adapter.embed([frame])
+        result = adapter.embed([frame, frame, frame])
+
+        assert result.shape == (1, 512)
+        assert result.dtype == np.float32
+        # L2-normalised
+        np.testing.assert_allclose(np.linalg.norm(result, axis=1), 1.0, atol=1e-5)
 
     def test_embed_str_no_predict_text_raises(self):
         """str input on a non-xclip encoder must raise UnsupportedModelError."""
@@ -369,17 +376,17 @@ class TestEmbedAdapterXCLIPDispatch:
         with pytest.raises(UnsupportedModelError):
             adapter.embed("some query")
 
-    def test_embed_list_error_message_mentions_xclip(self):
-        """UnsupportedModelError for list input must name the xclip model."""
+    def test_embed_list_non_xclip_calls_predict_not_predict_video(self):
+        """list input on a non-xclip encoder must use predict(), not predict_video()."""
         from mata.adapters.embed_adapter import EmbedAdapter
-        from mata.core.exceptions import UnsupportedModelError
 
         encoder = _make_non_xclip_encoder()
         adapter = EmbedAdapter(encoder=encoder)
         frame = np.zeros((224, 224, 3), dtype=np.uint8)
 
-        with pytest.raises(UnsupportedModelError, match="microsoft/xclip-base-patch32"):
-            adapter.embed([frame])
+        adapter.embed([frame])
+
+        encoder.predict.assert_called_once_with([frame])
 
     def test_embed_str_error_message_mentions_xclip(self):
         """UnsupportedModelError for str input must name the xclip model."""
