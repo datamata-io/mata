@@ -1,0 +1,208 @@
+metadata:
+  last_updated: "2026-04-03T15:17:32Z"
+  mata_version: 1.9.7
+  python_version: 3.12.7
+  device: auto
+  timeout_seconds: 180
+  limit_per_task: 20
+models:
+  detect:
+    compatible:
+      - id: microsoft/table-transformer-detection
+        downloads: 3187001
+        tested: "2026-04-03T12:32:00Z"
+      - id: PekingU/rtdetr_r18vd_coco_o365
+        downloads: 1891791
+        tested: "2026-04-03T12:32:50Z"
+      - id: microsoft/table-transformer-structure-recognition
+        downloads: 1199921
+        tested: "2026-04-03T12:34:47Z"
+      - id: valentinafevu/yolos-fashionpedia
+        downloads: 542475
+        tested: "2026-04-03T12:36:57Z"
+      - id: hustvl/yolos-small
+        downloads: 425590
+        tested: "2026-04-03T12:38:46Z"
+      - id: TahaDouaji/detr-doc-table-detection
+        downloads: 266888
+        tested: "2026-04-03T12:40:21Z"
+      - id: PaddlePaddle/PP-DocLayoutV3_safetensors
+        downloads: 247787
+        tested: "2026-04-03T12:41:15Z"
+      - id: facebook/detr-resnet-50
+        downloads: 168145
+        tested: "2026-04-03T12:41:50Z"
+      - id: PekingU/rtdetr_v2_r18vd
+        downloads: 106218
+        tested: "2026-04-03T12:41:53Z"
+      - id: hustvl/yolos-tiny
+        downloads: 104847
+        tested: "2026-04-03T12:42:06Z"
+      - id: PekingU/rtdetr_r50vd_coco_o365
+        downloads: 65667
+        tested: "2026-04-03T12:43:15Z"
+      - id: PekingU/rtdetr_r101vd_coco_o365
+        downloads: 59710
+        tested: "2026-04-03T12:45:05Z"
+      - id: facebook/detr-resnet-101
+        downloads: 47259
+        tested: "2026-04-03T12:45:10Z"
+      - id: PekingU/rtdetr_r50vd
+        downloads: 36414
+        tested: "2026-04-03T12:45:17Z"
+      - id: tech4humans/conditional-detr-50-signature-detector
+        downloads: 26062
+        tested: "2026-04-03T12:46:19Z"
+      - id: yainage90/fashion-object-detection
+        downloads: 23223
+        tested: "2026-04-03T12:47:28Z"
+    incompatible:
+      - id: microsoft/table-transformer-structure-recognition-v1.1-all
+        downloads: 234250
+        error:
+          "AttributeError: 'SizeDict' object has no attribute 'keys'\nFile \"D:\\\
+          Documents\\OneDrive\\Code\\mtp\\datamata_io\\mata\\venv\\Lib\\site-packages\\\
+          transformers\\image_processing_utils_fast.py\", line 887, in _preprocess_image_like_inputs\n\
+          \    return self._preprocess(images, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
+          \  File \"D:\\Documents\\OneDrive\\Code\\mtp\\datamata_io\\mata\\venv\\Lib\\\
+          site-packages\\transformers\\models\\detr\\image_processing_detr_fast.py\"\
+          , line 576, in _preprocess\n    resiz"
+        tested: "2026-04-03T12:41:46Z"
+      - id: Anzhc/Anzhcs_YOLOs
+        downloads: 84544
+        error:
+          'ModelLoadError: Failed to load model ''Anzhc/Anzhcs_YOLOs'': Failed
+          to load HuggingFace model: OSError: Can''t load image processor for ''Anzhc/Anzhcs_YOLOs''.
+          If you were trying to load it from ''https://huggingface.co/models'', make
+          sure you don''t have a local directory with the same name. Otherwise, make
+          sure ''Anzhc/Anzhcs_YOLOs'' is the correct path to a directory containing
+          a preprocessor_config.json file. Please check network connection, disk space,
+          and model availability.
+
+          File "D:\Documents\OneDr'
+        tested: "2026-04-03T12:42:08Z"
+      - id: keremberke/yolov5m-license-plate
+        downloads: 37641
+        error:
+          "ModelLoadError: Failed to load model 'keremberke/yolov5m-license-plate':
+          Failed to load HuggingFace model: OSError: Can't load image processor for
+          'keremberke/yolov5m-license-plate'. If you were trying to load it from 'https://huggingface.co/models',
+          make sure you don't have a local directory with the same name. Otherwise,
+          make sure 'keremberke/yolov5m-license-plate' is the correct path to a directory
+          containing a preprocessor_config.json file. Please check network connection,
+          disk space, and mo"
+        tested: "2026-04-03T12:45:12Z"
+      - id: IDEA-Research/Rex-Omni
+        downloads: 28111
+        error:
+          "ModelLoadError: Failed to load model 'IDEA-Research/Rex-Omni': Failed
+          to load HuggingFace model: ValueError: Unrecognized configuration class <class
+          'transformers.models.qwen2_5_vl.configuration_qwen2_5_vl.Qwen2_5_VLConfig'>
+          for this kind of AutoModel: AutoModelForObjectDetection.
+
+          Model type should be one of ConditionalDetrConfig, DFineConfig, DabDetrConfig,
+          DeformableDetrConfig, DetrConfig, LwDetrConfig, PPDocLayoutV3Config, RTDetrConfig,
+          RTDetrV2Config, TableTransformerConfig, YolosConfig.. Pl"
+        tested: "2026-04-03T12:45:21Z"
+  classify:
+    compatible:
+      - id: Falconsai/nsfw_image_detection
+        downloads: 39973284
+        tested: "2026-04-03T12:49:41Z"
+      - id: timm/mobilenetv3_small_100.lamb_in1k
+        downloads: 15341196
+        tested: "2026-04-03T12:49:54Z"
+      - id: Marqo/nsfw-image-detection-384
+        downloads: 7312382
+        tested: "2026-04-03T12:50:12Z"
+      - id: dima806/fairface_age_image_detection
+        downloads: 7039189
+        tested: "2026-04-03T12:52:12Z"
+      - id: google/vit-base-patch16-224
+        downloads: 4308377
+        tested: "2026-04-03T12:52:16Z"
+      - id: timm/convnextv2_nano.fcmae_ft_in22k_in1k
+        downloads: 3077793
+        tested: "2026-04-03T12:52:41Z"
+      - id: apple/mobilevit-small
+        downloads: 2542570
+        tested: "2026-04-03T12:53:14Z"
+      - id: trpakov/vit-face-expression
+        downloads: 2390749
+        tested: "2026-04-03T12:54:58Z"
+      - id: timm/resnet50.a1_in1k
+        downloads: 1998895
+        tested: "2026-04-03T12:55:03Z"
+      - id: timm/test_resnet.r160_in1k
+        downloads: 1802453
+        tested: "2026-04-03T12:55:10Z"
+      - id: timm/resnet18.a1_in1k
+        downloads: 1534556
+        tested: "2026-04-03T12:55:34Z"
+      - id: timm/efficientnet_b0.ra_in1k
+        downloads: 1039279
+        tested: "2026-04-03T12:55:49Z"
+      - id: rizvandwiki/gender-classification
+        downloads: 895149
+        tested: "2026-04-03T12:58:28Z"
+      - id: timm/vit_base_patch16_224.augreg2_in21k_ft_in1k
+        downloads: 840792
+        tested: "2026-04-03T13:00:28Z"
+      - id: amunchet/rorshark-vit-base
+        downloads: 608542
+        tested: "2026-04-03T13:04:05Z"
+      - id: Freepik/nsfw_image_detector
+        downloads: 606684
+        tested: "2026-04-03T13:05:26Z"
+      - id: dima806/facial_emotions_image_detection
+        downloads: 602833
+        tested: "2026-04-03T13:07:24Z"
+      - id: timm/vit_tiny_r_s16_p8_224.augreg_in21k
+        downloads: 577228
+        tested: "2026-04-03T13:07:55Z"
+      - id: timm/resnet34.a1_in1k
+        downloads: 535671
+        tested: "2026-04-03T13:08:31Z"
+    incompatible:
+      - id: buildborderless/CommunityForensics-DeepfakeDet-ViT
+        downloads: 637581
+        error:
+          "RuntimeError: Classification failed: Input image size (440*440) doesn't\
+          \ match model (384*384).\nFile \"D:\\Documents\\OneDrive\\Code\\mtp\\datamata_io\\\
+          mata\\bm_test\\test_model_compatibility.py\", line 109, in _test_single_model\n\
+          \    result = mata.run(task, test_image, **kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
+          \  File \"D:\\Documents\\OneDrive\\Code\\mtp\\datamata_io\\mata\\src\\mata\\\
+          api.py\", line 219, in run\n    return adapter.predict(input, **kwargs)\n\
+          \           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  "
+        tested: "2026-04-03T13:01:33Z"
+  segment:
+    compatible:
+      - id: nvidia/segformer-b0-finetuned-ade-512-512
+        downloads: 645040
+        tested: "2026-04-03T13:08:48Z"
+      - id: mattmdjaga/segformer_b2_clothes
+        downloads: 321385
+        tested: "2026-04-03T13:17:49Z"
+      - id: nvidia/segformer-b1-finetuned-ade-512-512
+        downloads: 262472
+        tested: "2026-04-03T13:19:19Z"
+      - id: shi-labs/oneformer_coco_swin_large
+        downloads: 116459
+        tested: "2026-04-03T13:49:58Z"
+      - id: facebook/mask2former-swin-large-ade-semantic
+        downloads: 96591
+        tested: "2026-04-03T13:50:05Z"
+      - id: shi-labs/oneformer_ade20k_swin_tiny
+        downloads: 74330
+        tested: "2026-04-03T13:50:19Z"
+      - id: facebook/mask2former-swin-tiny-coco-instance
+        downloads: 72091
+        tested: "2026-04-03T13:50:25Z"
+  depth:
+    compatible:
+      - id: depth-anything/Depth-Anything-V2-Small-hf
+        downloads: 2183180
+        tested: "2026-04-03T14:24:14Z"
+      - id: Intel/dpt-hybrid-midas
+        downloads: 492015
+        tested: "2026-04-03T15:17:32Z"
