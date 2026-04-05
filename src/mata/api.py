@@ -1556,6 +1556,56 @@ def finetune(
     )
 
 
+def annotate(
+    data: str = "data",
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8710,
+    open_browser: bool = True,
+    block: bool = True,
+    detect_model: str | None = None,
+    vlm_model: str | None = None,
+    embed_model: str | None = None,
+    zeroshot_model: str | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Launch the MATA annotation web tool.
+
+    Starts a browser-based annotation server for creating and editing
+    datasets with AI-assisted labeling. Outputs COCO JSON annotations
+    and YAML configs compatible with mata.train().
+
+    Args:
+        data: Root data directory to manage. Defaults to "data".
+        host: Server bind address. Defaults to "127.0.0.1" (localhost only).
+        port: Server port. Defaults to 8710.
+        open_browser: Auto-open browser. Defaults to True.
+        block: Block until server stops. Defaults to True.
+        detect_model: Detection model for AI-assist pre-labeling.
+        vlm_model: VLM model for AI-assist auto-annotation.
+        embed_model: Embedding model for CLIP classify suggestions.
+        zeroshot_model: Grounding DINO model for zero-shot detection AI-assist.
+        **kwargs: Additional server configuration.
+
+    Returns:
+        AnnotateServer instance.
+    """
+    from .annotate import start_server
+
+    return start_server(
+        data=data,
+        host=host,
+        port=port,
+        open_browser=open_browser,
+        block=block,
+        detect_model=detect_model,
+        vlm_model=vlm_model,
+        embed_model=embed_model,
+        zeroshot_model=zeroshot_model,
+        **kwargs,
+    )
+
+
 def verbose(level: int = 2) -> None:
     """Control MATA's output verbosity.
 

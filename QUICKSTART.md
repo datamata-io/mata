@@ -47,6 +47,34 @@ mata --version
 
 See [CLI Examples](examples/cli/) for shell and PowerShell scripts covering every subcommand, and [QUICK_REFERENCE.md](QUICK_REFERENCE.md#-cli-quick-reference-v195) for the full flags reference.
 
+## Quick Annotation
+
+Launch the local browser-based annotation tool:
+
+```bash
+mata annotate --data data
+```
+
+By default, the annotation server binds to `127.0.0.1:8710` and opens your browser automatically.
+
+You can also start it from Python:
+
+```python
+import mata
+
+server = mata.annotate(data="data", block=False, open_browser=False)
+print(server.url)
+```
+
+This workflow is designed for:
+
+- COCO-style bbox and polygon labeling
+- ImageFolder reclassification
+- export to training-ready `dataset.yaml`
+- launching background training from the same local UI
+
+See [docs/ANNOTATION_GUIDE.md](docs/ANNOTATION_GUIDE.md) for the full workflow.
+
 Or check programmatically:
 
 ```python

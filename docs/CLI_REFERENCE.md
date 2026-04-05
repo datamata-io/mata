@@ -1,8 +1,8 @@
 # MATA CLI Reference
 
-> **Version**: 1.9.5 | **Last Updated**: April 3, 2026
+> **Version**: 1.9.7 | **Last Updated**: April 4, 2026
 
-MATA ships a `mata` command installed alongside the Python package. It exposes the five most common workflows directly in a terminal without writing any Python.
+MATA ships a `mata` command installed alongside the Python package. It exposes the six most common workflows directly in a terminal without writing any Python.
 
 ```
 mata <command> [options]
@@ -17,9 +17,10 @@ mata <command> [options]
 3. [mata recognize](#mata-recognize)
 4. [mata track](#mata-track)
 5. [mata val](#mata-val)
-6. [mata export](#mata-export)
-7. [Output Formats](#output-formats)
-8. [Examples](#examples)
+6. [mata annotate](#mata-annotate)
+7. [mata export](#mata-export)
+8. [Output Formats](#output-formats)
+9. [Examples](#examples)
 
 ---
 
@@ -271,6 +272,50 @@ mata val classify \
     --conf 0.5 \
     --split test
 ```
+
+---
+
+## mata annotate
+
+Launch the local browser-based annotation server. Wraps `mata.annotate()`.
+
+```
+mata annotate [options]
+```
+
+### Options
+
+| Flag             | Default     | Description                                         |
+| ---------------- | ----------- | --------------------------------------------------- |
+| `--data`         | `data`      | Data directory to manage                            |
+| `--host`         | `127.0.0.1` | Bind address for the local HTTP server              |
+| `--port`         | `8710`      | Server port                                         |
+| `--no-browser`   | `False`     | Do not auto-open the browser                        |
+| `--detect-model` | `None`      | Detection model for pre-label assist                |
+| `--vlm-model`    | `None`      | VLM model for prompt-based annotation assist        |
+| `--embed-model`  | `None`      | CLIP-style classify model for advanced assist flows |
+
+### Examples
+
+```bash
+# Start the local annotation UI with the default data root
+mata annotate
+
+# Work from a different dataset root without opening a browser
+mata annotate --data D:/datasets --no-browser
+
+# Bind a custom port
+mata annotate --data data --port 9000
+
+# Start with assist models configured
+mata annotate \
+    --data data \
+    --detect-model facebook/detr-resnet-50 \
+    --vlm-model Qwen/Qwen3-VL-2B-Instruct \
+    --embed-model openai/clip-vit-base-patch32
+```
+
+Use `Ctrl+C` to stop the server when running in the foreground. For the full browser workflow, dataset layouts, export steps, and training notes, see [ANNOTATION_GUIDE.md](ANNOTATION_GUIDE.md).
 
 ---
 

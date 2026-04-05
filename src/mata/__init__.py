@@ -24,9 +24,9 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "1.9.7"
+__version__ = "2.0.0b2"
 
-from .api import finetune, get_model_info, infer, list_models, load, register_model, run, track, train, val, verbose
+from .api import annotate, finetune, get_model_info, infer, list_models, load, register_model, run, track, train, val, verbose
 from .core import (
     BarcodeRegion,
     BarcodeResult,
@@ -89,6 +89,7 @@ except ImportError:
 
 __all__ = [
     # API
+    "annotate",
     "load",
     "run",
     "track",

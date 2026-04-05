@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. It features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a first-class `embed` task for feature embedding extraction, a `barcode` task for QR/barcode decoding, a `recognize` task for gallery-based identity matching, a CLI (`mata` command), and graph control-flow primitives (`EarlyExit`, `While`, `Graph.add(condition=...)`).
+MATA is a **task-centric, model-agnostic** computer vision framework with a unified universal loader. It features a unified adapter system supporting multiple tasks and runtimes, a fully vendored ByteTrack/BotSort tracking system with appearance-based ReID (single-camera and cross-camera via Valkey), an OCR evaluation pipeline, a browser-based `annotate` workflow for dataset management and labeling, a first-class `embed` task for feature embedding extraction, a `barcode` task for QR/barcode decoding, a `recognize` task for gallery-based identity matching, a CLI (`mata` command), and graph control-flow primitives (`EarlyExit`, `While`, `Graph.add(condition=...)`).
 
 **Embed task — recommended backends (HuggingFace and ONNX are first-class):**
 
@@ -10,6 +10,13 @@ MATA is a **task-centric, model-agnostic** computer vision framework with a unif
 - ONNX: `mata.load("embed", "./model.onnx")` — portable, CPU-efficient, no special deps
 
 **v2.0.0 Roadmap:** v1.9.x is feature-complete (maintenance mode). v2.0.0 targets `mata.annotate()`, `mata.train()`, and quantized ONNX export as co-planned milestones.
+
+**Annotation workflow (v2.0.0):**
+
+```python
+server = mata.annotate("data", block=False, open_browser=False)
+print(server.url)
+```
 
 **Universal Loading (v1.5.2+):**
 
@@ -83,11 +90,11 @@ emb = mata.run("embed", "image.jpg", model="openai/clip-vit-base-patch32")
 ### Core Architecture Layers
 
 ```
-User API (mata.load/run/track/infer/val)
+User API (mata.load/run/track/infer/val/annotate)
     ↓
-UniversalLoader (source auto-detection)
+UniversalLoader / AnnotateServer
     ↓
-Task Adapters (HuggingFace/ONNX/TorchScript/PyTorch)
+Task Adapters (HuggingFace/ONNX/TorchScript/PyTorch) / Annotation Layer
     ↓
 VisionResult (Unified result: bbox + mask + track_id + embedding)
     ↓
@@ -132,6 +139,13 @@ Image/Crops)   ↓                      Validator (detect/segment/classify/depth
                (npz store)      (graph node wrapping Gallery)
                ↓
                Matches artifact (label + similarity per instance)
+               ↓
+               Annotation Layer (🆕 v2.0.0)
+               ↓              ↓               ↓
+               AnnotateServer DatasetManager  COCO I/O
+               ↓              ↓               ↓
+               Static SPA     ImageFolder     YAML export
+               + REST API     + thumbnails    + training bridge
                ↓
                Control Flow Layer (🆕 v1.9.5)
                ↓             ↓              ↓

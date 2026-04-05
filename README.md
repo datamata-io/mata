@@ -17,11 +17,12 @@
 
 ---
 
-**For ML engineers and CV practitioners** who want YOLO-like simplicity with HuggingFace-scale model choice. MATA is a task-centric computer vision framework built on three ideas:
+**For ML engineers and CV practitioners** who want YOLO-like simplicity with HuggingFace-scale model choice. MATA is a task-centric computer vision framework built on four ideas:
 
 1. **Universal model loading** — load any model by HuggingFace ID, local ONNX file, or config alias with one API
 2. **Composable graph pipelines** — wire Detect → Segment → Embed into typed DAGs with parallel execution, conditional branching, and control flow
 3. **Zero-shot everything** — CLIP classify, GroundingDINO detect, SAM segment — no training required
+4. **Local annotation loop** — launch a browser-based dataset editor with `mata annotate` and export training-ready COCO + YAML assets
 
 ## See It in Action
 
@@ -62,6 +63,7 @@ result = mata.infer(
 mata run detect image.jpg --model facebook/detr-resnet-50 --conf 0.4 --save
 mata track video.mp4 --model facebook/detr-resnet-50 --tracker botsort --save
 mata recognize person.jpg --gallery gallery.npz --model openai/clip-vit-base-patch32
+mata annotate --data data
 ```
 
 ## Installation
@@ -122,6 +124,7 @@ result.save("depth.png", colormap="magma")
 | **Embedding**   | `mata.run("embed", "img.jpg", model="openai/clip-vit-base-patch32")`          | [Embed Example](examples/inference/embedding.py) |
 | **Barcode**     | `mata.run("barcode", "img.jpg", model="pyzbar")`                              | [Barcode Examples](examples/barcode/)            |
 | **Recognition** | `mata.run("recognize", "img.jpg", gallery=gallery, model="...")`              | [Recognition Guide](docs/RECOGNITION_GUIDE.md)   |
+| **Annotation**  | `mata.annotate(data="data", block=False)`                                     | [Annotation Guide](docs/ANNOTATION_GUIDE.md)     |
 
 ## What Makes MATA Different
 
@@ -245,10 +248,11 @@ mata run classify image.jpg --model microsoft/resnet-50 --json
 mata run vlm image.jpg --model Qwen/Qwen3-VL-2B-Instruct --prompt "Describe this"
 mata track video.mp4 --model facebook/detr-resnet-50 --tracker botsort --save
 mata val detect --data coco.yaml --model facebook/detr-resnet-50
+mata annotate --data data
 mata --version
 ```
 
-All subcommands support `--help`. See [CLI Examples](examples/cli/).
+All subcommands support `--help`. See [CLI Examples](examples/cli/) and [docs/ANNOTATION_GUIDE.md](docs/ANNOTATION_GUIDE.md).
 
 ## Supported Models
 
@@ -298,7 +302,18 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 - **v1.9.x** (maintenance) — bug fixes and documentation only
-- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup
+- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup
+<p align="center">
+  <img src="public/assets/annotate/main.png" width="720" alt="MATA Logo" />
+   <br />
+  <span style="font-size: 0.78rem; color: var(--muted);">MATA's annotation and training interface, running on local and offline environments.</span>
+</p>
+<p align="center">
+  <img src="public/assets/annotate/vlm_annotate.png" width="720" alt="MATA Logo" />
+ <br />
+  <span style="font-size: 0.78rem; color: var(--muted);">MATA's annotation interface supports bounding boxes, and Zero-shot / VLM labeling.</span>
+</p>
+
 - **v2.x** — HuggingFace Hub model recommendations, KACA CNN integration, V2L HyperLoRA research
 - **v2.5+** — 3D vision, edge deployment, Auto-ML
 

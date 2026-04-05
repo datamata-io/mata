@@ -50,6 +50,7 @@ Examples:
     _add_recognize_parser(subparsers)
     _add_track_parser(subparsers)
     _add_val_parser(subparsers)
+    _add_annotate_parser(subparsers)
     _add_export_parser(subparsers)
 
     return parser
@@ -135,6 +136,22 @@ def _add_val_parser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--save-dir", default="runs/val/", help="Directory for plots/CSV (default: runs/val/)")
     p.add_argument("--plots", action="store_true", help="Save PR/F1/confusion plots")
     p.add_argument("--json", dest="output_json", action="store_true", help="Output metrics as JSON")
+
+
+def _add_annotate_parser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser(
+        "annotate",
+        help="Launch web annotation tool",
+        description="Start browser-based dataset annotation with AI-assisted labeling.",
+    )
+    p.add_argument("--data", default="data", help="Data directory to manage (default: data)")
+    p.add_argument("--host", default="127.0.0.1", help="Server bind address (default: 127.0.0.1)")
+    p.add_argument("--port", type=int, default=8710, help="Server port (default: 8710)")
+    p.add_argument("--no-browser", action="store_true", help="Don't auto-open browser")
+    p.add_argument("--detect-model", default=None, help="Detection model for AI-assist")
+    p.add_argument("--vlm-model", default=None, help="VLM model for AI-assist")
+    p.add_argument("--embed-model", default=None, help="Embedding model for AI-assist")
+    p.add_argument("--zeroshot-model", default=None, help="Grounding DINO model for zero-shot detection AI-assist (default: IDEA-Research/grounding-dino-tiny)")
 
 
 def _add_export_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -308,6 +325,35 @@ def _cmd_val(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_annotate(args: argparse.Namespace) -> int:
+    import mata
+
+    data_path = Path(args.data)
+    if not data_path.exists() or not data_path.is_dir():
+        print(f"ERROR: data directory not found: {args.data}", file=sys.stderr)
+        return 1
+
+    try:
+        mata.annotate(
+            data=args.data,
+            host=args.host,
+            port=args.port,
+            open_browser=not args.no_browser,
+            block=True,
+            detect_model=args.detect_model,
+            vlm_model=args.vlm_model,
+            embed_model=args.embed_model,
+            zeroshot_model=args.zeroshot_model,
+        )
+    except KeyboardInterrupt:
+        print("\nServer stopped.")
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    return 0
+
+
 def _cmd_export(args: argparse.Namespace) -> int:
     print(
         f"mata export: Coming in v2.0.\n"
@@ -452,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         "recognize": _cmd_recognize,
         "track": _cmd_track,
         "val": _cmd_val,
+        "annotate": _cmd_annotate,
         "export": _cmd_export,
     }
     handler = dispatch.get(args.command)

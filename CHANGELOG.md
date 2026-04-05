@@ -16,6 +16,38 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.0] — In Development
+
+### Added
+
+**Browser-based dataset annotation — `mata.annotate()` and `mata annotate`**
+
+- `mata.annotate(data="data", ...)` — public Python API for launching the local annotation server
+- `mata annotate [--data] [--host] [--port] [--no-browser] [--detect-model] [--vlm-model] [--embed-model]` — CLI entrypoint for the same workflow
+- Browser-based annotation UI for COCO-style bounding boxes and polygons, plus ImageFolder reclassification mode
+- Local dataset management via `src/mata/annotate/` with path-safe file serving and COCO JSON persistence
+- Background training bridge from the annotation UI with status polling and stop requests
+- `docs/ANNOTATION_GUIDE.md` — full user guide for startup, dataset layouts, annotation tools, export, training, and security notes
+
+**Annotation Workflow Redesign — two-view UI (v2.0.0)**
+
+- **Browser View**: Paginated thumbnail grid with split tabs (All / Train / Val / Test), case-insensitive filename search, sort options (Name A→Z / Z→A / Newest / Largest), browse progress bar, per-image annotation checkmark badge, and dataset type badges (`coco` / `imagefolder` / `voc` / `empty`)
+- **Editor View**: Three-column layout — left panel (Labels / Attributes / Raw Data tabs), center canvas, right vertical tool palette; top bar with breadcrumb navigation and image prev/next; bottom bar with zoom controls and brightness popover
+- **Tool Palette**: 11 tool buttons — Select (`V`), BBox (`B`), Polygon (`P`), Polyline, Rotate, AI (`A`), Split, Merge, Undo (`Ctrl+Z`), Redo, Delete (`Del`); 6 active tools, 5 "Coming Soon" (disabled with tooltip); single active tool radio behavior; tool state resets to Select on image change
+- **Annotation Properties Panel**: Inline bbox (xyxy), area (px²), category dropdown, and confidence score badge for the selected annotation; live-updates during drag/resize; auto-saves on category change
+- **Attributes Tab**: Per-annotation key-value metadata with inline add / edit / delete; values persist via annotation auto-save
+- **Raw Data Tab**: Syntax-highlighted COCO JSON for the current image with one-click Copy JSON; updates on every annotation change
+- **Class Color Legend**: Classes sub-tab renders a centralized 8-color palette swatch next to each category; canvas annotations, legend, and layers list all use the same `getCategoryColor()` source of truth
+- **Auto Annotate**: Mode dropdown switching between Detect (confidence threshold), VLM (free-text prompt), and CLIP (class names) modes; AI candidates rendered as dashed-border draft annotations; status spinner → checkmark; error message when required model is not loaded; CLIP mode pre-fills class names from existing categories
+- **Theme Toggle**: Dark / Light / System mode cycling via top-bar button; selection persisted in `localStorage` under key `mata-annotate-theme`; smooth 300 ms CSS transition on all theme properties
+- **Zoom / Pan**: Mouse-wheel zoom (10% steps, 10%–500% range) anchored to cursor position; `−` / `+` / RESET buttons in bottom bar; Space+drag and middle-click pan with edge-clamping so the image cannot scroll off-screen
+- **Brightness / Contrast**: Popover with two sliders (0–200%) and a Reset button; CSS-filter-only — does not modify source images or saved annotations
+- **Backend**: Paginated image listing (`?page=&per_page=`), split filter (`?split=`), sort (`?sort=`), and filename search (`?search=`) query parameters on `/api/datasets/<name>/images`; enhanced `/api/datasets/<name>/stats` response with `total_annotated`, `total_unannotated`, `browse_progress`, per-split counts, and `total_size_bytes`; annotation PATCH endpoint supporting `category_id`, `attributes`, and `bbox` updates
+- **Keyboard Shortcuts**: View-scoped shortcut system — Browser View handles `ArrowLeft`/`ArrowRight` (grid navigation) and `Enter` (open editor); Editor View adds `V` (select), `B` (bbox), `P` (polygon), `A` (AI), `Ctrl+Z` (undo), `Ctrl+Y` (redo — placeholder), `Ctrl+S` (save), `Delete`/`Backspace` (delete annotation), `Space`+drag (pan); shortcuts never fire while focus is in `<input>` / `<textarea>`
+- **Responsive**: `@media (max-width: 860px)` — browser sidebar becomes a slide-out overlay with backdrop dimming; editor left panel slides independently via hamburger toggle; tool palette moves to a fixed bottom bar (flex-direction: row); touch targets expanded to 44×44 px
+
+---
+
 ## [1.9.7] — 2026-04-02
 
 ### Added
