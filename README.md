@@ -298,7 +298,7 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 - **v1.9.x** (maintenance) — bug fixes and documentation only
-- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup
+- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup. [View Development of v2.0.0 Beta 2 Branch]([https://github.com](https://github.com/datamata-io/mata/tree/v2.0.0b2))
 - **v2.x** — HuggingFace Hub model recommendations, KACA CNN integration, V2L HyperLoRA research
 - **v2.5+** — 3D vision, edge deployment, Auto-ML
 
