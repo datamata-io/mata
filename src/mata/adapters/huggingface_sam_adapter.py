@@ -279,9 +279,15 @@ class HuggingFaceSAMAdapter(PyTorchBaseAdapter):
             is_sam3 = "sam3" in model_id.lower()
 
             # Suppress noisy third-party output during model loading
-            from mata.core.logging import suppress_third_party_logs
+            import time
+            from mata.core.logging import suppress_third_party_logs, is_model_cached
 
-            with suppress_third_party_logs():
+            t0 = time.perf_counter()
+            _cached = is_model_cached(model_id)
+            if not _cached:
+                logger.info(f"Downloading {model_id} (first run — this may take a minute)...")
+
+            with suppress_third_party_logs(allow_progress=not _cached):
 
                 if is_sam3:
                     # SAM3 supports text prompts via Sam3Processor/Sam3Model (PCS mode)
@@ -313,7 +319,7 @@ class HuggingFaceSAMAdapter(PyTorchBaseAdapter):
             # SAM is class-agnostic, use default label
             self.id2label = {0: "object"}
 
-            logger.info(f"Loaded SAM model on {self.device} " f"(zero-shot mode, RLE={self.use_rle})")
+            logger.info(f"SAM model loaded on {self.device} ({time.perf_counter() - t0:.1f}s, RLE={self.use_rle})")
 
         except Exception as e:
             if isinstance(e, (ImportError, UnsupportedModelError)):

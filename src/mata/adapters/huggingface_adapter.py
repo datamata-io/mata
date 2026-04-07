@@ -121,9 +121,15 @@ class HuggingFaceDetectAdapter(PyTorchBaseAdapter):
             logger.info(f"Detected architecture: {architecture}")
 
             # Suppress noisy third-party output (progress bars, unexpected key warnings, etc.)
-            from mata.core.logging import suppress_third_party_logs
+            import time
+            from mata.core.logging import suppress_third_party_logs, is_model_cached
 
-            with suppress_third_party_logs():
+            t0 = time.perf_counter()
+            _cached = is_model_cached(self.model_id)
+            if not _cached:
+                logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
+
+            with suppress_third_party_logs(allow_progress=not _cached):
 
                 # Load appropriate processor and model
                 if architecture == "rtdetr":
@@ -169,7 +175,7 @@ class HuggingFaceDetectAdapter(PyTorchBaseAdapter):
             if not self.id2label and hasattr(self.model.config, "id2label"):
                 self.id2label = self.model.config.id2label
 
-            logger.info(f"Model loaded successfully on {self.device}")
+            logger.info(f"Model loaded on {self.device} ({time.perf_counter() - t0:.1f}s)")
 
         except Exception as e:
             raise ModelLoadError(self.model_id, f"Failed to load HuggingFace model: {type(e).__name__}: {str(e)}")

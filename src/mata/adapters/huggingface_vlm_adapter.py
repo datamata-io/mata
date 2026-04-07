@@ -256,11 +256,16 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
 
         # Load model and processor
         try:
+            import time
+            from mata.core.logging import suppress_third_party_logs, is_model_cached
+
+            t0 = time.perf_counter()
+            _cached = is_model_cached(model_id)
+            if not _cached:
+                logger.info(f"Downloading {model_id} (first run — this may take a minute)...")
             logger.info(f"Loading VLM model: {model_id}")
 
-            from mata.core.logging import suppress_third_party_logs
-
-            with suppress_third_party_logs():
+            with suppress_third_party_logs(allow_progress=not _cached):
 
                 # Load processor — fall back to AutoTokenizer for models
                 # (e.g. moondream3) that don't ship standard processor files.
@@ -371,7 +376,7 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
 
             self.model.eval()
 
-            logger.info(f"Loaded VLM model: {model_id} on {self.device}")
+            logger.info(f"VLM model loaded on {self.device} ({time.perf_counter() - t0:.1f}s): {model_id}")
 
         except Exception as e:
             raise ModelLoadError(model_id, str(e))

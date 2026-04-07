@@ -154,9 +154,15 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
 
     def _load_model(self) -> None:
         """Load model and processor from HuggingFace Hub."""
+        import time
         tf = _ensure_transformers()
         try:
-            from mata.core.logging import suppress_third_party_logs
+            from mata.core.logging import suppress_third_party_logs, is_model_cached
+
+            t0 = time.perf_counter()
+            _cached = is_model_cached(self.model_id)
+            if not _cached:
+                logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
 
             if self._arch == "glm_ocr":
                 logger.info(f"Loading GLM-OCR model: {self.model_id}")
@@ -165,7 +171,7 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
                 use_device_map = str(self.device) != "cpu" and load_kwargs.pop("device_map", None) != "disabled"
                 if use_device_map:
                     load_kwargs["device_map"] = "auto"
-                with suppress_third_party_logs():
+                with suppress_third_party_logs(allow_progress=not _cached):
                     self._processor = tf.AutoProcessor.from_pretrained(self.model_id, **self._extra_kwargs)
                     self._model = tf.AutoModelForImageTextToText.from_pretrained(self.model_id, **load_kwargs)
                 if not use_device_map:
@@ -178,19 +184,19 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
 
             elif self._arch == "trocr":
                 logger.info(f"Loading TrOCR model: {self.model_id}")
-                with suppress_third_party_logs():
+                with suppress_third_party_logs(allow_progress=not _cached):
                     self._processor = tf.TrOCRProcessor.from_pretrained(self.model_id, **self._extra_kwargs)
                     self._model = tf.VisionEncoderDecoderModel.from_pretrained(self.model_id, **self._extra_kwargs)
                 self._model = self._model.to(self.device).eval()
 
             elif self._arch == "got_ocr":
                 logger.info(f"Loading GOT-OCR2 model: {self.model_id}")
-                with suppress_third_party_logs():
+                with suppress_third_party_logs(allow_progress=not _cached):
                     self._processor = tf.AutoProcessor.from_pretrained(self.model_id, **self._extra_kwargs)
                     self._model = tf.AutoModelForImageTextToText.from_pretrained(self.model_id, **self._extra_kwargs)
                 self._model = self._model.to(self.device).eval()
 
-            logger.info(f"OCR model loaded successfully on {self.device} (arch={self._arch})")
+            logger.info(f"OCR model loaded on {self.device} ({time.perf_counter() - t0:.1f}s, arch={self._arch})")
 
         except ImportError:
             raise

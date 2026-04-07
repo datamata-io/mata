@@ -242,15 +242,21 @@ class HuggingFaceCLIPAdapter(PyTorchBaseAdapter):
         Raises:
             ModelLoadError: If model loading fails
         """
-        from mata.core.logging import suppress_third_party_logs
+        from mata.core.logging import suppress_third_party_logs, is_model_cached
 
         try:
             transformers = _ensure_transformers()
 
             logger.info(f"Loading CLIP model: {self.model_id}")
 
+            import time
+            t0 = time.perf_counter()
+            _cached = is_model_cached(self.model_id)
+            if not _cached:
+                logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
+
             # Load processor and model (suppress noisy HF output)
-            with suppress_third_party_logs():
+            with suppress_third_party_logs(allow_progress=not _cached):
                 self.processor = transformers["CLIPProcessor"].from_pretrained(self.model_id)
                 self.model = transformers["CLIPModel"].from_pretrained(self.model_id)
 
@@ -258,7 +264,7 @@ class HuggingFaceCLIPAdapter(PyTorchBaseAdapter):
             self.model.to(self.device)
             self.model.eval()
 
-            logger.info(f"Successfully loaded CLIP model on device: {self.device}")
+            logger.info(f"CLIP model loaded on {self.device} ({time.perf_counter() - t0:.1f}s)")
 
         except Exception as e:
             raise ModelLoadError(self.model_id, f"Failed to load CLIP model: {str(e)}") from e
