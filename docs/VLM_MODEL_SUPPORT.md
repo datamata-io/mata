@@ -1,4 +1,4 @@
-# VLM Model Support (v1.9.7)
+# VLM Model Support (v1.9.8)
 
 > **MATA** — Vision-Language Model compatibility reference for v1.9.7.  
 > All models are loaded via `AutoModelForImageTextToText` (HuggingFace Transformers ≥ 4.51.0; ≥ 5.0.0 recommended for full multi-model support).
@@ -34,6 +34,7 @@ print(result.text)
 | Model              | HF ID                                 | Size    | Use Case                  | `dtype` Override | `trust_remote_code` | Status                                                 |
 | ------------------ | ------------------------------------- | ------- | ------------------------- | ---------------- | ------------------- | ------------------------------------------------------ |
 | **Qwen3-VL**       | `Qwen/Qwen3-VL-2B-Instruct`           | 2B / 7B | General VQA, grounding    | `"auto"`         | No                  | ✅ Shipped                                             |
+| **Gemma 4**        | `google/gemma-4-E2B-it`               | 2B      | General multimodal VQA    | `"auto"`         | No                  | ✅ Tested — requires `transformers>=5.5.0`             |
 | **MedGemma**       | `google/medgemma-1.5-4b-it`           | 4B      | Medical imaging           | `"bfloat16"`     | No                  | ✅ Tested                                              |
 | **LFM2.5-VL**      | `LiquidAI/LFM2.5-VL-1.6B`             | 1.6B    | Lightweight general       | `"bfloat16"`     | No                  | ✅ Tested                                              |
 | **SmolVLM**        | `HuggingFaceTB/SmolVLM-256M-Instruct` | 256M    | Ultra-light edge / mobile | `"auto"`         | No                  | ✅ Tested                                              |
@@ -53,6 +54,53 @@ print(result.text)
 ---
 
 ## Model-Specific Notes
+
+### Gemma 4 (General Multimodal VQA)
+
+Google's Gemma 4 family adds native multimodal (image + text) capability to the Gemma model
+line. Gemma 4 uses a fixed-budget patch approach — images are represented as 70–1120 soft
+tokens (default 280), and a learned 2D RoPE encodes spatial position directly, without standard
+ImageNet normalisation. The 2B "E2B" (Efficient 2B) variant is verified working in MATA with
+no special kwargs required.
+
+> **Requires:** `transformers >= 5.5.0` — Gemma 4 model classes were first added in
+> Transformers v5.5.0. Upgrade with `pip install "transformers>=5.5.0"`.
+
+```python
+# 2B variant — no special flags needed
+vlm = mata.load("vlm", "google/gemma-4-E2B-it")
+result = vlm.predict("image.jpg", prompt="Describe this image.")
+print(result.text)
+
+# Larger variants (13B / 27B) — bfloat16 recommended to reduce VRAM
+vlm = mata.load("vlm", "google/gemma-4-13b-it", dtype="bfloat16")
+vlm = mata.load("vlm", "google/gemma-4-27b-it", dtype="bfloat16")
+
+# One-shot inference
+result = mata.run(
+    "vlm",
+    "image.jpg",
+    model="google/gemma-4-E2B-it",
+    prompt="What objects are in this image?",
+    max_new_tokens=300,
+)
+print(result.text)
+```
+
+**Available model IDs:**
+
+| Variant              | HF ID                   | VRAM (fp32) | Recommended kwargs |
+| -------------------- | ----------------------- | ----------- | ------------------ |
+| 2B (E2B — Efficient) | `google/gemma-4-E2B-it` | ~4 GB       | `dtype="auto"`     |
+| 13B                  | `google/gemma-4-13b-it` | ~26 GB      | `dtype="bfloat16"` |
+| 27B                  | `google/gemma-4-27b-it` | ~54 GB      | `dtype="bfloat16"` |
+
+**Required kwargs:** None (2B); `dtype="bfloat16"` strongly recommended for 13B and 27B  
+**Minimum transformers version:** `>=5.5.0`  
+**Use cases:** General VQA, image description, visual reasoning, multi-turn conversation  
+**Tested:** Full MATA VLM example suite (`examples/vlm/basic_vlm.py`) — all sections pass.
+
+---
 
 ### Qwen3-VL (General VQA / Grounding)
 

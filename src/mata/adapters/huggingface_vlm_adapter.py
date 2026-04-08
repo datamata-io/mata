@@ -14,6 +14,7 @@ Key Features:
 
 Supported Models:
 - Qwen/Qwen3-VL-2B-Instruct (recommended for dev/testing)
+- google/gemma-4-E2B-it (multimodal, native aspect ratio; requires transformers>=5.5.0)
 - google/medgemma-1.5-4b-it (medical imaging, requires dtype="bfloat16")
 - LiquidAI/LFM2.5-VL-1.6B (lightweight, requires dtype="bfloat16")
 - HuggingFaceTB/SmolVLM-256M-Instruct (ultra-light edge)
@@ -796,6 +797,8 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             r"lfm.*vl",  # LiquidAI LFM2-VL, LFM2.5-VL
             r"smolvlm",  # HuggingFace SmolVLM
             r"moondream",  # Moondream2
+            # v1.9.8 additions
+            r"gemma-4",  # Google Gemma 4 multimodal (NOT gemma-2/3 text-only)
         ]
 
         # Check if any pattern matches
