@@ -1,3 +1,9 @@
+---
+title: "Installation"
+description: "Install MATA with pip, prepare GPU acceleration, and verify a working runtime before running inference."
+sidebar_position: 2
+---
+
 # MATA Installation Guide
 
 This guide covers installing MATA with GPU or CPU support.

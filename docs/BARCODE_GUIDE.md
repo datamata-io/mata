@@ -1,3 +1,9 @@
+---
+title: "Barcode"
+description: "Detect and decode barcodes in MATA pipelines with guidance for common formats and image quality issues."
+sidebar_position: 8
+---
+
 # MATA Barcode & QR Code Guide
 
 > **Version**: 1.9.3 | **Last Updated**: April 3, 2026

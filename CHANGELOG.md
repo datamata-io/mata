@@ -33,10 +33,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **`suppress_third_party_logs()` new `allow_progress` parameter** — `suppress_third_party_logs(allow_progress=True)` suppresses warnings and noisy loggers as before but leaves `HF_HUB_DISABLE_PROGRESS_BARS`, `TQDM_DISABLE`, and stderr untouched, allowing download progress bars through; `allow_progress=False` (default) retains full previous suppression for backward compatibility; `mata.verbose(0)` (total silence) overrides `allow_progress=True`
 - **`is_model_cached(model_id)` helper added to `mata.core.logging`** — uses `huggingface_hub.try_to_load_from_cache()` to probe for `config.json`; returns `True` when the model is in the local HF cache, `False` otherwise; never raises; all adapters use this to decide whether to show download feedback
 
-### Changed
-
-- **`_fuzzy_label_match` extracted to shared `_label_utils` module** — the private helper was duplicated verbatim across `src/mata/core/artifacts/detections.py` and `src/mata/core/artifacts/converters.py`, with the `detections.py` copy missing three correctness fixes present in the `converters.py` version (multiple-space collapse via `re.sub`, `break` after first article match, `"ss"`-suffix guard on the plural strip). The canonical `converters.py` implementation is now the single source of truth in `src/mata/core/artifacts/_label_utils.py`; both modules import from there. No public API is affected.
-
 ### Tests
 
 - **Full test suite validated against `transformers==5.5.0`** — 5569 passed, 11 skipped, 0 failures. DETR segmentation (`DetrForSegmentation` in `huggingface_segment_adapter.py`) confirmed compatible — resolves the Moderate-severity risk flagged in the 2026-04-03 research report. Version pin remains at `>=4.35.0`; users who need Gemma 4 must upgrade to `>=5.5.0` manually.

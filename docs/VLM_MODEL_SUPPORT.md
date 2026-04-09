@@ -1,3 +1,9 @@
+---
+title: "Vision-Language Models"
+description: "Choose and run supported vision-language models in MATA, including runtime notes and model-specific constraints."
+sidebar_position: 5
+---
+
 # VLM Model Support (v1.9.8)
 
 > **MATA** — Vision-Language Model compatibility reference for v1.9.7.  

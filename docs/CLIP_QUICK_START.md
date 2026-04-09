@@ -1,3 +1,8 @@
+---
+title: "CLIP Embeddings"
+description: "Use CLIP-based embeddings for similarity search, zero-shot classification, and reusable image-text representations."
+sidebar_position: 1
+---
 # CLIP Zero-Shot Image Classification - Quick Start Guide
 
 **Version:** 1.9.7  
@@ -637,8 +642,8 @@ ClassifyResult(
 ## Next Steps
 
 - 📖 See [examples/classify/clip_zeroshot.py](../../examples/classify/clip_zeroshot.py) for complete examples
-- 🔧 Read [SUPPORTED_MODELS.md](SUPPORTED_MODELS.md) for model compatibility details
-- 🚀 Explore [ZEROSHOT_DETECTION_GUIDE.md](ZEROSHOT_DETECTION_GUIDE.md) for zero-shot detection
+- 🔧 Read [SUPPORTED_MODELS.md](./SUPPORTED_MODELS.md) for model compatibility details
+- 🚀 Explore [ZEROSHOT_DETECTION_GUIDE.md](./ZEROSHOT_DETECTION_GUIDE.md) for zero-shot detection
 - 📚 Check [QUICK_REFERENCE.md](../QUICK_REFERENCE.md) for all MATA tasks
 
 ---

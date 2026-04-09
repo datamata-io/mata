@@ -1,3 +1,9 @@
+---
+title: "Graph System"
+description: "Understand MATA's typed graph architecture, node model, execution flow, and multi-result output bundle."
+sidebar_position: 2
+---
+
 # MATA Graph System Architecture Guide
 
 > **Version**: 1.9.5 | **Last Updated**: April 2, 2026
@@ -703,5 +709,5 @@ from mata.core.exceptions import (
 
 ## Further Reading
 
-- [API Reference](GRAPH_API_REFERENCE.md) — Complete reference for all nodes, artifacts, and APIs
-- [Cookbook](GRAPH_COOKBOOK.md) — Recipes and patterns for common workflows
+- [API Reference](./GRAPH_API_REFERENCE.md) — Complete reference for all nodes, artifacts, and APIs
+- [Cookbook](./GRAPH_COOKBOOK.md) — Recipes and patterns for common workflows

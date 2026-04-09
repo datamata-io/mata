@@ -1,3 +1,9 @@
+---
+title: "Supported Models"
+description: "Representative model families supported by MATA across detection, segmentation, VLM, OCR, embedding, and barcode workflows."
+sidebar_position: 3
+---
+
 # Supported Models
 
 MATA supports any model loadable via HuggingFace Transformers, ONNX Runtime, TorchScript, or Torchvision. Below are the tested and recommended models for each task.
@@ -87,7 +93,7 @@ result  = mata.run("<task>", "image.jpg", model="<HuggingFace ID or file path>")
 | **Phi-3.5 Vision** | `microsoft/Phi-3.5-vision-instruct`   | `dtype="bfloat16"`, `trust_remote_code=True` | Code / diagrams — ❌ Deferred (FlashAttention2 — Linux only) |
 | **InternVL2**      | `OpenGVLab/InternVL2-1B`              | `trust_remote_code=True`                     | ❌ Not supported (Accelerate meta-device incompatible)       |
 
-See [VLM Model Support](VLM_MODEL_SUPPORT.md) for the full compatibility table.
+See [VLM Model Support](./VLM_MODEL_SUPPORT.md) for the full compatibility table.
 
 ## OCR / Text Extraction
 

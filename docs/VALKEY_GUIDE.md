@@ -1,3 +1,9 @@
+---
+title: "Valkey"
+description: "Configure Valkey-backed caching and shared state for MATA workloads that need fast coordination across runs."
+sidebar_position: 2
+---
+
 # MATA Valkey/Redis Integration Guide
 
 **Version**: 1.9.2  
@@ -806,7 +812,7 @@ result.save("valkey://localhost:6379/track:latest", ttl=30)
 
 ## See Also
 
-- [Graph API Reference — Storage Nodes](GRAPH_API_REFERENCE.md#storage-nodes) — full parameter reference for `ValkeyStore` and `ValkeyLoad`
+- [Graph API Reference — Storage Nodes](./GRAPH_API_REFERENCE.md#storage-nodes) — full parameter reference for `ValkeyStore` and `ValkeyLoad`
 - [QUICK_REFERENCE.md — Valkey section](../QUICK_REFERENCE.md#️-valkeyredis-storage-quick-reference-v19) — cheatsheet
 - [Valkey official documentation](https://valkey.io/documentation/)
-- [MATA Validation Guide](VALIDATION_GUIDE.md)
+- [MATA Validation Guide](./VALIDATION_GUIDE.md)
