@@ -157,7 +157,8 @@ class HuggingFaceClassifyAdapter(PyTorchBaseAdapter):
 
             # Suppress noisy third-party output (progress bars, unexpected key warnings, etc.)
             import time
-            from mata.core.logging import suppress_third_party_logs, is_model_cached
+
+            from mata.core.logging import is_model_cached, suppress_third_party_logs
 
             t0 = time.perf_counter()
             _cached = is_model_cached(self.model_id)

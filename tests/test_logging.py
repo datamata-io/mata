@@ -6,19 +6,14 @@ import logging
 import os
 import sys
 from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-
-import mata
-import mata.core.logging as mata_logging
 from mata.core.logging import (
     get_verbosity,
     is_model_cached,
     suppress_third_party_logs,
     verbose,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

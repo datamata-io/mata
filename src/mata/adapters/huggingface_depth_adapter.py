@@ -60,7 +60,8 @@ class HuggingFaceDepthAdapter(PyTorchBaseAdapter):
     def _load_model(self) -> None:
         """Load model and processor."""
         import time
-        from mata.core.logging import suppress_third_party_logs, is_model_cached
+
+        from mata.core.logging import is_model_cached, suppress_third_party_logs
 
         try:
             logger.info(f"Loading HuggingFace depth model: {self.model_id}")

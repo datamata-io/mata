@@ -9,7 +9,6 @@ This module provides utility functions for:
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from mata.core.artifacts._label_utils import _fuzzy_label_match

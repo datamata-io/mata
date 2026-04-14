@@ -258,7 +258,8 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
         # Load model and processor
         try:
             import time
-            from mata.core.logging import suppress_third_party_logs, is_model_cached
+
+            from mata.core.logging import is_model_cached, suppress_third_party_logs
 
             t0 = time.perf_counter()
             _cached = is_model_cached(model_id)
