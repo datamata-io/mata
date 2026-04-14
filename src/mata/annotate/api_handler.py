@@ -349,18 +349,16 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         return 200, (data, ct)
 
     # GET /api/datasets/<name>/annotations
-    # Returns a *slim* envelope — images + categories only (no annotations array).
-    # Annotation data can be large (500 MB+ for full COCO) so it is loaded lazily
-    # per image via GET /annotations/image/<filename>.
     if method == "GET" and tail == ["annotations"]:
         _, coco = _load_dataset_coco(server, dataset)
+        annotations = coco.get("annotations", [])
         return 200, {
             "info": coco.get("info", {}),
             "licenses": coco.get("licenses", []),
             "images": coco.get("images", []),
             "categories": coco.get("categories", []),
-            "annotations": [],
-            "annotation_count": len(coco.get("annotations", [])),
+            "annotations": annotations,
+            "annotation_count": len(annotations),
         }
 
     # GET /api/datasets/<name>/annotations/image/<filename>

@@ -133,11 +133,11 @@ def test_dispatch_loads_existing_annotation_file_from_annotations_dir(tmp_path: 
 
     assert status == 200
     assert payload["images"][0]["file_name"] == "000001.jpg"
-    # Slim GET /annotations returns an empty annotations list; annotation data
-    # is fetched lazily per-image via GET /annotations/image/<filename>.
-    assert payload["annotations"] == []
+    # GET /annotations returns the full annotations list (D1 fix: removed slim envelope).
+    assert len(payload["annotations"]) == 1
+    assert payload["annotations"][0]["bbox"] == [1, 2, 10, 12]
     assert payload["annotation_count"] == 1
-    # Verify the actual annotation bbox via the per-image endpoint.
+    # Per-image endpoint also works.
     _, img_payload = api_handler.dispatch(
         server, "GET", "/api/datasets/coco_mini/annotations/image/000001.jpg", {}
     )

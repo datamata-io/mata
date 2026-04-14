@@ -24,7 +24,7 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "2.0.0b2"
+__version__ = "2.0.0"
 
 from .api import annotate, finetune, get_model_info, infer, list_models, load, register_model, run, track, train, val, verbose
 from .core import (

@@ -489,9 +489,14 @@ def test_export_produces_dataset_yaml(tmp_path: Path) -> None:
     img_dir.mkdir(parents=True)
     _write_img(img_dir / "img001.jpg")
     (ds_dir / "annotations").mkdir(parents=True)
+    # export_dataset requires at least one split directory to exist;
+    # create train/ and copy the image so detection works correctly.
+    train_dir = ds_dir / "train"
+    train_dir.mkdir(parents=True)
+    _write_img(train_dir / "img001.jpg")
 
     coco = _sample_coco()
-    coco["images"][0]["file_name"] = "images/img001.jpg"
+    coco["images"][0]["file_name"] = "train/img001.jpg"
 
     with _ServerCtx(tmp_path) as srv:
         _post(srv, "/api/datasets/myds/annotations", coco)
@@ -675,9 +680,12 @@ def test_full_annotation_workflow(tmp_path: Path) -> None:
         # 2. Copy a test image into the new dataset
         img_dst = tmp_path / "workflow_test" / "images" / "img001.jpg"
         _write_img(img_dst)
+        # Also place the image in train/ so export_dataset can detect the split.
+        train_dst = tmp_path / "workflow_test" / "train" / "img001.jpg"
+        _write_img(train_dst)
 
         # 3. Post COCO annotations
-        coco = _sample_coco("images/img001.jpg")
+        coco = _sample_coco("train/img001.jpg")
         s, b = _post(srv, "/api/datasets/workflow_test/annotations", coco)
         assert s == 200
         assert b["saved"] is True

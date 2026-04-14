@@ -66,6 +66,8 @@ mata annotate \
   --detect-model facebook/detr-resnet-50 \
   --vlm-model Qwen/Qwen3-VL-2B-Instruct \
   --embed-model openai/clip-vit-base-patch32
+
+mata annotate --data data --detect-model PekingU/rtdetr_v2_r18vd --vlm-model Qwen/Qwen3-VL-2B-Instruct --embed-model openai/clip-vit-base-patch32
 ```
 
 Models are loaded lazily. They are not downloaded or initialized until the first AI-assist request arrives.
@@ -106,12 +108,12 @@ Click any dataset name in the sidebar to load it. The thumbnail grid updates imm
 
 Above the thumbnail grid, horizontal tabs let you filter by split:
 
-| Tab       | Shows                                       |
-| --------- | ------------------------------------------- |
-| **All**   | Every image in the dataset (default)        |
-| **Train** | Images in the `train` split only            |
-| **Val**   | Images in the `val` split only              |
-| **Test**  | Images in the `test` split only             |
+| Tab       | Shows                                |
+| --------- | ------------------------------------ |
+| **All**   | Every image in the dataset (default) |
+| **Train** | Images in the `train` split only     |
+| **Val**   | Images in the `val` split only       |
+| **Test**  | Images in the `test` split only      |
 
 Tabs that have no images are not hidden, but their count badge shows `0`.
 
@@ -123,12 +125,12 @@ A search box above the thumbnail grid filters by filename (case-insensitive). Ty
 
 A dropdown beside the search box controls image ordering:
 
-| Option        | Behavior                      |
-| ------------- | ----------------------------- |
-| `Name A→Z`    | Alphabetical ascending        |
-| `Name Z→A`    | Alphabetical descending       |
-| `Newest`      | Most recently modified first  |
-| `Largest`     | Largest file size first       |
+| Option     | Behavior                     |
+| ---------- | ---------------------------- |
+| `Name A→Z` | Alphabetical ascending       |
+| `Name Z→A` | Alphabetical descending      |
+| `Newest`   | Most recently modified first |
+| `Largest`  | Largest file size first      |
 
 ### Pagination
 
@@ -245,7 +247,7 @@ Clicking a thumbnail navigates to the Editor View at `/#edit?dataset=...&image=.
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-*† Coming Soon — visible but disabled.*
+_† Coming Soon — visible but disabled._
 
 ### Top Bar
 
@@ -271,16 +273,16 @@ The default tab. Contains:
 
 When an annotation is selected on the canvas, the bottom of the Labels tab shows its properties inline:
 
-| Field         | Description                                                    |
-| ------------- | -------------------------------------------------------------- |
-| **Bbox**      | Bounding box in `xyxy` format (read-only; edit by dragging)    |
-| **Area**      | Bounding box area in px² (computed, read-only)                 |
-| **Category**  | Dropdown — changing it updates the annotation and auto-saves   |
-| **Score**     | Confidence badge (only shown for AI-assist candidates)         |
+| Field        | Description                                                  |
+| ------------ | ------------------------------------------------------------ |
+| **Bbox**     | Bounding box in `xyxy` format (read-only; edit by dragging)  |
+| **Area**     | Bounding box area in px² (computed, read-only)               |
+| **Category** | Dropdown — changing it updates the annotation and auto-saves |
+| **Score**    | Confidence badge (only shown for AI-assist candidates)       |
 
 Properties update live during drag and resize operations.
 
-Deselecting an annotation (pressing `Escape` or clicking empty canvas) replaces the panel with a *"Select an annotation to view its properties"* placeholder.
+Deselecting an annotation (pressing `Escape` or clicking empty canvas) replaces the panel with a _"Select an annotation to view its properties"_ placeholder.
 
 #### Attributes Tab
 
@@ -307,19 +309,19 @@ Displays the current image's COCO JSON (image record + annotations + categories)
 
 A vertical strip of 40×40 px buttons on the right edge of the editor. Only one tool is active at a time (radio behavior).
 
-| Button    | Shortcut | State        | Action                                       |
-| --------- | -------- | ------------ | -------------------------------------------- |
-| ✦ Select  | `V`      | Active       | Click/drag to select and move annotations    |
-| ☐ BBox    | `B`      | Active       | Draw bounding boxes                          |
-| ⬡ Polygon | `P`      | Active       | Draw polygons, vertex by vertex              |
-| — Polyline| —        | Coming Soon  | Disabled (tooltip: "Coming Soon")            |
-| ↻ Rotate  | —        | Coming Soon  | Disabled                                     |
-| ◈ AI      | `A`      | Active       | Scrolls left panel to Auto Annotate section  |
-| ⊢ Split   | —        | Coming Soon  | Disabled                                     |
-| ⊕ Merge   | —        | Coming Soon  | Disabled                                     |
-| ↩ Undo    | `Ctrl+Z` | Active       | Undo the last annotation action              |
-| ↪ Redo    | `Ctrl+Y` | Coming Soon  | Disabled                                     |
-| 🗑 Delete | `Delete` | Active       | Delete the selected annotation               |
+| Button     | Shortcut | State       | Action                                      |
+| ---------- | -------- | ----------- | ------------------------------------------- |
+| ✦ Select   | `V`      | Active      | Click/drag to select and move annotations   |
+| ☐ BBox     | `B`      | Active      | Draw bounding boxes                         |
+| ⬡ Polygon  | `P`      | Active      | Draw polygons, vertex by vertex             |
+| — Polyline | —        | Coming Soon | Disabled (tooltip: "Coming Soon")           |
+| ↻ Rotate   | —        | Coming Soon | Disabled                                    |
+| ◈ AI       | `A`      | Active      | Scrolls left panel to Auto Annotate section |
+| ⊢ Split    | —        | Coming Soon | Disabled                                    |
+| ⊕ Merge    | —        | Coming Soon | Disabled                                    |
+| ↩ Undo     | `Ctrl+Z` | Active      | Undo the last annotation action             |
+| ↪ Redo     | `Ctrl+Y` | Coming Soon | Disabled                                    |
+| 🗑 Delete  | `Delete` | Active      | Delete the selected annotation              |
 
 Active tool has a highlighted background (`--accent-soft` fill). Tool state resets to **Select** when switching to a new image.
 
@@ -384,11 +386,11 @@ Polygons are stored in COCO `segmentation: [[x1, y1, ...]]` format. A tight boun
 
 The **Auto Annotate** section in the Labels tab provides three modes. A mode dropdown switches between them:
 
-| Mode       | Uses                         | Prompt input              |
-| ---------- | ---------------------------- | ------------------------- |
-| **Detect** | Detection model              | Confidence threshold (0–1)|
-| **VLM**    | VLM model                    | Free-text prompt textarea |
-| **CLIP**   | Embedding / CLIP model       | Class names (comma-separated)|
+| Mode       | Uses                   | Prompt input                  |
+| ---------- | ---------------------- | ----------------------------- |
+| **Detect** | Detection model        | Confidence threshold (0–1)    |
+| **VLM**    | VLM model              | Free-text prompt textarea     |
+| **CLIP**   | Embedding / CLIP model | Class names (comma-separated) |
 
 Press the **ANNOTATE** button to run. A status indicator shows:
 
@@ -452,13 +454,13 @@ All zoom and pan interactions work correctly at any annotation zoom level. Drawi
 
 ### Zoom
 
-| Action                         | Effect                                           |
-| ------------------------------ | ------------------------------------------------ |
-| **Mouse wheel** (scroll up)    | Zoom in ~10%; anchors to cursor position         |
-| **Mouse wheel** (scroll down)  | Zoom out ~10%; anchors to cursor position        |
-| **+** button (bottom bar)      | Zoom in 10%                                      |
-| **−** button (bottom bar)      | Zoom out 10%                                     |
-| **RESET** button               | Restore 100% zoom, center the image              |
+| Action                        | Effect                                    |
+| ----------------------------- | ----------------------------------------- |
+| **Mouse wheel** (scroll up)   | Zoom in ~10%; anchors to cursor position  |
+| **Mouse wheel** (scroll down) | Zoom out ~10%; anchors to cursor position |
+| **+** button (bottom bar)     | Zoom in 10%                               |
+| **−** button (bottom bar)     | Zoom out 10%                              |
+| **RESET** button              | Restore 100% zoom, center the image       |
 
 Zoom range: **10% – 500%**. The current percentage is always shown in the bottom bar.
 
@@ -466,10 +468,10 @@ Zoom anchors to the mouse cursor position so the point under the cursor stays fi
 
 ### Pan
 
-| Action                  | Effect                    |
-| ----------------------- | ------------------------- |
-| Hold `Space` + drag     | Pan the canvas            |
-| Middle-click + drag     | Pan the canvas            |
+| Action              | Effect         |
+| ------------------- | -------------- |
+| Hold `Space` + drag | Pan the canvas |
+| Middle-click + drag | Pan the canvas |
 
 The canvas clamps panning so the image edge cannot move past the canvas center — you can never lose the image off-screen.
 
@@ -489,11 +491,11 @@ These adjustments are display-only (CSS filter). They do not modify the source i
 
 The theme button in the top bar of the Editor View and the corresponding control in the Browser View cycle through three modes:
 
-| Mode       | Behavior                                                          |
-| ---------- | ----------------------------------------------------------------- |
-| **Light**  | Light background, dark text                                       |
-| **Dark**   | Dark background, light text                                       |
-| **System** | Follows the OS / browser `prefers-color-scheme` media query       |
+| Mode       | Behavior                                                    |
+| ---------- | ----------------------------------------------------------- |
+| **Light**  | Light background, dark text                                 |
+| **Dark**   | Dark background, light text                                 |
+| **System** | Follows the OS / browser `prefers-color-scheme` media query |
 
 The selected mode is stored in `localStorage` under the key `mata-annotate-theme` and persists across page reloads and browser restarts.
 
@@ -502,6 +504,9 @@ Theme transitions animate smoothly (300 ms ease on `background`, `color`, and `b
 ---
 
 ## 8. Export and Training
+
+> [!NOTE]
+> The training integration (`mata.train()`) is a beta feature in v2.0.0. See the [Training Guide](TRAINING_GUIDE.md) for details.
 
 ### Exporting a Dataset
 
@@ -639,17 +644,17 @@ mata.annotate(
 
 ### Parameters
 
-| Parameter      | Default       | Description                                                     |
-| -------------- | ------------- | --------------------------------------------------------------- |
-| `data`         | `"data"`      | Root data directory to manage                                   |
-| `host`         | `"127.0.0.1"` | Bind address                                                    |
-| `port`         | `8710`        | Requested port                                                  |
-| `open_browser` | `True`        | Open the default browser automatically                          |
-| `block`        | `True`        | Block until shutdown, or return immediately in background mode  |
-| `detect_model` | `None`        | Detection model ID or alias                                     |
-| `vlm_model`    | `None`        | VLM model ID or alias                                           |
-| `embed_model`  | `None`        | Embedding model ID or alias                                     |
-| `**kwargs`     | —             | Reserved for future server configuration                        |
+| Parameter      | Default       | Description                                                    |
+| -------------- | ------------- | -------------------------------------------------------------- |
+| `data`         | `"data"`      | Root data directory to manage                                  |
+| `host`         | `"127.0.0.1"` | Bind address                                                   |
+| `port`         | `8710`        | Requested port                                                 |
+| `open_browser` | `True`        | Open the default browser automatically                         |
+| `block`        | `True`        | Block until shutdown, or return immediately in background mode |
+| `detect_model` | `None`        | Detection model ID or alias                                    |
+| `vlm_model`    | `None`        | VLM model ID or alias                                          |
+| `embed_model`  | `None`        | Embedding model ID or alias                                    |
+| `**kwargs`     | —             | Reserved for future server configuration                       |
 
 ### Return Value
 
@@ -719,29 +724,29 @@ Shortcuts are **view-scoped**. All editor shortcuts are guarded by the active vi
 
 ### Browser View Shortcuts
 
-| Shortcut              | Action                                          |
-| --------------------- | ----------------------------------------------- |
-| `ArrowLeft`           | Move focus to the previous thumbnail in the grid |
-| `ArrowRight`          | Move focus to the next thumbnail in the grid     |
-| `Enter`               | Open the focused thumbnail in the Editor View    |
+| Shortcut     | Action                                           |
+| ------------ | ------------------------------------------------ |
+| `ArrowLeft`  | Move focus to the previous thumbnail in the grid |
+| `ArrowRight` | Move focus to the next thumbnail in the grid     |
+| `Enter`      | Open the focused thumbnail in the Editor View    |
 
 ### Editor View Shortcuts
 
-| Shortcut               | Scope        | Action                                                                          |
-| ---------------------- | ------------ | ------------------------------------------------------------------------------- |
-| `V`                    | Editor only  | Activate the Select tool                                                        |
-| `B`                    | Editor only  | Activate the Bounding Box tool                                                  |
-| `P`                    | Editor only  | Activate the Polygon tool                                                       |
-| `A`                    | Editor only  | Scroll left panel to Auto Annotate section                                      |
-| `Enter`                | Editor only  | Close the in-progress polygon (≥ 3 vertices required)                           |
-| `Escape`               | Editor only  | Cancel current action → deselect annotation → close mobile panel overlay        |
-| `Delete` / `Backspace` | Editor only  | Delete the selected annotation                                                  |
-| `Ctrl+Z` / `Cmd+Z`     | Editor only  | Undo the previous action                                                        |
-| `Ctrl+Y` / `Cmd+Y`     | Editor only  | Redo (Coming Soon — currently a no-op with `preventDefault`)                   |
-| `Ctrl+S` / `Cmd+S`     | Editor only  | Save annotations immediately (prevents browser Save Page dialog)                |
-| `ArrowRight`           | Editor only  | Navigate to the next image                                                      |
-| `ArrowLeft`            | Editor only  | Navigate to the previous image                                                  |
-| `Space` + drag         | Editor only  | Pan the canvas while the key is held                                            |
+| Shortcut               | Scope       | Action                                                                   |
+| ---------------------- | ----------- | ------------------------------------------------------------------------ |
+| `V`                    | Editor only | Activate the Select tool                                                 |
+| `B`                    | Editor only | Activate the Bounding Box tool                                           |
+| `P`                    | Editor only | Activate the Polygon tool                                                |
+| `A`                    | Editor only | Scroll left panel to Auto Annotate section                               |
+| `Enter`                | Editor only | Close the in-progress polygon (≥ 3 vertices required)                    |
+| `Escape`               | Editor only | Cancel current action → deselect annotation → close mobile panel overlay |
+| `Delete` / `Backspace` | Editor only | Delete the selected annotation                                           |
+| `Ctrl+Z` / `Cmd+Z`     | Editor only | Undo the previous action                                                 |
+| `Ctrl+Y` / `Cmd+Y`     | Editor only | Redo (Coming Soon — currently a no-op with `preventDefault`)             |
+| `Ctrl+S` / `Cmd+S`     | Editor only | Save annotations immediately (prevents browser Save Page dialog)         |
+| `ArrowRight`           | Editor only | Navigate to the next image                                               |
+| `ArrowLeft`            | Editor only | Navigate to the previous image                                           |
+| `Space` + drag         | Editor only | Pan the canvas while the key is held                                     |
 
 ---
 

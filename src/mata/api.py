@@ -28,8 +28,12 @@ if TYPE_CHECKING:
     from .core.graph.node import Node
     from .training.result import TrainingResult
 
+
 # Singleton universal loader instance
 _universal_loader: UniversalLoader | None = None
+
+# --- Beta warning flag for training (v2.0.0) ---
+_TRAIN_BETA_WARNED = False
 
 
 def _get_universal_loader() -> UniversalLoader:
@@ -1439,6 +1443,9 @@ def train(
 ) -> TrainingResult:
     """Train a model from scratch or continue training.
 
+    .. warning::
+        Beta in v2.0.0 — API may change in v2.1.0.
+
     Args:
         task: Task type — "detect", "classify", or "segment"
         model: Model source (HuggingFace ID, torchvision/*, config alias, local path)
@@ -1475,6 +1482,17 @@ def train(
         ...     data="coco.yaml", epochs=10, lr=1e-4)
         >>> print(f"Best mAP50: {result.best_metrics.box.map50:.3f}")
     """
+
+    global _TRAIN_BETA_WARNED
+    if not _TRAIN_BETA_WARNED:
+        import warnings
+        warnings.warn(
+            "mata.train() is in beta — API may change in v2.1.0. "
+            "Please report issues at https://github.com/datamata-io/mata/issues",
+            stacklevel=2,
+        )
+        _TRAIN_BETA_WARNED = True
+
     from mata.training import TrainingConfig, TrainingOrchestrator
 
     config = TrainingConfig(
@@ -1520,7 +1538,11 @@ def finetune(
     freeze_backbone: bool = True,
     **kwargs: Any,
 ) -> TrainingResult:
+
     """Fine-tune a pre-trained model on custom data.
+
+    .. warning::
+        Beta in v2.0.0 — API may change in v2.1.0.
 
     Like train() but with fine-tuning defaults: lower LR, fewer epochs, frozen backbone.
 

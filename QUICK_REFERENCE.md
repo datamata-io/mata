@@ -1,29 +1,29 @@
-﻿# MATA Quick Reference — v1.5 to v1.9.7
+﻿# MATA Quick Reference — v2.0.0
 
 ## 📋 Table of Contents
 
-| Section                                                                        | Version               |
-| ------------------------------------------------------------------------------ | --------------------- |
-| [Universal Loader](#-what-changed)                                             | v1.5                  |
-| [Configuration](#-configuration-file)                                          | v1.5                  |
-| [Segmentation & SAM](#-segmentation-quick-reference)                           | v1.5.1                |
-| [Save / Export](#-result-saving-quick-reference)                               | v1.5                  |
-| [CLIP Zero-Shot](#-zero-shot-classification-quick-reference)                   | v1.5.2                |
-| [Vision-Language Models (VLM)](#-vision-language-models-quick-reference)       | v1.5.3                |
-| [Graph System](#️-graph-system-quick-reference-v16)                             | v1.6                  |
-| [VLM Agent Mode](#-vlm-agent-mode-quick-reference-v17)                         | v1.7                  |
-| [Object Tracking](#-object-tracking-quick-reference-v18)                       | v1.8                  |
-| [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19)            | v1.9                  |
-| [Feature Embedding](#-feature-embedding-quick-reference-v192b2)                | v1.9.2 Beta Release 2 |
-| [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193)                   | v1.9.3                |
-| [Notebook Display](#-jupyter-notebook-display-quick-reference-v194)            | v1.9.4                |
-| [CLI Reference](#-cli-quick-reference-v195)                                    | v1.9.5                |
-| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195)           | v1.9.5                |
-| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195)                | v1.9.5                |
-| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6                |
-| [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197)          | v1.9.7                |
-| [Evaluation](#-evaluation-quick-reference-v18)                                 | v1.8                  |
-| [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19)              | v1.9                  |
+| Section                                                                        | Version |
+| ------------------------------------------------------------------------------ | ------- |
+| [Universal Loader](#-what-changed)                                             | v1.5    |
+| [Configuration](#-configuration-file)                                          | v1.5    |
+| [Segmentation & SAM](#-segmentation-quick-reference)                           | v1.5.1  |
+| [Save / Export](#-result-saving-quick-reference)                               | v1.5    |
+| [CLIP Zero-Shot](#-zero-shot-classification-quick-reference)                   | v1.5.2  |
+| [Vision-Language Models (VLM)](#-vision-language-models-quick-reference)       | v1.5.3  |
+| [Graph System](#️-graph-system-quick-reference-v16)                             | v1.6    |
+| [VLM Agent Mode](#-vlm-agent-mode-quick-reference-v17)                         | v1.7    |
+| [Object Tracking](#-object-tracking-quick-reference-v18)                       | v1.8    |
+| [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19)            | v1.9    |
+| [Feature Embedding](#-feature-embedding-quick-reference-v192b2)                | v1.9.2  |
+| [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193)                   | v1.9.3  |
+| [Notebook Display](#-jupyter-notebook-display-quick-reference-v194)            | v1.9.4  |
+| [CLI Reference](#-cli-quick-reference-v195)                                    | v1.9.5  |
+| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195)           | v1.9.5  |
+| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195)                | v1.9.5  |
+| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6  |
+| [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197)          | v1.9.7  |
+| [Evaluation](#-evaluation-quick-reference-v18)                                 | v1.8    |
+| [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19)              | v1.9    |
 
 ---
 
@@ -203,7 +203,7 @@ detector = mata.load("detect", "production-model")
 
 ## ✅ Testing
 
-**5346+ tests across all subsystems:**
+**6448+ tests across all subsystems:**
 
 ```bash
 pytest tests/ -v
@@ -1350,7 +1350,7 @@ export_tracking_json(results, "tracks.json")
 
 ---
 
-## 🧬 Feature Embedding Quick Reference (v1.9.2 Beta Release 2)
+## 🧬 Feature Embedding Quick Reference (v1.9.2)
 
 ### `mata.load()` / `mata.run()` — one-liner embeddings
 
@@ -1511,6 +1511,22 @@ result = mata.infer("video.mp4", crowd_monitoring_botsort(), providers={...})
 ---
 
 ## 📝 OCR / Text Extraction Quick Reference (v1.9)
+
+## 🏋️ Training Quick Reference (v2.0.0, beta)
+
+**Training is a beta feature in v2.0.0.**
+
+```python
+# Train a model (beta)
+result = mata.train("detect", model="facebook/detr-resnet-50", data="data/coco/")
+```
+
+```python
+# Fine-tune a model (beta)
+result = mata.finetune("detect", model="facebook/detr-resnet-50", data="data/coco/")
+```
+
+See [TRAINING_GUIDE.md](docs/TRAINING_GUIDE.md) for details. The training API is stable but internal behavior may change in v2.1.0.
 
 ### Load backends
 

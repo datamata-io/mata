@@ -297,25 +297,22 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 
 ## Roadmap
 
-> **v1.9.7 is the final feature release.** The 1.9.x line is now in maintenance mode.
-
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-- **v1.9.x** (maintenance) — bug fixes and documentation only
-- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup. [View Development Branch](https://github.com/datamata-io/mata/tree/v2.0.0b2)
-<p align="center">
-  <img src="public/assets/annotate/main.png" width="720" alt="MATA Logo" />
-   <br />
-  <span style="font-size: 0.78rem; color: var(--muted);">MATA's annotation and training interface, running on local and offline environments.</span>
-</p>
-<p align="center">
-  <img src="public/assets/annotate/vlm_annotate.png" width="720" alt="MATA Logo" />
- <br />
-  <span style="font-size: 0.78rem; color: var(--muted);">MATA's annotation interface supports bounding boxes, and Zero-shot / VLM labeling.</span>
-</p>
-
+- **v2.0.0** (current) — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()` — beta), breaking API cleanup.
+- **v2.1.0** — Training module GA, quantized ONNX export
 - **v2.x** — HuggingFace Hub model recommendations, KACA CNN integration, V2L HyperLoRA research
 - **v2.5+** — 3D vision, edge deployment, Auto-ML
+<p align="center">
+    <img src="public/assets/annotate/main.png" width="720" alt="MATA Logo" />
+     <br />
+    <span style="font-size: 0.78rem; color: var(--muted);">MATA's annotation and training interface, running on local and offline environments.</span>
+</p>
+<p align="center">
+    <img src="public/assets/annotate/vlm_annotate.png" width="720" alt="MATA Logo" />
+ <br />
+    <span style="font-size: 0.78rem; color: var(--muted);">MATA's annotation interface supports bounding boxes, and Zero-shot / VLM labeling.</span>
+</p>
 
 ## What's Next?
 

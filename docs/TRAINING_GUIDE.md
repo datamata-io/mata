@@ -4,6 +4,11 @@
 > **Module**: `mata.training`  
 > **API**: `mata.train()`, `mata.finetune()`
 
+> [!WARNING]
+> **Beta Feature** — `mata.train()` and `mata.finetune()` are beta in v2.0.0.
+> The API surface is stable but internal behavior may change in v2.1.0.
+> Report issues at [github.com/datamata-io/mata/issues](https://github.com/datamata-io/mata/issues).
+
 Train and fine-tune computer vision models directly within the MATA framework — no third-party training loops required.
 
 ---
@@ -487,9 +492,9 @@ freeze_backbone: false
 augment: true
 
 num_workers: 4
-gradient_accumulation_steps: 1   # effective batch = batch_size × N
-gradient_checkpointing: false    # true = less VRAM, ~20-30% slower
-max_grad_norm: 1.0               # 0.0 = disabled; use 0.1 for DETR
+gradient_accumulation_steps: 1 # effective batch = batch_size × N
+gradient_checkpointing: false # true = less VRAM, ~20-30% slower
+max_grad_norm: 1.0 # 0.0 = disabled; use 0.1 for DETR
 seed: 42
 verbose: true
 ```
@@ -506,36 +511,36 @@ result = mata.train(config.task, **config.__dict__)
 
 ### All Hyperparameters
 
-| Parameter         | Type          | Default        | Description                                                     |
-| ----------------- | ------------- | -------------- | --------------------------------------------------------------- |
-| `task`            | `str`         | —              | Task type: `"detect"`, `"classify"`, `"segment"`                |
-| `model`           | `str`         | —              | Model source: HF ID, `torchvision/*`, alias, or checkpoint path |
-| `data`            | `str \| dict` | —              | Training dataset (YAML, directory, or COCO JSON)                |
-| `val_data`        | `str \| None` | `None`         | Validation dataset (uses `val` split from `data` if `None`)     |
-| `epochs`          | `int`         | `10`           | Number of training epochs                                       |
-| `batch_size`      | `int`         | `8`            | Training batch size                                             |
-| `lr`              | `float`       | `1e-4`         | Initial learning rate                                           |
-| `optimizer`       | `str`         | `"adamw"`      | Optimizer: `"adamw"`, `"adam"`, `"sgd"`                         |
-| `weight_decay`    | `float`       | `0.01`         | L2 regularization coefficient                                   |
-| `scheduler`       | `str`         | `"cosine"`     | LR scheduler: `"cosine"`, `"linear"`, `"step"`, `"none"`        |
-| `warmup_epochs`   | `int`         | `1`            | Linear LR warmup from 0 → `lr` (must be < `epochs`)             |
-| `device`          | `str`         | `"auto"`       | Device: `"auto"`, `"cpu"`, `"cuda"`, `"cuda:0"`                 |
-| `amp`             | `bool`        | `True`         | Automatic mixed precision (CUDA only; silently disabled on CPU) |
-| `save_dir`        | `str`         | `"runs/train"` | Root directory for checkpoints — auto-incremented               |
-| `save_every`      | `int`         | `0`            | Periodic checkpoint every N epochs; `0` = best + last only      |
-| `val_every`       | `int`         | `1`            | Run validation every N epochs                                   |
-| `patience`        | `int`         | `0`            | Early stopping; `0` = disabled                                  |
-| `freeze_backbone` | `bool`        | `False`        | Freeze all backbone parameters                                  |
-| `freeze_layers`   | `list[str]`   | `None`         | Freeze specific layers by name pattern                          |
-| `augment`         | `bool`        | `True`         | Enable built-in data augmentation                               |
-| `augment_config`  | `dict`        | `None`         | Custom augmentation config (e.g., albumentations)               |
-| `resume`          | `str`         | `None`         | Path to a checkpoint directory to resume from                   |
-| `num_workers`     | `int`         | `4`            | DataLoader worker processes                                     |
-| `gradient_accumulation_steps` | `int` | `1`       | Accumulate gradients over N steps (effective batch = `batch_size × N`) |
-| `gradient_checkpointing` | `bool`  | `False`        | Recompute activations on the backward pass to save VRAM (~20–30% slower) |
-| `max_grad_norm`   | `float`       | `1.0`          | Gradient clipping max norm (`0.0` = disabled; try `0.1` for DETR) |
-| `seed`            | `int`         | `42`           | Random seed for reproducibility                                 |
-| `verbose`         | `bool`        | `True`         | Print progress table to console                                 |
+| Parameter                     | Type          | Default        | Description                                                              |
+| ----------------------------- | ------------- | -------------- | ------------------------------------------------------------------------ |
+| `task`                        | `str`         | —              | Task type: `"detect"`, `"classify"`, `"segment"`                         |
+| `model`                       | `str`         | —              | Model source: HF ID, `torchvision/*`, alias, or checkpoint path          |
+| `data`                        | `str \| dict` | —              | Training dataset (YAML, directory, or COCO JSON)                         |
+| `val_data`                    | `str \| None` | `None`         | Validation dataset (uses `val` split from `data` if `None`)              |
+| `epochs`                      | `int`         | `10`           | Number of training epochs                                                |
+| `batch_size`                  | `int`         | `8`            | Training batch size                                                      |
+| `lr`                          | `float`       | `1e-4`         | Initial learning rate                                                    |
+| `optimizer`                   | `str`         | `"adamw"`      | Optimizer: `"adamw"`, `"adam"`, `"sgd"`                                  |
+| `weight_decay`                | `float`       | `0.01`         | L2 regularization coefficient                                            |
+| `scheduler`                   | `str`         | `"cosine"`     | LR scheduler: `"cosine"`, `"linear"`, `"step"`, `"none"`                 |
+| `warmup_epochs`               | `int`         | `1`            | Linear LR warmup from 0 → `lr` (must be < `epochs`)                      |
+| `device`                      | `str`         | `"auto"`       | Device: `"auto"`, `"cpu"`, `"cuda"`, `"cuda:0"`                          |
+| `amp`                         | `bool`        | `True`         | Automatic mixed precision (CUDA only; silently disabled on CPU)          |
+| `save_dir`                    | `str`         | `"runs/train"` | Root directory for checkpoints — auto-incremented                        |
+| `save_every`                  | `int`         | `0`            | Periodic checkpoint every N epochs; `0` = best + last only               |
+| `val_every`                   | `int`         | `1`            | Run validation every N epochs                                            |
+| `patience`                    | `int`         | `0`            | Early stopping; `0` = disabled                                           |
+| `freeze_backbone`             | `bool`        | `False`        | Freeze all backbone parameters                                           |
+| `freeze_layers`               | `list[str]`   | `None`         | Freeze specific layers by name pattern                                   |
+| `augment`                     | `bool`        | `True`         | Enable built-in data augmentation                                        |
+| `augment_config`              | `dict`        | `None`         | Custom augmentation config (e.g., albumentations)                        |
+| `resume`                      | `str`         | `None`         | Path to a checkpoint directory to resume from                            |
+| `num_workers`                 | `int`         | `4`            | DataLoader worker processes                                              |
+| `gradient_accumulation_steps` | `int`         | `1`            | Accumulate gradients over N steps (effective batch = `batch_size × N`)   |
+| `gradient_checkpointing`      | `bool`        | `False`        | Recompute activations on the backward pass to save VRAM (~20–30% slower) |
+| `max_grad_norm`               | `float`       | `1.0`          | Gradient clipping max norm (`0.0` = disabled; try `0.1` for DETR)        |
+| `seed`                        | `int`         | `42`           | Random seed for reproducibility                                          |
+| `verbose`                     | `bool`        | `True`         | Print progress table to console                                          |
 
 ### Validation
 

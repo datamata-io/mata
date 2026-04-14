@@ -77,7 +77,7 @@ This workflow is designed for:
 - COCO-style bbox and polygon labeling
 - ImageFolder reclassification
 - export to training-ready `dataset.yaml`
-- launching background training from the same local UI
+- launching background training from the same local UI (beta)
 
 See [docs/ANNOTATION_GUIDE.md](docs/ANNOTATION_GUIDE.md) for the full workflow.
 

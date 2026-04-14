@@ -8,6 +8,7 @@ no real model downloads or disk writes occur beyond tmp_path.
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -734,3 +735,69 @@ class TestUnsupportedTrainingTasks:
         msg = str(exc_info.value)
         for supported in ("classify", "detect", "segment"):
             assert supported in msg
+
+
+# ---------------------------------------------------------------------------
+# Beta Warning Tests (Task E1)
+# ---------------------------------------------------------------------------
+
+
+class TestBetaWarning:
+    """Verify that mata.train() and mata.finetune() emit a beta UserWarning."""
+
+    def test_train_emits_beta_warning(self):
+        """First call to mata.train() should emit a beta UserWarning."""
+        import mata.api
+
+        mata.api._TRAIN_BETA_WARNED = False
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            try:
+                mata.train("detect", model="mock", data="mock")
+            except Exception:
+                pass  # training will fail — we only care about the warning
+            beta_warnings = [x for x in w if "beta" in str(x.message).lower()]
+            assert len(beta_warnings) >= 1
+
+    def test_train_beta_warning_fires_once(self):
+        """Beta warning should only fire once per session."""
+        import mata.api
+
+        mata.api._TRAIN_BETA_WARNED = False
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            try:
+                mata.train("detect", model="mock", data="mock")
+            except Exception:
+                pass
+            try:
+                mata.train("detect", model="mock", data="mock")
+            except Exception:
+                pass
+            beta_warnings = [x for x in w if "beta" in str(x.message).lower()]
+            assert len(beta_warnings) == 1
+
+    def test_finetune_emits_beta_warning(self):
+        """First call to mata.finetune() should emit a beta UserWarning."""
+        import mata.api
+
+        mata.api._TRAIN_BETA_WARNED = False
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            try:
+                mata.finetune("detect", model="mock", data="mock")
+            except Exception:
+                pass
+            beta_warnings = [x for x in w if "beta" in str(x.message).lower()]
+            assert len(beta_warnings) >= 1
+
+    def test_annotate_no_beta_warning(self):
+        """mata.annotate() should NOT emit beta warnings."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            try:
+                mata.annotate("nonexistent", block=False, open_browser=False)
+            except Exception:
+                pass
+            beta_warnings = [x for x in w if "beta" in str(x.message).lower()]
+            assert len(beta_warnings) == 0

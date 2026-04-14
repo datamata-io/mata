@@ -7,16 +7,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — Maintenance
+## [Unreleased]
 
-> **v1.9.x is now feature-complete.** All subsequent 1.9.x releases will contain
-> bug fixes and documentation updates only. New features — including `mata.annotate()`,
-> `mata.train()`, and quantized ONNX export — are targeting **v2.0.0**.
-> See the README [Roadmap](README.md#roadmap) for details.
+> Post-v2.0.0 development. Training module stabilization (beta → GA) targeting v2.1.0.
+> Quantized ONNX export deferred from v2.0.0.
 
 ---
 
-## [2.0.0] — In Development
+---
+
+## [2.0.0] — Will be released on 2026-04-17
 
 ### Added
 
@@ -194,18 +194,16 @@ for qr in result["search_results"].results:
 - `CompiledGraph.edge_conditions` — internal mapping of `node_name → condition_callable`; populated at compile time; used by scheduler during execution
 - `examples/notebooks/12_graph_control_flow.ipynb` — demo notebook covering all three primitives with mock nodes (no model download required); includes a multi-scenario triage pipeline and matplotlib execution-path visualizations
 
-### Notes
+### Added
 
-- `mata.run("recognize", ...)` is the single-image convenience form; for per-ROI recognition in graphs, use `GalleryMatchNode` directly
-- **Graph control-flow primitives are intentionally minimal** — `EarlyExit`, `While`, and `Graph.add(condition=...)` are small, composable building blocks. Their use cases are deliberately broader than what the examples or documentation cover: quality gates, cost-aware routing, adaptive multi-pass pipelines, frame-level triage, feedback loops, confidence-threshold branching, A/B model selection, and more. Users are encouraged to compose these primitives freely; the provided examples illustrate mechanics, not the full solution space.
-- Zero regressions; all 5346+ pre-existing tests pass
+**Training module — `mata.train()` and `mata.finetune()` (Beta)**
 
-### Tests
+- `mata.train()` — train a model from scratch or continue training from a checkpoint (**Beta**)
+- `mata.finetune()` — fine-tune a pre-trained model on custom data (**Beta**)
+- `TrainingConfig` and `TrainingOrchestrator` — unified training configuration and orchestration layer (**Beta**)
+- `docs/TRAINING_GUIDE.md` — full guide for training, configuration, and advanced usage (**Beta**)
 
-- `tests/test_matches_artifact.py` — 39 new tests for `Matches` and `MatchEntry` artifacts
-- `tests/test_recognize_api.py` — 34 new tests for `mata.run("recognize", ...)` API
-- `tests/test_cli_recognize.py` — 18 new tests for `mata recognize` CLI subcommand
-- `tests/test_graph_control_flow.py` — tests for `EarlyExit`, `EarlyExitException`, `While`, and `Graph.add(condition=...)` covering standalone behaviour, scheduler integration, `max_iterations` cap, and nested composition
+<!-- Quantized ONNX export moved to [Unreleased] -->
 
 ### Fixed
 
@@ -254,11 +252,12 @@ for qr in result["search_results"].results:
 - Example notebooks: `examples/notebooks/01_detection.ipynb` through `06_vlm_query.ipynb`
 - `.gitattributes` with `*.ipynb filter=nbstripout` to strip cell outputs on commit
 
-### Notes
+### Note
 
-- All notebook display is fully optional — `import mata` works without IPython or matplotlib
-- All user content is HTML-escaped (XSS-safe)
-- `frozen=True` dataclasses unaffected — only methods added, no field mutations
+`mata.train()` and `mata.finetune()` are released as **beta** in v2.0.0.
+The API surface is stable but internal engine behavior may change in v2.1.0.
+Quantized ONNX export is deferred to a future release.
+
 - 50+ new tests in `tests/test_notebook.py`
 
 ### Tests
