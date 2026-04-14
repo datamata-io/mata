@@ -41,8 +41,7 @@ class TestIsModelCached:
 
     def test_returns_true_when_config_json_found(self):
         """Returns True when try_to_load_from_cache returns a path string."""
-        with patch("mata.core.logging.is_model_cached") as mock:
-            mock.return_value = True
+        with patch("huggingface_hub.try_to_load_from_cache", return_value="/some/path/config.json"):
             assert is_model_cached("facebook/detr-resnet-50") is True
 
     def test_actual_implementation_cached(self):
