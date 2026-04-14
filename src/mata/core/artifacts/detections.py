@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from mata.core.artifacts._label_utils import _fuzzy_label_match
 from mata.core.artifacts.base import Artifact
 from mata.core.types import Entity, Instance, VisionResult
 
@@ -29,40 +30,6 @@ def _generate_id(prefix: str = "obj", index: int | None = None) -> str:
     if index is not None:
         return f"{prefix}_{index:04d}"
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
-
-
-def _fuzzy_label_match(label1: str, label2: str) -> bool:
-    """Fuzzy label matching for entity promotion.
-
-    Handles:
-    - Case insensitivity
-    - Plural forms (simple heuristic)
-    - Leading/trailing articles (a, an, the)
-
-    Args:
-        label1: First label
-        label2: Second label
-
-    Returns:
-        True if labels match fuzzy criteria
-    """
-
-    # Normalize: lowercase, strip articles
-    def normalize(text: str) -> str:
-        text = text.lower().strip()
-        # Remove leading articles
-        for article in ["a ", "an ", "the "]:
-            if text.startswith(article):
-                text = text[len(article) :]
-        # Remove trailing 's' for simple plural handling
-        if text.endswith("s") and len(text) > 1:
-            text = text[:-1]
-        return text
-
-    norm1 = normalize(label1)
-    norm2 = normalize(label2)
-
-    return norm1 == norm2
 
 
 @dataclass(frozen=True)

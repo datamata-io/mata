@@ -1,3 +1,9 @@
+---
+title: "Recognition"
+description: "Build gallery-based recognition flows using embeddings, reference sets, and top-k matching."
+sidebar_position: 4
+---
+
 # Recognition Guide
 
 > **v1.9.6** — Embedding extraction, gallery-based identity matching, and graph recognition pipelines.
@@ -575,8 +581,8 @@ mata recognize query.jpg --gallery persons.npz --json
 
 ## See Also
 
-- [CLIP Quick Start](CLIP_QUICK_START.md) — zero-shot classification with CLIP
-- [Tracking Guide](TRACKING_GUIDE.md) — multi-object tracking with ReID
-- [Graph Cookbook](GRAPH_COOKBOOK.md) — pipeline composition recipes
-- [Valkey Guide](VALKEY_GUIDE.md) — cross-camera embedding sharing
-- [Graph API Reference](GRAPH_API_REFERENCE.md) — full node reference
+- [CLIP Quick Start](./CLIP_QUICK_START.md) — zero-shot classification with CLIP
+- [Tracking Guide](./TRACKING_GUIDE.md) — multi-object tracking with ReID
+- [Graph Cookbook](./GRAPH_COOKBOOK.md) — pipeline composition recipes
+- [Valkey Guide](./VALKEY_GUIDE.md) — cross-camera embedding sharing
+- [Graph API Reference](./GRAPH_API_REFERENCE.md) — full node reference

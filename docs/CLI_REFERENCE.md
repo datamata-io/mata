@@ -1,3 +1,9 @@
+---
+title: "CLI"
+description: "Use the mata CLI for one-shot inference, recognition, tracking, validation, and export workflows."
+sidebar_position: 1
+---
+
 # MATA CLI Reference
 
 > **Version**: 1.9.7 | **Last Updated**: April 4, 2026

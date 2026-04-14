@@ -302,7 +302,7 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 - **v1.9.x** (maintenance) — bug fixes and documentation only
-- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup
+- **v2.0.0** (Q2 2026) — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()`), quantized ONNX export, breaking API cleanup. [View Development Branch](https://github.com/datamata-io/mata/tree/v2.0.0b2)
 <p align="center">
   <img src="public/assets/annotate/main.png" width="720" alt="MATA Logo" />
    <br />

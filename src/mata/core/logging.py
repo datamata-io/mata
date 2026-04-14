@@ -131,8 +131,39 @@ def get_verbosity() -> int:
     return _verbosity
 
 
+def is_model_cached(model_id: str) -> bool:
+    """Check whether a HuggingFace model is already in the local cache.
+
+    Uses ``huggingface_hub.try_to_load_from_cache`` to probe for ``config.json``
+    (the lightest file present in every Hub model). If that file is cached the
+    model weights are almost certainly cached too.
+
+    Args:
+        model_id: HuggingFace model ID (e.g. ``"facebook/detr-resnet-50"``)
+
+    Returns:
+        ``True`` if the model appears to be cached locally, ``False`` otherwise.
+    """
+    try:
+        from huggingface_hub import try_to_load_from_cache
+
+        result = try_to_load_from_cache(model_id, "config.json")
+        # Returns a path str when cached, None when not cached,
+        # or _CACHED_NO_EXIST sentinel when the file doesn't exist remotely.
+        # Any truthy non-sentinel path means cached.
+        if result is None:
+            return False
+        # _CACHED_NO_EXIST is a special sentinel object (not a str path)
+        return isinstance(result, str)
+    except Exception:
+        # Catches ImportError, ModuleNotFoundError, EntryNotFoundError,
+        # LocalEntryNotFoundError, network errors, etc.  This is intentional:
+        # is_model_cached() is a best-effort probe and must never raise.
+        return False
+
+
 @contextmanager
-def suppress_third_party_logs():
+def suppress_third_party_logs(allow_progress: bool = False):
     """Suppress noisy third-party library output during model loading.
 
     Temporarily silences:
@@ -152,6 +183,9 @@ def suppress_third_party_logs():
         yield
         return
 
+    # Effective flag: allow progress bars only at verbosity 1 (not total-silence mode).
+    _allow_progress = allow_progress and _verbosity != 0
+
     # --- transformers logging ---
     prev_transformers_verbosity = None
     try:
@@ -164,18 +198,23 @@ def suppress_third_party_logs():
 
     # --- huggingface_hub progress bars ---
     prev_hf_disable = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
-    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+    if not _allow_progress:
+        os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
     # --- tqdm progress bars (safetensors weight materialization, etc.) ---
     prev_tqdm_disable = os.environ.get("TQDM_DISABLE")
-    os.environ["TQDM_DISABLE"] = "1"
+    if not _allow_progress:
+        os.environ["TQDM_DISABLE"] = "1"
 
     # --- Redirect stderr to suppress tqdm progress bars ---
     # tqdm writes directly to stderr, bypassing Python logging.
     # Redirecting stderr is the only reliable way to silence it.
     # MATA's own logs go to stdout, so they remain visible.
+    # When allowing progress (first-run download), we leave stderr open so
+    # HF download bars reach the terminal.
     old_stderr = sys.stderr
-    sys.stderr = open(os.devnull, "w")
+    if not _allow_progress:
+        sys.stderr = open(os.devnull, "w")
 
     # --- Python warnings (ViTImageProcessor, weight-only deprecation, etc.) ---
     with warnings.catch_warnings():
@@ -210,9 +249,10 @@ def suppress_third_party_logs():
         try:
             yield
         finally:
-            # --- Restore stderr ---
-            sys.stderr.close()
-            sys.stderr = old_stderr
+            # --- Restore stderr (only if we redirected it) ---
+            if not _allow_progress:
+                sys.stderr.close()
+                sys.stderr = old_stderr
 
             # --- Restore logger levels ---
             for name, level in saved_levels.items():
@@ -224,12 +264,13 @@ def suppress_third_party_logs():
                 except Exception:
                     pass
 
-            if prev_hf_disable is None:
-                os.environ.pop("HF_HUB_DISABLE_PROGRESS_BARS", None)
-            else:
-                os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = prev_hf_disable
+            if not _allow_progress:
+                if prev_hf_disable is None:
+                    os.environ.pop("HF_HUB_DISABLE_PROGRESS_BARS", None)
+                else:
+                    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = prev_hf_disable
 
-            if prev_tqdm_disable is None:
-                os.environ.pop("TQDM_DISABLE", None)
-            else:
-                os.environ["TQDM_DISABLE"] = prev_tqdm_disable
+                if prev_tqdm_disable is None:
+                    os.environ.pop("TQDM_DISABLE", None)
+                else:
+                    os.environ["TQDM_DISABLE"] = prev_tqdm_disable

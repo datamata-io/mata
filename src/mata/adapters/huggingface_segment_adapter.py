@@ -275,9 +275,16 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
             logger.info(f"Using segmentation mode: {self.active_mode}")
 
             # Suppress noisy third-party output during model loading
-            from mata.core.logging import suppress_third_party_logs
+            import time
 
-            with suppress_third_party_logs():
+            from mata.core.logging import is_model_cached, suppress_third_party_logs
+
+            t0 = time.perf_counter()
+            _cached = is_model_cached(model_id)
+            if not _cached:
+                logger.info(f"Downloading {model_id} (first run — this may take a minute)...")
+
+            with suppress_third_party_logs(allow_progress=not _cached):
 
                 # Load processor (handles preprocessing)
                 # Use OneFormerProcessor for OneFormer models, AutoImageProcessor for others
@@ -353,7 +360,7 @@ class HuggingFaceSegmentAdapter(PyTorchBaseAdapter):
 
             logger.info(
                 f"Loaded {architecture} model on {self.device} "
-                f"(mode={self.active_mode}, labels={len(self.id2label)})"
+                f"({time.perf_counter() - t0:.1f}s, mode={self.active_mode}, labels={len(self.id2label)})"
             )
 
         except Exception as e:

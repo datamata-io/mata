@@ -59,15 +59,21 @@ class HuggingFaceDepthAdapter(PyTorchBaseAdapter):
 
     def _load_model(self) -> None:
         """Load model and processor."""
-        from mata.core.logging import suppress_third_party_logs
+        import time
+
+        from mata.core.logging import is_model_cached, suppress_third_party_logs
 
         try:
             logger.info(f"Loading HuggingFace depth model: {self.model_id}")
-            with suppress_third_party_logs():
+            t0 = time.perf_counter()
+            _cached = is_model_cached(self.model_id)
+            if not _cached:
+                logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
+            with suppress_third_party_logs(allow_progress=not _cached):
                 self.processor = self.transformers["AutoImageProcessor"].from_pretrained(self.model_id)
                 self.model = self.transformers["AutoModelForDepthEstimation"].from_pretrained(self.model_id)
             self.model = self.model.to(self.device).eval()
-            logger.info(f"Depth model loaded successfully on {self.device}")
+            logger.info(f"Depth model loaded on {self.device} ({time.perf_counter() - t0:.1f}s)")
         except Exception as e:
             raise ModelLoadError(self.model_id, f"Failed to load HuggingFace depth model: {type(e).__name__}: {str(e)}")
 

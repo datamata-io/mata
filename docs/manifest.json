@@ -1,0 +1,205 @@
+{
+  "_version": 1,
+  "_updated": "2026-04-09",
+  "_note": "Single source of truth is docs/*.md and root-level *.md files. Edit those — never the docs/web/*.mdx stubs. The website sync script reads this manifest to know which files to pull and how to map them.",
+  "_link_convention": "Inter-doc links in docs/*.md use bare filenames within docs/ (e.g., BARCODE_GUIDE.md) and ../ prefix for root-level files (e.g., ../README.md). The sync script rewrites these to slug-based paths per the slug field below.",
+  "_orphan_refs": [
+    {
+      "ref": "MIGRATION_GUIDE.md",
+      "found_in": ["docs/GRAPH_COOKBOOK.md"],
+      "note": "File does not exist. Link is stale."
+    },
+    {
+      "ref": "../QUICK_REFERENCE.md",
+      "found_in": ["docs/CLIP_QUICK_START.md", "docs/VALKEY_GUIDE.md", "docs/ZEROSHOT_DETECTION_GUIDE.md"],
+      "note": "Root-level cheatsheet. Not in manifest — handle as external or omit on website."
+    },
+    {
+      "ref": "../examples/",
+      "found_in": ["docs/REAL_WORLD_SCENARIOS.md"],
+      "note": "Examples directory. Not a docs page — link to GitHub repo instead."
+    }
+  ],
+  "docs": [
+    {
+      "mdx": "GETTING_STARTED.mdx",
+      "source": "README.md",
+      "source_root": true,
+      "title": "Overview",
+      "description": "What MATA is, how the task-centric API works, and when to use graph pipelines instead of single-model calls.",
+      "sidebar_position": 1,
+      "slug": "overview"
+    },
+    {
+      "mdx": "INSTALL.mdx",
+      "source": "INSTALLATION.md",
+      "source_root": true,
+      "title": "Installation",
+      "description": "Install MATA with pip, prepare GPU acceleration, and verify a working runtime before running inference.",
+      "sidebar_position": 2,
+      "slug": "installation"
+    },
+    {
+      "mdx": "QUICKSTART.mdx",
+      "source": "QUICKSTART.md",
+      "source_root": true,
+      "title": "Quickstart",
+      "description": "Run your first MATA tasks with one-shot inference and a simple graph pipeline.",
+      "sidebar_position": 3,
+      "slug": "quickstart"
+    },
+    {
+      "mdx": "BARCODE_GUIDE.mdx",
+      "source": "docs/BARCODE_GUIDE.md",
+      "source_root": false,
+      "title": "Barcode",
+      "description": "Detect and decode barcodes in MATA pipelines with guidance for common formats and image quality issues.",
+      "sidebar_position": 8,
+      "slug": "barcode"
+    },
+    {
+      "mdx": "CLI_REFERENCE.mdx",
+      "source": "docs/CLI_REFERENCE.md",
+      "source_root": false,
+      "title": "CLI",
+      "description": "Use the mata CLI for one-shot inference, recognition, tracking, validation, and export workflows.",
+      "sidebar_position": 1,
+      "slug": "cli"
+    },
+    {
+      "mdx": "CLIP_QUICK_START.mdx",
+      "source": "docs/CLIP_QUICK_START.md",
+      "source_root": false,
+      "title": "CLIP Embeddings",
+      "description": "Use CLIP-based embeddings for similarity search, zero-shot classification, and reusable image-text representations.",
+      "sidebar_position": 1,
+      "slug": "clip-embeddings"
+    },
+    {
+      "mdx": "GRAPH_API_REFERENCE.mdx",
+      "source": "docs/GRAPH_API_REFERENCE.md",
+      "source_root": false,
+      "title": "Graph API",
+      "description": "Reference for graph builders, nodes, artifacts, execution options, and pipeline composition APIs.",
+      "sidebar_position": 1,
+      "slug": "graph-api"
+    },
+    {
+      "mdx": "GRAPH_COOKBOOK.mdx",
+      "source": "docs/GRAPH_COOKBOOK.md",
+      "source_root": false,
+      "title": "Graph Cookbook",
+      "description": "Worked graph examples for common multi-step vision workflows, branching patterns, and result fusion.",
+      "sidebar_position": 2,
+      "slug": "graph-cookbook"
+    },
+    {
+      "mdx": "GRAPH_SYSTEM_GUIDE.mdx",
+      "source": "docs/GRAPH_SYSTEM_GUIDE.md",
+      "source_root": false,
+      "title": "Graph System",
+      "description": "Understand MATA's typed graph architecture, node model, execution flow, and multi-result output bundle.",
+      "sidebar_position": 2,
+      "slug": "graph-system"
+    },
+    {
+      "mdx": "MATA_DESIGN_AND_ARCHITECTURE.mdx",
+      "source": "docs/MATA_DESIGN_AND_ARCHITECTURE.md",
+      "source_root": false,
+      "title": "Design and Architecture",
+      "description": "System-level view of the MATA architecture, package boundaries, execution model, and design tradeoffs.",
+      "sidebar_position": 1,
+      "slug": "design-and-architecture"
+    },
+    {
+      "mdx": "OCR_IMPLEMENTATION_SUMMARY.mdx",
+      "source": "docs/OCR_IMPLEMENTATION_SUMMARY.md",
+      "source_root": false,
+      "title": "OCR",
+      "description": "Run OCR workflows in MATA and understand the implementation tradeoffs for document and scene text extraction.",
+      "sidebar_position": 7,
+      "slug": "ocr"
+    },
+    {
+      "mdx": "REAL_WORLD_SCENARIOS.mdx",
+      "source": "docs/REAL_WORLD_SCENARIOS.md",
+      "source_root": false,
+      "title": "Real-World Scenarios",
+      "description": "End-to-end pipeline scenarios that show how to combine MATA tasks for production-style workflows.",
+      "sidebar_position": 3,
+      "slug": "real-world-scenarios"
+    },
+    {
+      "mdx": "RECOGNITION_GUIDE.mdx",
+      "source": "docs/RECOGNITION_GUIDE.md",
+      "source_root": false,
+      "title": "Recognition",
+      "description": "Build gallery-based recognition flows using embeddings, reference sets, and top-k matching.",
+      "sidebar_position": 4,
+      "slug": "recognition"
+    },
+    {
+      "mdx": "SUPPORTED_MODELS.mdx",
+      "source": "docs/SUPPORTED_MODELS.md",
+      "source_root": false,
+      "title": "Supported Models",
+      "description": "Representative model families supported by MATA across detection, segmentation, VLM, OCR, embedding, and barcode workflows.",
+      "sidebar_position": 3,
+      "slug": "supported-models"
+    },
+    {
+      "mdx": "TRACKING_GUIDE.mdx",
+      "source": "docs/TRACKING_GUIDE.md",
+      "source_root": false,
+      "title": "Tracking",
+      "description": "Track objects across frames, manage identities, and integrate temporal state into MATA workflows.",
+      "sidebar_position": 3,
+      "slug": "tracking"
+    },
+    {
+      "mdx": "VALIDATION_GUIDE.mdx",
+      "source": "docs/VALIDATION_GUIDE.md",
+      "source_root": false,
+      "title": "Validation",
+      "description": "Validate models, pipelines, and runtime assumptions before deployment with repeatable checks and guardrails.",
+      "sidebar_position": 1,
+      "slug": "validation"
+    },
+    {
+      "mdx": "VALKEY_GUIDE.mdx",
+      "source": "docs/VALKEY_GUIDE.md",
+      "source_root": false,
+      "title": "Valkey",
+      "description": "Configure Valkey-backed caching and shared state for MATA workloads that need fast coordination across runs.",
+      "sidebar_position": 2,
+      "slug": "valkey"
+    },
+    {
+      "mdx": "VLM_MODEL_SUPPORT.mdx",
+      "source": "docs/VLM_MODEL_SUPPORT.md",
+      "source_root": false,
+      "title": "Vision-Language Models",
+      "description": "Choose and run supported vision-language models in MATA, including runtime notes and model-specific constraints.",
+      "sidebar_position": 5,
+      "slug": "vision-language-models"
+    },
+    {
+      "mdx": "VLM_TOOL_CALLING_SUMMARY.mdx",
+      "source": "docs/VLM_TOOL_CALLING_SUMMARY.md",
+      "source_root": false,
+      "title": "VLM Tool Calling",
+      "description": "Understand tool-calling patterns for VLM workflows, structured outputs, and agent-style orchestration.",
+      "sidebar_position": 6,
+      "slug": "vlm-tool-calling"
+    },
+    {
+      "mdx": "ZEROSHOT_DETECTION_GUIDE.mdx",
+      "source": "docs/ZEROSHOT_DETECTION_GUIDE.md",
+      "source_root": false,
+      "title": "Zero-Shot Detection",
+      "description": "Run prompt-driven object detection with open-vocabulary models and practical thresholding guidance.",
+      "sidebar_position": 2,
+      "slug": "zero-shot-detection"
+    }
+  ]
+}

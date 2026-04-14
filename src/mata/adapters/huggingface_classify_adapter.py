@@ -156,9 +156,16 @@ class HuggingFaceClassifyAdapter(PyTorchBaseAdapter):
                 return
 
             # Suppress noisy third-party output (progress bars, unexpected key warnings, etc.)
-            from mata.core.logging import suppress_third_party_logs
+            import time
 
-            with suppress_third_party_logs():
+            from mata.core.logging import is_model_cached, suppress_third_party_logs
+
+            t0 = time.perf_counter()
+            _cached = is_model_cached(self.model_id)
+            if not _cached:
+                logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
+
+            with suppress_third_party_logs(allow_progress=not _cached):
 
                 # Load processor and model using auto-detection
                 self.processor = self.transformers["AutoImageProcessor"].from_pretrained(self.model_id)
@@ -183,7 +190,7 @@ class HuggingFaceClassifyAdapter(PyTorchBaseAdapter):
                 )
 
             logger.info(
-                f"✓ Classification model loaded successfully on {self.device} " f"(architecture: {architecture})"
+                f"✓ Classification model loaded on {self.device} ({time.perf_counter() - t0:.1f}s, arch={architecture})"
             )
 
         except Exception as e:
