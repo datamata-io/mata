@@ -1,3 +1,9 @@
+---
+title: "Quickstart"
+description: "Run your first MATA tasks with one-shot inference and a simple graph pipeline."
+sidebar_position: 3
+---
+
 # MATA Quick Start Guide
 
 This guide will get you up and running with MATA in 5 minutes.

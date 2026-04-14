@@ -1,3 +1,9 @@
+---
+title: "Graph API"
+description: "Reference for graph builders, nodes, artifacts, execution options, and pipeline composition APIs."
+sidebar_position: 1
+---
+
 # MATA Graph System — API Reference
 
 > **Version**: 1.9.7 | **Last Updated**: April 3, 2026

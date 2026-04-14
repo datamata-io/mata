@@ -1,3 +1,9 @@
+---
+title: "Zero-Shot Detection"
+description: "Run prompt-driven object detection with open-vocabulary models and practical thresholding guidance."
+sidebar_position: 2
+---
+
 # Zero-Shot Object Detection Guide
 
 **MATA v1.5+** | Text-Prompt-Based Detection | No Training Required
@@ -196,7 +202,7 @@ if scene_result.top1.label_name == "outdoor":
 
 **Documentation:**
 
-- Classification: [CLIP_QUICK_START.md](CLIP_QUICK_START.md)
+- Classification: [CLIP_QUICK_START.md](./CLIP_QUICK_START.md)
 - Detection: This guide (ZEROSHOT_DETECTION_GUIDE.md)
 
 ---

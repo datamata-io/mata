@@ -1116,6 +1116,17 @@ class TestVLMExpandedModelDetection:
         """Plain Gemma (non-medical, non-VL) should not match VLM patterns."""
         assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-2b") is False
 
+    def test_gemma4_detected(self):
+        """Gemma 4 multimodal models detected as VLM (v1.9.8)."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-4-E2B-it") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-4-27b-it") is True
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-4-13b-it") is True
+
+    def test_gemma2_gemma3_not_vlm(self):
+        """Gemma 2/3 text-only models must NOT match the gemma-4 pattern (regression guard)."""
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-2-2b-it") is False
+        assert HuggingFaceVLMAdapter._is_vlm_model("google/gemma-3-12b-it") is False
+
 
 class TestVLMLoaderKwargsPassthrough:
     """Test that new kwargs flow through UniversalLoader correctly."""

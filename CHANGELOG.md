@@ -16,6 +16,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.9.8]
+
+### Changed
+
+- **Gemma 4 compatibility verified** — `google/gemma-4-E2B-it` (and 13B/27B variants) loads and runs correctly through the existing `HuggingFaceVLMAdapter` with no adapter code changes. The 2B "E2B" variant works with `dtype="auto"`; larger variants (13B, 27B) require `dtype="bfloat16"`. Requires `transformers>=5.5.0` (version pin remains at `>=4.35.0`). Internal `_is_vlm_model()` pattern list updated with `r"gemma-4"` for model-ID detection (does not match text-only gemma-2 / gemma-3 models). Documentation updated in `VLM_MODEL_SUPPORT.md`, `SUPPORTED_MODELS.md`, and `copilot-instructions.md`.
+- **`_fuzzy_label_match` extracted to shared `_label_utils` module** — the private helper was duplicated verbatim across `src/mata/core/artifacts/detections.py` and `src/mata/core/artifacts/converters.py`, with the `detections.py` copy missing three correctness fixes present in the `converters.py` version (multiple-space collapse via `re.sub`, `break` after first article match, `"ss"`-suffix guard on the plural strip). The canonical `converters.py` implementation is now the single source of truth in `src/mata/core/artifacts/_label_utils.py`; both modules import from there. No public API is affected.
+
+### Fixed
+
+- **First-run download transparency** — `mata.run()` and `mata.load()` previously appeared to hang silently for minutes when a HuggingFace model was not yet cached locally; all progress output (download bars, weight-loading bars) was suppressed by `suppress_third_party_logs()` with no way to distinguish "downloading", "loading", and "running inference". All 10 HuggingFace adapter families now show clear phase feedback:
+  - **First run (model not cached):** logs `"Downloading {model_id} (first run — this may take a minute)..."` and allows HuggingFace / tqdm download progress bars to reach the terminal during the download
+  - **Subsequent runs (model cached):** silent progress-bar suppression is preserved — no change to the existing clean UX
+  - **Load timing:** every adapter now reports elapsed load time in its completion log, e.g. `"Model loaded on cuda (4.2s)"`
+  - Affected adapters: detect (`HuggingFaceDetectAdapter`), CLIP (`CLIPAdapter`), classify (`HuggingFaceClassifyAdapter`), depth (`HuggingFaceDepthAdapter`), segment (`HuggingFaceSegmentAdapter`), SAM/SAM3 (`HuggingFaceSAMAdapter`), zero-shot detect (`HuggingFaceZeroShotDetectAdapter`), zero-shot segment (`HuggingFaceZeroShotSegmentAdapter`), VLM (`HuggingFaceVLMAdapter`), OCR (`HuggingFaceOCRAdapter`)
+- **`suppress_third_party_logs()` new `allow_progress` parameter** — `suppress_third_party_logs(allow_progress=True)` suppresses warnings and noisy loggers as before but leaves `HF_HUB_DISABLE_PROGRESS_BARS`, `TQDM_DISABLE`, and stderr untouched, allowing download progress bars through; `allow_progress=False` (default) retains full previous suppression for backward compatibility; `mata.verbose(0)` (total silence) overrides `allow_progress=True`
+- **`is_model_cached(model_id)` helper added to `mata.core.logging`** — uses `huggingface_hub.try_to_load_from_cache()` to probe for `config.json`; returns `True` when the model is in the local HF cache, `False` otherwise; never raises; all adapters use this to decide whether to show download feedback
+
+### Tests
+
+- **Full test suite validated against `transformers==5.5.0`** — 5569 passed, 11 skipped, 0 failures. DETR segmentation (`DetrForSegmentation` in `huggingface_segment_adapter.py`) confirmed compatible — resolves the Moderate-severity risk flagged in the 2026-04-03 research report. Version pin remains at `>=4.35.0`; users who need Gemma 4 must upgrade to `>=5.5.0` manually.
+- 22 new tests in `tests/test_logging.py` covering `is_model_cached()` edge cases (cached path, `None`, non-string sentinel, `ImportError`, arbitrary exceptions), `suppress_third_party_logs(allow_progress=...)` env-var and stderr behaviour, backward compatibility of the default parameter, and verbosity 0/1/2 interaction with `allow_progress`
+- 5 new tests in `tests/test_vlm_adapter.py` under `TestVLMExpandedModelDetection` covering `gemma-4` pattern detection and regression guard against text-only `gemma-2` / `gemma-3` IDs
+
+---
+
 ## [1.9.7] — 2026-04-02
 
 ### Added

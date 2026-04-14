@@ -1,3 +1,9 @@
+---
+title: "Design and Architecture"
+description: "System-level view of the MATA architecture, package boundaries, execution model, and design tradeoffs."
+sidebar_position: 1
+---
+
 # MATA Multi‑Task Vision Architecture & Code Structure (Practical)
 
 This document describes a **strongly‑typed, mnemonic, model‑agnostic** architecture for **multi‑task vision** in MATA (Model‑Agnostic Task Architecture).

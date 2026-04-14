@@ -250,12 +250,19 @@ class HuggingFaceZeroShotSegmentAdapter(PyTorchBaseAdapter):
         Raises:
             ModelLoadError: If model loading fails
         """
-        from mata.core.logging import suppress_third_party_logs
+        from mata.core.logging import is_model_cached, suppress_third_party_logs
 
         try:
             transformers = _ensure_transformers()
 
-            with suppress_third_party_logs():
+            import time
+
+            t0 = time.perf_counter()
+            _cached = is_model_cached(self.model_id)
+            if not _cached:
+                logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
+
+            with suppress_third_party_logs(allow_progress=not _cached):
                 if self.architecture == "clipseg":
                     logger.info(f"Loading CLIPSeg model: {self.model_id}")
                     self.processor = transformers["CLIPSegProcessor"].from_pretrained(self.model_id)
@@ -268,7 +275,7 @@ class HuggingFaceZeroShotSegmentAdapter(PyTorchBaseAdapter):
 
             # Move model to device and set to eval mode
             self.model.to(self.device).eval()
-            logger.info(f"Successfully loaded {self.architecture} on {self.device}")
+            logger.info(f"{self.architecture} model loaded on {self.device} ({time.perf_counter() - t0:.1f}s)")
 
         except Exception as e:
             raise ModelLoadError(

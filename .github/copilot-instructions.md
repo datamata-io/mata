@@ -147,23 +147,31 @@ Image/Crops)   ↓                      Validator (detect/segment/classify/depth
 
 **Supported Model Families:**
 
-| Model ID                              | Use Case                  | Required kwargs                    |
-| ------------------------------------- | ------------------------- | ---------------------------------- |
-| `Qwen/Qwen3-VL-2B-Instruct`           | General VQA (dev/testing) | —                                  |
-| `google/medgemma-1.5-4b-it`           | Medical imaging           | `dtype="bfloat16"`                 |
-| `LiquidAI/LFM2.5-VL-1.6B`             | Lightweight general       | `dtype="bfloat16"`                 |
-| `HuggingFaceTB/SmolVLM-256M-Instruct` | Edge/mobile               | —                                  |
-| `florence-community/Florence-2-large` | Grounding/captioning      | — (community model)                |
-| `google/paligemma2-3b-pt-224`         | Document understanding    | `dtype="bfloat16"` (gated)         |
-| `llava-hf/llava-v1.6-mistral-7b-hf`   | High-quality VQA          | —                                  |
-| `microsoft/Phi-3.5-vision-instruct`   | Code/diagrams             | Deferred (needs flash-attn, Linux) |
-| `vikhyatk/moondream2`                 | Tiny/fast                 | `trust_remote_code=True`           |
+| Model ID                              | Use Case                  | Required kwargs                                                        |
+| ------------------------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `Qwen/Qwen3-VL-2B-Instruct`           | General VQA (dev/testing) | —                                                                      |
+| `google/gemma-4-E2B-it`               | General multimodal VQA    | — (2B); `dtype="bfloat16"` for 13B/27B; requires `transformers>=5.5.0` |
+| `google/medgemma-1.5-4b-it`           | Medical imaging           | `dtype="bfloat16"`                                                     |
+| `LiquidAI/LFM2.5-VL-1.6B`             | Lightweight general       | `dtype="bfloat16"`                                                     |
+| `HuggingFaceTB/SmolVLM-256M-Instruct` | Edge/mobile               | —                                                                      |
+| `florence-community/Florence-2-large` | Grounding/captioning      | — (community model)                                                    |
+| `google/paligemma2-3b-pt-224`         | Document understanding    | `dtype="bfloat16"` (gated)                                             |
+| `llava-hf/llava-v1.6-mistral-7b-hf`   | High-quality VQA          | —                                                                      |
+| `microsoft/Phi-3.5-vision-instruct`   | Code/diagrams             | Deferred (needs flash-attn, Linux)                                     |
+| `vikhyatk/moondream2`                 | Tiny/fast                 | `trust_remote_code=True`                                               |
 
 **Loading Examples:**
 
 ```python
 # Standard (backward compatible)
 vlm = mata.load("vlm", "Qwen/Qwen3-VL-2B-Instruct")
+
+# Gemma 4 — 2B variant, no special flags (requires transformers>=5.5.0)
+vlm = mata.load("vlm", "google/gemma-4-E2B-it")
+
+# Gemma 4 — larger variants need bfloat16
+vlm = mata.load("vlm", "google/gemma-4-13b-it", dtype="bfloat16")
+vlm = mata.load("vlm", "google/gemma-4-27b-it", dtype="bfloat16")
 
 # Medical imaging with explicit dtype
 vlm = mata.load("vlm", "google/medgemma-1.5-4b-it", dtype="bfloat16")

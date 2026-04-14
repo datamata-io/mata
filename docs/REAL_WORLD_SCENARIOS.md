@@ -1,3 +1,9 @@
+---
+title: "Real-World Scenarios"
+description: "End-to-end pipeline scenarios that show how to combine MATA tasks for production-style workflows."
+sidebar_position: 3
+---
+
 # Real-World Scenarios Showcase — MATA Industry Applications
 
 > **MATA v1.6.1** — Model-Agnostic Task Architecture  
@@ -1393,7 +1399,7 @@ defect_detect_classify(
 ### Documentation
 
 - **Main README**: [README.md](../README.md)
-- **Graph System Guide**: [docs/GRAPH_SYSTEM_GUIDE.md](GRAPH_SYSTEM_GUIDE.md)
+- **Graph System Guide**: [docs/GRAPH_SYSTEM_GUIDE.md](./GRAPH_SYSTEM_GUIDE.md)
 - **Example Scripts**: [examples/graph/scenarios/](../examples/graph/scenarios/)
 - **Preset API Reference**: [src/mata/presets/](../src/mata/presets/)
 

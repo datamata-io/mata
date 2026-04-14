@@ -1,3 +1,9 @@
+---
+title: "Tracking"
+description: "Track objects across frames, manage identities, and integrate temporal state into MATA workflows."
+sidebar_position: 3
+---
+
 # Object Tracking Guide
 
 Track objects across video frames with persistent IDs using ByteTrack or BotSort. MATA's tracking system is fully vendored — no external tracking dependencies required.
@@ -200,7 +206,7 @@ bridge2 = ReIDBridge("valkey://localhost:6379", camera_id="cam-2")
 # Embeddings from cam-1 are queryable cross-camera with cosine similarity
 ```
 
-See [Valkey Guide](VALKEY_GUIDE.md) for Valkey/Redis setup and configuration.
+See [Valkey Guide](./VALKEY_GUIDE.md) for Valkey/Redis setup and configuration.
 
 ## CLI
 

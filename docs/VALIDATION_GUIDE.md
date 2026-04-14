@@ -1,3 +1,9 @@
+---
+title: "Validation"
+description: "Validate models, pipelines, and runtime assumptions before deployment with repeatable checks and guardrails."
+sidebar_position: 1
+---
+
 # MATA Validation & Evaluation Guide
 
 **Version:** 1.9.0  
