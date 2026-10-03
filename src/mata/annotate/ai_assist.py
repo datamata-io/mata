@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Any
+from typing import Any, cast
 
 from mata.annotate.coco_io import xyxy_to_xywh
 from mata.core.logging import get_logger
@@ -356,11 +356,12 @@ class AIAssist:
         class_map: dict[int, str] | dict[str, str] | None,
     ) -> str:
         if class_map:
-            if label_id in class_map:
-                return str(class_map[label_id])
+            normalized = cast("dict[int | str, str]", class_map)
+            if label_id in normalized:
+                return str(normalized[label_id])
             label_key = str(label_id)
-            if label_key in class_map:
-                return str(class_map[label_key])
+            if label_key in normalized:
+                return str(normalized[label_key])
 
         label_name = getattr(inst, "label_name", None)
         if label_name:

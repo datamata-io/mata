@@ -944,7 +944,7 @@ class UniversalLoader:
                             last_conv = layers[-1]
                             in_ch_last = int(last_conv.in_channels)
                             out_ch_ckpt = int(ckpt_w.shape[0])
-                            num_anchors_lvl = int(last_conv.out_channels // max(old_num_classes, 1))
+                            num_anchors_lvl = int(getattr(last_conv, "out_channels")) // max(old_num_classes, 1)
                             layers[-1] = nn.Conv2d(
                                 in_ch_last,
                                 num_anchors_lvl * out_ch_ckpt // max(num_anchors_lvl, 1),
