@@ -26,7 +26,20 @@ Example usage:
 
 __version__ = "2.0.0"
 
-from .api import annotate, finetune, get_model_info, infer, list_models, load, register_model, run, track, train, val, verbose
+from .api import (
+    annotate,
+    finetune,
+    get_model_info,
+    infer,
+    list_models,
+    load,
+    register_model,
+    run,
+    track,
+    train,
+    val,
+    verbose,
+)
 from .core import (
     BarcodeRegion,
     BarcodeResult,

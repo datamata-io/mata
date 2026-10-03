@@ -151,7 +151,11 @@ def _add_annotate_parser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--detect-model", default=None, help="Detection model for AI-assist")
     p.add_argument("--vlm-model", default=None, help="VLM model for AI-assist")
     p.add_argument("--embed-model", default=None, help="Embedding model for AI-assist")
-    p.add_argument("--zeroshot-model", default=None, help="Grounding DINO model for zero-shot detection AI-assist (default: IDEA-Research/grounding-dino-tiny)")
+    p.add_argument(
+        "--zeroshot-model",
+        default=None,
+        help="Grounding DINO model for zero-shot detection AI-assist (default: IDEA-Research/grounding-dino-tiny)",
+    )
 
 
 def _add_export_parser(subparsers: argparse._SubParsersAction) -> None:

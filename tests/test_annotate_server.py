@@ -37,7 +37,6 @@ import pytest
 from mata.annotate.dataset_manager import DatasetManager
 from mata.annotate.server import AnnotateServer
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers
 # ---------------------------------------------------------------------------
@@ -104,6 +103,7 @@ def test_server_default_host_is_localhost() -> None:
     srv = AnnotateServer.__new__(AnnotateServer)
     # Check the constructor sets host=127.0.0.1 by default
     import inspect
+
     sig = inspect.signature(AnnotateServer.__init__)
     host_default = sig.parameters["host"].default
     assert host_default == "127.0.0.1"
@@ -368,9 +368,7 @@ def _read_static_file(name: str) -> str:
 def test_index_html_contains_dark_theme_css_block() -> None:
     """index.html must contain a [data-theme="dark"] CSS variable block."""
     html = _read_static_file("index.html")
-    assert '[data-theme="dark"]' in html, (
-        'index.html is missing the [data-theme="dark"] CSS block'
-    )
+    assert '[data-theme="dark"]' in html, 'index.html is missing the [data-theme="dark"] CSS block'
 
 
 def test_index_html_contains_light_theme_css_variables() -> None:
@@ -378,9 +376,9 @@ def test_index_html_contains_light_theme_css_variables() -> None:
     html = _read_static_file("index.html")
     has_root = ":root" in html
     has_light_attr = '[data-theme="light"]' in html
-    assert has_root or has_light_attr, (
-        "index.html is missing a light-theme CSS variable block (:root or [data-theme=\"light\"])"
-    )
+    assert (
+        has_root or has_light_attr
+    ), 'index.html is missing a light-theme CSS variable block (:root or [data-theme="light"])'
 
 
 def test_app_js_contains_theme_manager() -> None:
@@ -388,14 +386,12 @@ def test_app_js_contains_theme_manager() -> None:
     js = _read_static_file("app.js")
     assert "ThemeManager" in js, "app.js does not define or reference ThemeManager"
     # Verify it is actually initialised (not just referenced in a comment)
-    assert "ThemeManager.init" in js or "ThemeManager =" in js, (
-        "app.js references ThemeManager but does not initialise it"
-    )
+    assert (
+        "ThemeManager.init" in js or "ThemeManager =" in js
+    ), "app.js references ThemeManager but does not initialise it"
 
 
 def test_app_js_uses_localstorage_key() -> None:
     """app.js must reference the 'mata-annotate-theme' localStorage key."""
     js = _read_static_file("app.js")
-    assert "mata-annotate-theme" in js, (
-        "app.js does not reference the 'mata-annotate-theme' localStorage key"
-    )
+    assert "mata-annotate-theme" in js, "app.js does not reference the 'mata-annotate-theme' localStorage key"

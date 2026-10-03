@@ -73,30 +73,31 @@ class DatasetManager:
 
             cache = self.read_dataset_cache(item.name)
             if cache is not None:
-                result.append({
-                    "name": item.name,
-                    "image_count": cache.get("image_count", 0),
-                    "has_annotations": cache.get("has_annotations", False),
-                    "type": cache.get("type", "unknown"),
-                    "cache_valid": True,
-                })
+                result.append(
+                    {
+                        "name": item.name,
+                        "image_count": cache.get("image_count", 0),
+                        "has_annotations": cache.get("has_annotations", False),
+                        "type": cache.get("type", "unknown"),
+                        "cache_valid": True,
+                    }
+                )
             else:
                 _ds_type = self.detect_dataset_type(item.name)
                 _img_count = _fast_image_count(item)
                 _has_ann = bool(
                     (item / "annotations").is_dir()
-                    or any(
-                        (item / d / "_annotations.coco.json").is_file()
-                        for d in ("train", "val", "valid", "test")
-                    )
+                    or any((item / d / "_annotations.coco.json").is_file() for d in ("train", "val", "valid", "test"))
                 )
-                result.append({
-                    "name": item.name,
-                    "image_count": _img_count,
-                    "has_annotations": _has_ann,
-                    "type": _ds_type,
-                    "cache_valid": False,
-                })
+                result.append(
+                    {
+                        "name": item.name,
+                        "image_count": _img_count,
+                        "has_annotations": _has_ann,
+                        "type": _ds_type,
+                        "cache_valid": False,
+                    }
+                )
         return result
 
     # ------------------------------------------------------------------
@@ -113,6 +114,7 @@ class DatasetManager:
             if not cache_path.is_file():
                 return None
             import yaml  # type: ignore[import-untyped]
+
             with cache_path.open(encoding="utf-8") as fh:
                 data = yaml.safe_load(fh)
             if not isinstance(data, dict) or data.get("version") != self._CACHE_VERSION:
@@ -129,6 +131,7 @@ class DatasetManager:
         """
         try:
             import yaml  # type: ignore[import-untyped]
+
             payload = {"version": self._CACHE_VERSION, **data}
             cache_path = self._safe_resolve(name, self._CACHE_FILENAME)
             tmp = cache_path.with_suffix(".yaml.tmp")
@@ -198,17 +201,12 @@ class DatasetManager:
         # Build annotation_count lookup from COCO if provided
         ann_count_by_filename: dict[str, int] = {}
         if coco:
-            _id_to_filename = {
-                img["id"]: img.get("file_name", "")
-                for img in coco.get("images", [])
-            }
+            _id_to_filename = {img["id"]: img.get("file_name", "") for img in coco.get("images", [])}
             for ann in coco.get("annotations", []):
                 fname = _id_to_filename.get(ann.get("image_id", -1), "")
                 if fname:
                     # Only the base filename is used for matching
-                    ann_count_by_filename[Path(fname).name] = (
-                        ann_count_by_filename.get(Path(fname).name, 0) + 1
-                    )
+                    ann_count_by_filename[Path(fname).name] = ann_count_by_filename.get(Path(fname).name, 0) + 1
 
         # ------------------------------------------------------------------
         # Fast path: build image list directly from COCO metadata when available.
@@ -218,7 +216,9 @@ class DatasetManager:
         # COCO images array are still discovered (e.g. unannotated images added
         # to the folder without updating the COCO JSON).
         images = _build_image_list_from_fs(
-            dataset_dir, ann_count_by_filename, sort,
+            dataset_dir,
+            ann_count_by_filename,
+            sort,
             _needs_mtime=(sort in ("newest", "oldest")),
         )
         # Apply filters
@@ -289,27 +289,20 @@ class DatasetManager:
             if "/" not in filename and "\\" not in filename:
                 dataset_dir = self._safe_resolve(dataset)
                 matches = sorted(
-                    f for f in dataset_dir.rglob(filename)
-                    if f.is_file() and f.suffix.lower() in _IMAGE_EXTENSIONS
+                    f for f in dataset_dir.rglob(filename) if f.is_file() and f.suffix.lower() in _IMAGE_EXTENSIONS
                 )
                 if matches:
                     path = matches[0]
                 else:
-                    raise FileNotFoundError(
-                        f"Image '{filename}' not found in dataset '{dataset}'."
-                    )
+                    raise FileNotFoundError(f"Image '{filename}' not found in dataset '{dataset}'.")
             else:
-                raise FileNotFoundError(
-                    f"Image '{filename}' not found in dataset '{dataset}'."
-                )
+                raise FileNotFoundError(f"Image '{filename}' not found in dataset '{dataset}'.")
 
         data = path.read_bytes()
         ct = mimetypes.guess_type(str(path))[0] or "image/jpeg"
         return data, ct
 
-    def serve_thumbnail(
-        self, dataset: str, filename: str, max_size: int = 256
-    ) -> tuple[bytes, str]:
+    def serve_thumbnail(self, dataset: str, filename: str, max_size: int = 256) -> tuple[bytes, str]:
         """Serve the original image directly (no thumbnail cache)."""
         return self.serve_image(dataset, filename)
 
@@ -360,12 +353,8 @@ class DatasetManager:
         except ValueError:
             folder_path = dataset_dir.as_posix()
 
-        has_train = any(
-            (dataset_dir / d).is_dir() for d in ("train", "train2017", "train2014")
-        )
-        has_val = any(
-            (dataset_dir / d).is_dir() for d in ("val", "valid", "val2017", "val2014")
-        )
+        has_train = any((dataset_dir / d).is_dir() for d in ("train", "train2017", "train2014"))
+        has_val = any((dataset_dir / d).is_dir() for d in ("val", "valid", "val2017", "val2014"))
         dataset_type = self.detect_dataset_type(name)
 
         # Try to obtain COCO metadata when not supplied — load from disk if
@@ -401,16 +390,10 @@ class DatasetManager:
             classes: list[str] = [c["name"] for c in coco_categories if c.get("name")]
 
             # Annotated images = any image_id that has at least one annotation
-            annotated_ids: set[int] = {
-                a["image_id"] for a in coco_annotations if "image_id" in a
-            }
-            total_annotated = sum(
-                1 for img in coco_images if img.get("id") in annotated_ids
-            )
+            annotated_ids: set[int] = {a["image_id"] for a in coco_annotations if "image_id" in a}
+            total_annotated = sum(1 for img in coco_images if img.get("id") in annotated_ids)
             total_unannotated = image_count - total_annotated
-            browse_progress = (
-                round((total_annotated / image_count) * 100, 1) if image_count > 0 else 0.0
-            )
+            browse_progress = round((total_annotated / image_count) * 100, 1) if image_count > 0 else 0.0
 
             # Splits: first try to detect from file_name path prefix (standard COCO
             # convention: file_name = "train2017/000001.jpg").
@@ -427,46 +410,41 @@ class DatasetManager:
                 if image_split:
                     splits_total[image_split] = splits_total.get(image_split, 0) + 1
                     if img.get("id") in annotated_ids:
-                        splits_annotated_d[image_split] = (
-                            splits_annotated_d.get(image_split, 0) + 1
-                        )
+                        splits_annotated_d[image_split] = splits_annotated_d.get(image_split, 0) + 1
 
             # Fallback: COCO file_names have no path prefix — detect splits and
             # compute sizes by scanning known image subdirectories.
             _KNOWN_SPLIT_DIRS = (
-                "train", "val", "valid", "test",
-                "train2017", "val2017", "test2017",
-                "train2014", "val2014", "test2014",
+                "train",
+                "val",
+                "valid",
+                "test",
+                "train2017",
+                "val2017",
+                "test2017",
+                "train2014",
+                "val2014",
+                "test2014",
             )
             _IMG_SUBDIRS = ("images",) + _KNOWN_SPLIT_DIRS
             if not splits_total:
                 _basename_to_id: dict[str, int] = {
-                    Path(img.get("file_name", "")).name: img["id"]
-                    for img in coco_images
-                    if img.get("id") is not None
+                    Path(img.get("file_name", "")).name: img["id"] for img in coco_images if img.get("id") is not None
                 }
                 for _sd in _KNOWN_SPLIT_DIRS:
                     _sdir = dataset_dir / _sd
                     if not _sdir.is_dir():
                         continue
-                    _split_key = (
-                        "train" if "train" in _sd
-                        else ("val" if "val" in _sd else "test")
-                    )
+                    _split_key = "train" if "train" in _sd else ("val" if "val" in _sd else "test")
                     for _f in _sdir.rglob("*"):
                         if _f.is_file() and _f.suffix.lower() in _IMAGE_EXTENSIONS:
-                            splits_total[_split_key] = (
-                                splits_total.get(_split_key, 0) + 1
-                            )
+                            splits_total[_split_key] = splits_total.get(_split_key, 0) + 1
                             _img_id = _basename_to_id.get(_f.name)
                             if _img_id is not None and _img_id in annotated_ids:
-                                splits_annotated_d[_split_key] = (
-                                    splits_annotated_d.get(_split_key, 0) + 1
-                                )
+                                splits_annotated_d[_split_key] = splits_annotated_d.get(_split_key, 0) + 1
 
             splits: dict[str, dict] = {
-                s: {"total": splits_total[s], "annotated": splits_annotated_d.get(s, 0)}
-                for s in splits_total
+                s: {"total": splits_total[s], "annotated": splits_annotated_d.get(s, 0)} for s in splits_total
             }
 
             # File sizes: scan known image subdirs only (avoids root rglob and
@@ -532,10 +510,7 @@ class DatasetManager:
 
         total_unannotated = image_count
         browse_progress = 0.0
-        splits = {
-            s: {"total": splits_total[s], "annotated": 0}
-            for s in splits_total
-        }
+        splits = {s: {"total": splits_total[s], "annotated": 0} for s in splits_total}
 
         return {
             "name": name,
@@ -568,18 +543,15 @@ class DatasetManager:
 
         for class_dir in _iter_class_dirs(class_root):
             count = sum(
-                1 for file in class_dir.iterdir()
-                if file.is_file()
-                and not file.name.startswith(".")
-                and file.suffix.lower() in _IMAGE_EXTENSIONS
+                1
+                for file in class_dir.iterdir()
+                if file.is_file() and not file.name.startswith(".") and file.suffix.lower() in _IMAGE_EXTENSIONS
             )
             result.append({"name": class_dir.name, "count": count})
 
         return result
 
-    def reclassify_image(
-        self, dataset: str, filename: str, from_class: str, to_class: str
-    ) -> None:
+    def reclassify_image(self, dataset: str, filename: str, from_class: str, to_class: str) -> None:
         """Move an image between class directories, preserving its split root."""
         _validate_class_name(from_class)
         _validate_class_name(to_class)
@@ -596,22 +568,16 @@ class DatasetManager:
                 break
 
         if source_root is None or source_path is None:
-            raise FileNotFoundError(
-                f"Image '{filename}' not found in class '{from_class}' for dataset '{dataset}'."
-            )
+            raise FileNotFoundError(f"Image '{filename}' not found in class '{from_class}' for dataset '{dataset}'.")
 
         root_rel = source_root.relative_to(self._root)
         destination_dir = self._safe_resolve(*root_rel.parts, to_class)
         if not destination_dir.is_dir():
-            raise ValueError(
-                f"Destination class '{to_class}' does not exist in dataset '{dataset}'."
-            )
+            raise ValueError(f"Destination class '{to_class}' does not exist in dataset '{dataset}'.")
 
         destination_path = self._safe_resolve(*root_rel.parts, to_class, source_path.name)
         if destination_path.exists():
-            raise ValueError(
-                f"Destination image '{source_path.name}' already exists in class '{to_class}'."
-            )
+            raise ValueError(f"Destination image '{source_path.name}' already exists in class '{to_class}'.")
 
         shutil.move(str(source_path), str(destination_path))
 
@@ -636,9 +602,7 @@ class DatasetManager:
                 class_dirs.append(class_dir)
 
         if not class_dirs:
-            raise FileNotFoundError(
-                f"Class '{class_name}' not found in dataset '{dataset}'."
-            )
+            raise FileNotFoundError(f"Class '{class_name}' not found in dataset '{dataset}'.")
 
         for class_dir in class_dirs:
             entries = [entry for entry in class_dir.iterdir() if not entry.name.startswith(".")]
@@ -667,8 +631,7 @@ class DatasetManager:
         _VALID_SPLITS = {"train", "val", "test"}
         if target_split not in _VALID_SPLITS:
             raise ValueError(
-                f"Invalid target_split '{target_split}'. "
-                f"Must be one of: {', '.join(sorted(_VALID_SPLITS))}."
+                f"Invalid target_split '{target_split}'. " f"Must be one of: {', '.join(sorted(_VALID_SPLITS))}."
             )
 
         dataset_dir = self._safe_resolve(dataset)
@@ -682,9 +645,7 @@ class DatasetManager:
                 break
 
         if image_path is None:
-            raise FileNotFoundError(
-                f"Image '{filename}' not found in dataset '{dataset}'."
-            )
+            raise FileNotFoundError(f"Image '{filename}' not found in dataset '{dataset}'.")
 
         target_dir = self._safe_resolve(dataset, target_split)
         destination = self._safe_resolve(dataset, target_split, image_path.name)
@@ -696,9 +657,7 @@ class DatasetManager:
             return {"moved": False, "from": from_rel, "to": to_rel, "filename": image_path.name}
 
         if destination.exists():
-            raise ValueError(
-                f"Image '{image_path.name}' already exists in split '{target_split}'."
-            )
+            raise ValueError(f"Image '{image_path.name}' already exists in split '{target_split}'.")
 
         target_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(str(image_path), str(destination))
@@ -769,6 +728,7 @@ class DatasetManager:
         _PRIMARY_SPLITS = frozenset({"train", "val"})
         split_dirs = [d for d in child_dirs if d.name.lower() in _SPLIT_NAMES]
         if split_dirs:
+
             def _split_layout(split_dir: Path) -> str:
                 """Return 'class_folder', 'flat', or 'mixed'."""
                 sc = [c for c in split_dir.iterdir() if not c.name.startswith(".")]
@@ -842,9 +802,7 @@ class DatasetManager:
         if not (0 <= train_pct <= 100 and 0 <= val_pct <= 100 and 0 <= test_pct <= 100):
             raise ValueError("Each percentage must be between 0 and 100.")
         if train_pct + val_pct + test_pct != 100:
-            raise ValueError(
-                f"Percentages must sum to 100 (got {train_pct + val_pct + test_pct})."
-            )
+            raise ValueError(f"Percentages must sum to 100 (got {train_pct + val_pct + test_pct}).")
 
         dataset_dir = self._safe_resolve(dataset)
 
@@ -985,6 +943,7 @@ def _update_coco_file_names(dataset_dir: Path, moved_map: dict[str, str]) -> Non
             except Exception:
                 tmp.unlink(missing_ok=True)
 
+
 def _fast_image_count(dataset_dir: Path) -> int:
     """Return image count for *dataset_dir* without a full recursive scan.
 
@@ -1061,8 +1020,10 @@ def _fast_image_count(dataset_dir: Path) -> int:
 
     # -- Strategy 3: fallback rglob scan -------------------------------------
     return sum(
-        1 for f in dataset_dir.rglob("*")
-        if f.is_file() and f.suffix.lower() in _IMAGE_EXTENSIONS
+        1
+        for f in dataset_dir.rglob("*")
+        if f.is_file()
+        and f.suffix.lower() in _IMAGE_EXTENSIONS
         and not any(p.name.startswith(".") for p in f.relative_to(dataset_dir).parents)
     )
 
@@ -1317,11 +1278,13 @@ def _merge_split_coco_jsons(dataset_dir: Path) -> dict | None:
                 merged_images.append({**img, "id": new_id})
             for ann in split_anns:
                 old_img_id = ann.get("image_id", 0)
-                merged_annotations.append({
-                    **ann,
-                    "id": ann.get("id", 0) + ann_id_offset,
-                    "image_id": old_to_new.get(old_img_id, old_img_id + img_id_offset),
-                })
+                merged_annotations.append(
+                    {
+                        **ann,
+                        "id": ann.get("id", 0) + ann_id_offset,
+                        "image_id": old_to_new.get(old_img_id, old_img_id + img_id_offset),
+                    }
+                )
             max_img_id = max((img.get("id", 0) for img in split_images), default=0)
             max_ann_id = max((ann.get("id", 0) for ann in split_anns), default=0)
             img_id_offset += max_img_id + 1
@@ -1345,8 +1308,7 @@ def _resolve_image_path(dm: DatasetManager, dataset: str, filename: str) -> Path
     if "/" not in filename and "\\" not in filename:
         dataset_dir = dm._safe_resolve(dataset)
         matches = sorted(
-            f for f in dataset_dir.rglob(filename)
-            if f.is_file() and f.suffix.lower() in _IMAGE_EXTENSIONS
+            f for f in dataset_dir.rglob(filename) if f.is_file() and f.suffix.lower() in _IMAGE_EXTENSIONS
         )
         if matches:
             return matches[0]
@@ -1364,10 +1326,7 @@ def _validate_class_name(class_name: str) -> None:
 
 def _iter_class_dirs(root: Path):
     """Yield immediate non-hidden class directories in sorted order."""
-    return (
-        child for child in sorted(root.iterdir())
-        if child.is_dir() and not child.name.startswith(".")
-    )
+    return (child for child in sorted(root.iterdir()) if child.is_dir() and not child.name.startswith("."))
 
 
 def _get_classification_roots(dm: DatasetManager, dataset: str) -> list[Path]:
@@ -1381,11 +1340,7 @@ def _get_classification_roots(dm: DatasetManager, dataset: str) -> list[Path]:
     if not dataset_dir.is_dir():
         raise FileNotFoundError(f"Dataset '{dataset}' not found.")
 
-    split_roots = [
-        dataset_dir / split
-        for split in ("train", "val", "test")
-        if (dataset_dir / split).is_dir()
-    ]
+    split_roots = [dataset_dir / split for split in ("train", "val", "test") if (dataset_dir / split).is_dir()]
     return split_roots or [dataset_dir]
 
 

@@ -53,7 +53,7 @@ def _resolve_static_path(url_path: str) -> Path | None:
     # Strip leading /static/ prefix if present
     rel = url_path.lstrip("/")
     if rel.startswith("static/"):
-        rel = rel[len("static/"):]
+        rel = rel[len("static/") :]
 
     candidate = (_STATIC_DIR / rel).resolve()
     try:
@@ -440,9 +440,7 @@ class AnnotateServer:
 
         resolved_data = self._resolve_training_data_path(data)
         kwargs = {
-            key: value
-            for key, value in request.items()
-            if key not in {"task", "model", "data", "mode", "action"}
+            key: value for key, value in request.items() if key not in {"task", "model", "data", "mode", "action"}
         }
 
         with self._train_lock:

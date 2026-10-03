@@ -508,6 +508,7 @@ def test_export_produces_dataset_yaml(tmp_path: Path) -> None:
     assert yaml_path.name == "dataset.yaml"
 
     import yaml  # type: ignore[import]
+
     config = yaml.safe_load(yaml_path.read_text())
     assert "names" in config
     assert "train" in config
@@ -1278,9 +1279,7 @@ def test_f3_delete_annotation(tmp_path: Path) -> None:
             {"image_id": 1, "bbox_xywh": [10, 20, 100, 50], "category_id": 1},
         )
         ann_id = add_body["id"]
-        del_status, del_body = _delete(
-            srv, f"/api/datasets/coco_mini/annotations/{ann_id}"
-        )
+        del_status, del_body = _delete(srv, f"/api/datasets/coco_mini/annotations/{ann_id}")
         _, reload = _get(srv, "/api/datasets/coco_mini/annotations")
     assert del_status == 200
     assert del_body["deleted"] == ann_id

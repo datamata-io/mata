@@ -63,11 +63,7 @@ def _validate_patch_body(body: dict) -> str | None:
         return "'category_id' must be an integer."
     if "bbox" in body:
         bbox = body["bbox"]
-        if not (
-            isinstance(bbox, list)
-            and len(bbox) == 4
-            and all(isinstance(v, (int, float)) for v in bbox)
-        ):
+        if not (isinstance(bbox, list) and len(bbox) == 4 and all(isinstance(v, (int, float)) for v in bbox)):
             return "'bbox' must be a list of 4 numbers."
     return None
 
@@ -88,6 +84,7 @@ def _parse_path(path: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Backend accessor helpers — degrade gracefully before modules are complete
 # ---------------------------------------------------------------------------
+
 
 def _dm(server: "AnnotateServer") -> Any:
     """Return the DatasetManager attached to *server*, or raise NotImplementedError."""
@@ -115,9 +112,7 @@ def _coco_state(server: "AnnotateServer") -> dict[str, dict[str, Any]]:
 
 
 # Pattern for API image URLs: /api/datasets/<dataset>/images/<filename...>
-_API_IMAGE_URL_RE = re.compile(
-    r"^/?(?:api/)?datasets/(?P<dataset>[^/]+)/images/(?P<filename>.+)$"
-)
+_API_IMAGE_URL_RE = re.compile(r"^/?(?:api/)?datasets/(?P<dataset>[^/]+)/images/(?P<filename>.+)$")
 
 
 def _resolve_assist_image_path(server: "AnnotateServer", image_path: str) -> str:
@@ -138,6 +133,7 @@ def _resolve_assist_image_path(server: "AnnotateServer", image_path: str) -> str
     if m:
         from urllib.parse import unquote as _unquote
         from mata.annotate.dataset_manager import _resolve_image_path
+
         dataset = _unquote(m.group("dataset"))
         filename = _unquote(m.group("filename"))
         return str(_resolve_image_path(_dm(server), dataset, filename))
@@ -264,7 +260,10 @@ def _save_dataset_coco(server: "AnnotateServer", dataset: str, coco: dict) -> An
 # Dataset routes
 # ---------------------------------------------------------------------------
 
-def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], body: dict, query: dict | None = None) -> tuple[int, Any]:
+
+def _handle_datasets(
+    server: "AnnotateServer", method: str, parts: list[str], body: dict, query: dict | None = None
+) -> tuple[int, Any]:
     """Handle all /api/datasets/... routes."""
     if query is None:
         query = {}
@@ -280,7 +279,10 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
             return 400, {"error": err, "code": 400}
         name = body["name"]
         if not _valid_dataset_name(name):
-            return 400, {"error": f"Invalid dataset name '{name}'. Use alphanumeric, underscore, hyphen (max 64 chars).", "code": 400}
+            return 400, {
+                "error": f"Invalid dataset name '{name}'. Use alphanumeric, underscore, hyphen (max 64 chars).",
+                "code": 400,
+            }
         result = _dm(server).create_dataset(name)
         return 201, result
 
@@ -315,7 +317,10 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         sort = query.get("sort", "name_asc")
         valid_sorts = {"name_asc", "name_desc", "newest", "oldest", "size"}
         if sort not in valid_sorts:
-            return 400, {"error": f"Invalid sort '{sort}'. Must be one of: {', '.join(sorted(valid_sorts))}.", "code": 400}
+            return 400, {
+                "error": f"Invalid sort '{sort}'. Must be one of: {', '.join(sorted(valid_sorts))}.",
+                "code": 400,
+            }
         split = query.get("split") or None
         annotated = query.get("annotated") or None
         search = query.get("search") or None
@@ -368,9 +373,11 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         base = filename.split("/")[-1] if "/" in filename else filename
         _, coco = _load_dataset_coco(server, dataset)
         image_record = next(
-            (img for img in coco.get("images", [])
-             if img.get("file_name", "").split("/")[-1] == base
-             or img.get("file_name", "") == filename),
+            (
+                img
+                for img in coco.get("images", [])
+                if img.get("file_name", "").split("/")[-1] == base or img.get("file_name", "") == filename
+            ),
             None,
         )
         if image_record is None:
@@ -392,9 +399,11 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
             return 400, {"error": "'annotations' must be a list.", "code": 400}
         _, coco = _load_dataset_coco(server, dataset)
         image_record = next(
-            (img for img in coco.get("images", [])
-             if img.get("file_name", "").split("/")[-1] == base
-             or img.get("file_name", "") == filename),
+            (
+                img
+                for img in coco.get("images", [])
+                if img.get("file_name", "").split("/")[-1] == base or img.get("file_name", "") == filename
+            ),
             None,
         )
         if image_record is None:
@@ -407,9 +416,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         if body.get("categories") and isinstance(body["categories"], list):
             coco["categories"] = body["categories"]
         # Replace all annotations for this image
-        coco["annotations"] = [
-            a for a in coco.get("annotations", []) if a.get("image_id") != image_id
-        ]
+        coco["annotations"] = [a for a in coco.get("annotations", []) if a.get("image_id") != image_id]
         for ann in new_annotations:
             ann["image_id"] = image_id  # enforce consistency
             coco["annotations"].append(ann)
@@ -430,6 +437,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         if err:
             return 400, {"error": err, "code": 400}
         from mata.annotate import coco_io
+
         _, coco = _load_dataset_coco(server, dataset)
         new_id = coco_io.add_annotation(
             coco,
@@ -448,6 +456,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         except ValueError:
             return 400, {"error": "Annotation ID must be an integer.", "code": 400}
         from mata.annotate import coco_io
+
         ann_path, coco = _load_dataset_coco(server, dataset)
         if not ann_path.exists():
             return 404, {"error": "No annotations file found.", "code": 404}
@@ -465,6 +474,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         if err:
             return 400, {"error": err, "code": 400}
         from mata.annotate import coco_io
+
         _, coco = _load_dataset_coco(server, dataset)
         try:
             coco_io.update_annotation(coco, ann_id, **body)
@@ -476,6 +486,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
     # POST /api/datasets/<name>/export
     if method == "POST" and tail == ["export"]:
         from mata.annotate import coco_io
+
         ann_path, coco = _load_dataset_coco(server, dataset)
         if not ann_path.exists():
             return 400, {"error": "No annotations to export.", "code": 400}
@@ -483,10 +494,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         # Warn if annotation export files already exist and will be overwritten.
         if not body.get("confirm"):
             ann_dir = dataset_path / "annotations"
-            existing = [
-                f for f in ("instances_train.json", "instances_val.json")
-                if (ann_dir / f).is_file()
-            ]
+            existing = [f for f in ("instances_train.json", "instances_val.json") if (ann_dir / f).is_file()]
             if existing:
                 listed = " and ".join(f"'{f}'" for f in existing)
                 return 200, {
@@ -576,6 +584,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         if not isinstance(reviewed_val, bool):
             return 400, {"error": "'reviewed' must be a boolean.", "code": 400}
         from mata.annotate import coco_io
+
         _, coco = _load_dataset_coco(server, dataset)
         found = coco_io.set_image_reviewed(coco, filename, reviewed_val)
         if not found:
@@ -599,6 +608,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         if err:
             return 400, {"error": err, "code": 400}
         from mata.annotate import coco_io
+
         _, coco = _load_dataset_coco(server, dataset)
         new_id = coco_io.add_category(
             coco,
@@ -618,6 +628,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
         except ValueError:
             return 400, {"error": "Category ID must be an integer.", "code": 400}
         from mata.annotate import coco_io
+
         _, coco = _load_dataset_coco(server, dataset)
         try:
             updated = coco_io.update_category(
@@ -647,6 +658,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
             except (ValueError, TypeError):
                 return 400, {"error": "'reassign_to' must be an integer.", "code": 400}
         from mata.annotate import coco_io
+
         _, coco = _load_dataset_coco(server, dataset)
         try:
             affected = coco_io.delete_category(coco, cat_id, reassign_to=reassign_to)
@@ -663,6 +675,7 @@ def _handle_datasets(server: "AnnotateServer", method: str, parts: list[str], bo
 # ---------------------------------------------------------------------------
 # AI-assist routes
 # ---------------------------------------------------------------------------
+
 
 def _handle_assist(server: "AnnotateServer", method: str, parts: list[str], body: dict) -> tuple[int, Any]:
     """Handle all /api/assist/... routes."""
@@ -726,6 +739,7 @@ def _handle_assist(server: "AnnotateServer", method: str, parts: list[str], body
             return 400, {"error": f"Invalid dataset name '{dataset}'.", "code": 400}
         ai = _ai(server)  # raises NotImplementedError → 501 if not configured
         from mata.annotate.dataset_manager import _resolve_image_path
+
         try:
             image_path = str(_resolve_image_path(_dm(server), dataset, body["image_filename"]))
         except FileNotFoundError as exc:
@@ -764,6 +778,7 @@ def _handle_assist(server: "AnnotateServer", method: str, parts: list[str], body
 # Training routes
 # ---------------------------------------------------------------------------
 
+
 def _handle_train(server: "AnnotateServer", method: str, parts: list[str], body: dict) -> tuple[int, Any]:
     """Handle all /api/train/... routes."""
     # POST /api/train  — start training
@@ -796,6 +811,7 @@ def _handle_train(server: "AnnotateServer", method: str, parts: list[str], body:
 # ---------------------------------------------------------------------------
 # Main dispatch entry point
 # ---------------------------------------------------------------------------
+
 
 def dispatch(
     server: "AnnotateServer",
@@ -850,6 +866,7 @@ def dispatch(
         return 404, {"error": str(exc), "code": 404}
     except Exception as exc:  # noqa: BLE001
         from mata.core.logging import get_logger
+
         get_logger(__name__).exception("Unhandled error in API handler: %s", exc)
         return 500, {"error": "Internal server error", "code": 500}
 

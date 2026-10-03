@@ -75,9 +75,7 @@ def test_detect_assist_uses_class_map_override() -> None:
 
 
 def test_detect_assist_lazy_loads_and_caches_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    adapter = _FakeDetectAdapter(
-        [SimpleNamespace(bbox=(1, 2, 6, 8), label=0, label_name="cat", score=0.9)]
-    )
+    adapter = _FakeDetectAdapter([SimpleNamespace(bbox=(1, 2, 6, 8), label=0, label_name="cat", score=0.9)])
     load_calls: list[tuple[str, str]] = []
 
     def fake_load(task: str, model: str, **kwargs):
@@ -280,15 +278,16 @@ class _FakeVLMAdapter:
         self._text = text
         self.calls: list[dict] = []
 
-    def predict(self, image=None, prompt=None, output_mode=None,
-                max_new_tokens=None, auto_promote=False, **kwargs):
-        self.calls.append({
-            "image": image,
-            "prompt": prompt,
-            "output_mode": output_mode,
-            "max_new_tokens": max_new_tokens,
-            "auto_promote": auto_promote,
-        })
+    def predict(self, image=None, prompt=None, output_mode=None, max_new_tokens=None, auto_promote=False, **kwargs):
+        self.calls.append(
+            {
+                "image": image,
+                "prompt": prompt,
+                "output_mode": output_mode,
+                "max_new_tokens": max_new_tokens,
+                "auto_promote": auto_promote,
+            }
+        )
         return SimpleNamespace(
             instances=self._instances,
             entities=self._entities,
@@ -452,6 +451,7 @@ def test_vlm_assist_lazy_loads_and_caches_model(monkeypatch: pytest.MonkeyPatch)
         return adapter
 
     import mata
+
     monkeypatch.setattr(mata, "load", fake_load)
 
     assist = AIAssist(vlm_model="Qwen/Qwen3-VL-2B-Instruct")
@@ -522,6 +522,7 @@ def test_load_vlm_caches_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
         return adapter
 
     import mata
+
     monkeypatch.setattr(mata, "load", fake_load)
 
     assist = AIAssist()
@@ -538,9 +539,7 @@ def test_load_vlm_raises_without_model() -> None:
         assist.load_vlm()
 
 
-def test_server_preloads_vlm_model_when_configured(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_server_preloads_vlm_model_when_configured(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     adapter = _FakeVLMAdapter()
     load_calls: list[tuple[str, str]] = []
 
@@ -549,6 +548,7 @@ def test_server_preloads_vlm_model_when_configured(
         return adapter
 
     import mata
+
     monkeypatch.setattr(mata, "load", fake_load)
 
     server = AnnotateServer(data_root=str(tmp_path), port=0, vlm_model="Qwen/Qwen3-VL-2B-Instruct")
@@ -567,9 +567,7 @@ def test_server_preloads_vlm_model_when_configured(
 def test_all_candidates_have_source_field() -> None:
     """All three adapter types must set a non-empty 'source' field."""
     # --- detect ---
-    detect_adapter = _FakeDetectAdapter(
-        [SimpleNamespace(bbox=(0, 0, 10, 10), label=1, label_name="car", score=0.9)]
-    )
+    detect_adapter = _FakeDetectAdapter([SimpleNamespace(bbox=(0, 0, 10, 10), label=1, label_name="car", score=0.9)])
     detect_assist = AIAssist()
     detect_assist._detect_adapter = detect_adapter
     detect_candidates = detect_assist.detect_assist("img.jpg")

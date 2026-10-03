@@ -515,9 +515,7 @@ class TestCheckpointResume:
             opt.step()
             opt.zero_grad()
 
-            mgr.save(
-                model, opt, None, epoch=epoch, metrics=epoch * 0.1, config=cfg, path=tmp_path / f"epoch{epoch}"
-            )
+            mgr.save(model, opt, None, epoch=epoch, metrics=epoch * 0.1, config=cfg, path=tmp_path / f"epoch{epoch}")
 
         # Load the last checkpoint and verify
         last_ckpt = tmp_path / "epoch3"

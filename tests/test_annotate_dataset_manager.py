@@ -112,13 +112,20 @@ def _make_coco_dataset(root: Path, name: str = "coco_mini") -> Path:
 
     coco = {
         "images": [{"id": 1, "file_name": "000001.jpg", "width": 12, "height": 12}],
-        "annotations": [{"id": 1, "image_id": 1, "category_id": 1,
-                          "bbox": [0, 0, 5, 5], "area": 25, "iscrowd": 0, "segmentation": []}],
+        "annotations": [
+            {
+                "id": 1,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [0, 0, 5, 5],
+                "area": 25,
+                "iscrowd": 0,
+                "segmentation": [],
+            }
+        ],
         "categories": [{"id": 1, "name": "cat", "supercategory": "cat"}],
     }
-    (dataset / "annotations" / "instances.json").write_text(
-        json.dumps(coco, indent=2), encoding="utf-8"
-    )
+    (dataset / "annotations" / "instances.json").write_text(json.dumps(coco, indent=2), encoding="utf-8")
     return dataset
 
 
@@ -744,10 +751,24 @@ def _make_coco_for_ann_count(root: Path, ds_name: str) -> tuple[Path, dict]:
     coco: dict = {
         "images": [{"id": 1, "file_name": "annotated.jpg", "width": 12, "height": 12}],
         "annotations": [
-            {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 5, 5],
-             "area": 25, "iscrowd": 0, "segmentation": []},
-            {"id": 2, "image_id": 1, "category_id": 1, "bbox": [1, 1, 3, 3],
-             "area": 9, "iscrowd": 0, "segmentation": []},
+            {
+                "id": 1,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [0, 0, 5, 5],
+                "area": 25,
+                "iscrowd": 0,
+                "segmentation": [],
+            },
+            {
+                "id": 2,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [1, 1, 3, 3],
+                "area": 9,
+                "iscrowd": 0,
+                "segmentation": [],
+            },
         ],
         "categories": [{"id": 1, "name": "cat", "supercategory": "cat"}],
     }
@@ -778,8 +799,15 @@ def test_list_images_annotation_count_from_coco(tmp_path: Path) -> None:
     coco = {
         "images": [{"id": 1, "file_name": "img.jpg", "width": 12, "height": 12}],
         "annotations": [
-            {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 5, 5],
-             "area": 25, "iscrowd": 0, "segmentation": []},
+            {
+                "id": 1,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [0, 0, 5, 5],
+                "area": 25,
+                "iscrowd": 0,
+                "segmentation": [],
+            },
         ],
         "categories": [{"id": 1, "name": "cat"}],
     }
@@ -829,6 +857,7 @@ def test_list_images_annotated_filter_true_returns_only_annotated(tmp_path: Path
 # _fast_image_count helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_coco_annotations_dir(root: Path, name: str, image_count: int) -> Path:
     """Create root/name/annotations/instances.json with `image_count` COCO image entries."""
     dataset = root / name
@@ -838,9 +867,7 @@ def _make_coco_annotations_dir(root: Path, name: str, image_count: int) -> Path:
         "annotations": [],
         "categories": [],
     }
-    (dataset / "annotations" / "instances.json").write_text(
-        json.dumps(coco_doc), encoding="utf-8"
-    )
+    (dataset / "annotations" / "instances.json").write_text(json.dumps(coco_doc), encoding="utf-8")
     return dataset
 
 
@@ -859,9 +886,7 @@ def test_fast_image_count_does_not_require_physical_files(tmp_path: Path) -> Non
     dataset = tmp_path / "fic_2"
     (dataset / "annotations").mkdir(parents=True, exist_ok=True)
     coco_doc = {"images": [{"id": i} for i in range(5)], "annotations": [], "categories": []}
-    (dataset / "annotations" / "instances.json").write_text(
-        json.dumps(coco_doc), encoding="utf-8"
-    )
+    (dataset / "annotations" / "instances.json").write_text(json.dumps(coco_doc), encoding="utf-8")
     assert _fast_image_count(dataset) == 5
 
 
@@ -908,6 +933,7 @@ def test_list_datasets_image_count_from_coco_json(tmp_path: Path) -> None:
 # list_images() COCO fast path (no filesystem scan)
 # ---------------------------------------------------------------------------
 
+
 def _make_coco_for_fast_path(root: Path, ds_name: str) -> tuple[Path, dict]:
     """Dataset with 3 physical images + a COCO doc referencing them."""
     dataset = root / ds_name
@@ -925,15 +951,18 @@ def _make_coco_for_fast_path(root: Path, ds_name: str) -> tuple[Path, dict]:
         ],
         "annotations": [
             {
-                "id": 1, "image_id": 1, "category_id": 1,
-                "bbox": [0, 0, 5, 5], "area": 25, "iscrowd": 0, "segmentation": [],
+                "id": 1,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [0, 0, 5, 5],
+                "area": 25,
+                "iscrowd": 0,
+                "segmentation": [],
             },
         ],
         "categories": [{"id": 1, "name": "cat"}],
     }
-    (dataset / "annotations" / "instances.json").write_text(
-        json.dumps(coco), encoding="utf-8"
-    )
+    (dataset / "annotations" / "instances.json").write_text(json.dumps(coco), encoding="utf-8")
     return dataset, coco
 
 
@@ -1046,6 +1075,7 @@ def test_list_images_sort_size_bypasses_coco_fast_path(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # serve_thumbnail() — corrupt / unidentifiable image fallback
 # ---------------------------------------------------------------------------
+
 
 def test_serve_thumbnail_corrupt_image_does_not_raise(tmp_path: Path) -> None:
     """serve_thumbnail returns raw bytes instead of raising PIL.UnidentifiedImageError."""

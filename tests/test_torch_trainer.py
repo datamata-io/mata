@@ -1140,7 +1140,6 @@ class TestModifyHeadUnknownModelKey:
         model = _make_fasterrcnn_mock()
         original_predictor = model.roi_heads.box_predictor
 
-
         with patch("mata.training.torch_trainer.logger") as mock_log:
             engine._modify_head(model, num_classes=5)
             mock_log.warning.assert_called_once()

@@ -41,6 +41,7 @@ _REQUIRED_KEYS = frozenset({"images", "annotations", "categories"})
 # Load / save
 # ---------------------------------------------------------------------------
 
+
 def load_annotations(json_path: str | Path) -> dict:
     """Load a COCO JSON file and validate its top-level schema.
 
@@ -58,9 +59,7 @@ def load_annotations(json_path: str | Path) -> dict:
 
     missing = _REQUIRED_KEYS - set(coco.keys())
     if missing:
-        raise ValueError(
-            f"COCO JSON missing required keys: {sorted(missing)} in {path}"
-        )
+        raise ValueError(f"COCO JSON missing required keys: {sorted(missing)} in {path}")
 
     return coco
 
@@ -96,6 +95,7 @@ def save_annotations(coco_dict: dict, json_path: str | Path) -> None:
 # Schema construction
 # ---------------------------------------------------------------------------
 
+
 def create_empty_coco(
     images: list[dict] | None = None,
     categories: list[dict] | None = None,
@@ -113,6 +113,7 @@ def create_empty_coco(
 # ---------------------------------------------------------------------------
 # Annotation CRUD
 # ---------------------------------------------------------------------------
+
 
 def add_annotation(
     coco: dict,
@@ -177,6 +178,7 @@ def remove_annotation(coco: dict, ann_id: int) -> None:
 # Image / category helpers
 # ---------------------------------------------------------------------------
 
+
 def add_image(
     coco: dict,
     file_name: str,
@@ -191,12 +193,14 @@ def add_image(
     existing_ids = [i["id"] for i in images if isinstance(i.get("id"), int)]
     new_id = (max(existing_ids) + 1) if existing_ids else 1
 
-    images.append({
-        "id": new_id,
-        "file_name": file_name,
-        "width": int(width),
-        "height": int(height),
-    })
+    images.append(
+        {
+            "id": new_id,
+            "file_name": file_name,
+            "width": int(width),
+            "height": int(height),
+        }
+    )
     return new_id
 
 
@@ -305,9 +309,7 @@ def delete_category(coco: dict, cat_id: int, reassign_to: int | None = None) -> 
                 count += 1
     else:
         before = len(coco.get("annotations", []))
-        coco["annotations"] = [
-            a for a in coco.get("annotations", []) if a.get("category_id") != cat_id
-        ]
+        coco["annotations"] = [a for a in coco.get("annotations", []) if a.get("category_id") != cat_id]
         count = before - len(coco["annotations"])
 
     return count
@@ -316,6 +318,7 @@ def delete_category(coco: dict, cat_id: int, reassign_to: int | None = None) -> 
 # ---------------------------------------------------------------------------
 # Coordinate conversion
 # ---------------------------------------------------------------------------
+
 
 def xyxy_to_xywh(bbox: list[float]) -> list[float]:
     """Convert ``[x1, y1, x2, y2]`` → ``[x, y, w, h]`` (COCO storage format)."""
@@ -332,6 +335,7 @@ def xywh_to_xyxy(bbox: list[float]) -> list[float]:
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
+
 
 def validate_coco(coco: dict) -> list[str]:
     """Return a list of human-readable warning strings for a COCO dict.
@@ -385,22 +389,16 @@ def validate_coco(coco: dict) -> list[str]:
     # Category IDs should be ≥ 1 (1-indexed COCO standard)
     for cat in categories:
         if cat.get("id", 1) == 0:
-            warnings.append(
-                f"Category '{cat.get('name')}' has id=0; COCO category IDs are 1-indexed."
-            )
+            warnings.append(f"Category '{cat.get('name')}' has id=0; COCO category IDs are 1-indexed.")
 
     # Orphan annotations (image_id not in images)
     for ann in annotations:
         img_id = ann.get("image_id")
         if img_id is not None and img_id not in image_ids:
-            warnings.append(
-                f"Annotation id={ann.get('id')} references unknown image_id={img_id}."
-            )
+            warnings.append(f"Annotation id={ann.get('id')} references unknown image_id={img_id}.")
         cat_id = ann.get("category_id")
         if cat_id is not None and cat_id not in category_ids:
-            warnings.append(
-                f"Annotation id={ann.get('id')} references unknown category_id={cat_id}."
-            )
+            warnings.append(f"Annotation id={ann.get('id')} references unknown category_id={cat_id}.")
 
     # Non-positive bbox dimensions
     for ann in annotations:
@@ -408,10 +406,7 @@ def validate_coco(coco: dict) -> list[str]:
         if bbox and len(bbox) == 4:
             _, _, w, h = bbox
             if w <= 0 or h <= 0:
-                warnings.append(
-                    f"Annotation id={ann.get('id')} has non-positive bbox dimensions "
-                    f"(w={w}, h={h})."
-                )
+                warnings.append(f"Annotation id={ann.get('id')} has non-positive bbox dimensions " f"(w={w}, h={h}).")
 
     return warnings
 
@@ -419,6 +414,7 @@ def validate_coco(coco: dict) -> list[str]:
 # ---------------------------------------------------------------------------
 # Dataset export helpers
 # ---------------------------------------------------------------------------
+
 
 def generate_yaml_config(
     dataset_path: str | Path,
@@ -475,9 +471,7 @@ def split_dataset(
     grouped_images: dict[tuple[int, ...], list[dict]] = {}
     for image in images:
         image_id = image["id"]
-        category_signature = tuple(
-            sorted({int(ann["category_id"]) for ann in annotations_by_image.get(image_id, [])})
-        )
+        category_signature = tuple(sorted({int(ann["category_id"]) for ann in annotations_by_image.get(image_id, [])}))
         grouped_images.setdefault(category_signature, []).append(image)
 
     rng = random.Random(seed)
@@ -530,7 +524,7 @@ def _strip_split_prefix_from_coco(coco_subset: dict, split: str) -> None:
     for img in coco_subset.get("images", []):
         fn = img.get("file_name", "")
         if fn.startswith(prefix):
-            img["file_name"] = fn[len(prefix):]
+            img["file_name"] = fn[len(prefix) :]
 
 
 def _detect_split_from_path(file_name: str) -> str | None:
@@ -615,6 +609,7 @@ def export_dataset(
 
     # Stage annotation JSONs so a write error never corrupts existing files.
     import tempfile
+
     tmp_dir = Path(tempfile.mkdtemp(dir=root, prefix=".export_tmp_"))
     try:
         tmp_annotations = tmp_dir / "annotations"
@@ -653,5 +648,3 @@ def _make_coco_subset(coco: dict, image_ids: set[int]) -> dict:
             subset[key] = deepcopy(value)
 
     return subset
-
-

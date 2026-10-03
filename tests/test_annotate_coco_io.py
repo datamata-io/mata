@@ -56,12 +56,8 @@ def test_split_dataset_is_deterministic_and_annotations_follow_images(tmp_path: 
 
     assert len(train_coco["images"]) == 16
     assert len(val_coco["images"]) == 4
-    assert {image["id"] for image in train_coco["images"]} == {
-        image["id"] for image in train_coco_again["images"]
-    }
-    assert {image["id"] for image in val_coco["images"]} == {
-        image["id"] for image in val_coco_again["images"]
-    }
+    assert {image["id"] for image in train_coco["images"]} == {image["id"] for image in train_coco_again["images"]}
+    assert {image["id"] for image in val_coco["images"]} == {image["id"] for image in val_coco_again["images"]}
 
     train_image_ids = {image["id"] for image in train_coco["images"]}
     val_image_ids = {image["id"] for image in val_coco["images"]}
@@ -354,10 +350,17 @@ def test_validate_coco_orphan_annotation() -> None:
     """validate_coco() warns about annotations referencing unknown image_ids."""
     coco = coco_io.create_empty_coco()
     # Add annotation referencing an image that doesn't exist
-    coco["annotations"].append({
-        "id": 1, "image_id": 9999, "category_id": 1,
-        "bbox": [0, 0, 10, 10], "area": 100, "iscrowd": 0, "segmentation": [],
-    })
+    coco["annotations"].append(
+        {
+            "id": 1,
+            "image_id": 9999,
+            "category_id": 1,
+            "bbox": [0, 0, 10, 10],
+            "area": 100,
+            "iscrowd": 0,
+            "segmentation": [],
+        }
+    )
     coco["categories"].append({"id": 1, "name": "obj", "supercategory": "obj"})
 
     warnings = coco_io.validate_coco(coco)
@@ -368,10 +371,17 @@ def test_validate_coco_orphan_category_reference() -> None:
     """validate_coco() warns about annotations with unknown category_ids."""
     coco = coco_io.create_empty_coco()
     img_id = coco_io.add_image(coco, "img.jpg", 10, 10)
-    coco["annotations"].append({
-        "id": 1, "image_id": img_id, "category_id": 999,
-        "bbox": [0, 0, 5, 5], "area": 25, "iscrowd": 0, "segmentation": [],
-    })
+    coco["annotations"].append(
+        {
+            "id": 1,
+            "image_id": img_id,
+            "category_id": 999,
+            "bbox": [0, 0, 5, 5],
+            "area": 25,
+            "iscrowd": 0,
+            "segmentation": [],
+        }
+    )
 
     warnings = coco_io.validate_coco(coco)
     assert any("category_id=999" in w for w in warnings)
@@ -382,10 +392,17 @@ def test_validate_coco_nonpositive_bbox_dimensions() -> None:
     coco = coco_io.create_empty_coco()
     cat_id = coco_io.add_category(coco, "obj")
     img_id = coco_io.add_image(coco, "img.jpg", 100, 100)
-    coco["annotations"].append({
-        "id": 1, "image_id": img_id, "category_id": cat_id,
-        "bbox": [10, 10, 0, 20], "area": 0, "iscrowd": 0, "segmentation": [],
-    })
+    coco["annotations"].append(
+        {
+            "id": 1,
+            "image_id": img_id,
+            "category_id": cat_id,
+            "bbox": [10, 10, 0, 20],
+            "area": 0,
+            "iscrowd": 0,
+            "segmentation": [],
+        }
+    )
 
     warnings = coco_io.validate_coco(coco)
     assert any("non-positive" in w for w in warnings)

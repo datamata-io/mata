@@ -138,9 +138,7 @@ def test_dispatch_loads_existing_annotation_file_from_annotations_dir(tmp_path: 
     assert payload["annotations"][0]["bbox"] == [1, 2, 10, 12]
     assert payload["annotation_count"] == 1
     # Per-image endpoint also works.
-    _, img_payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/coco_mini/annotations/image/000001.jpg", {}
-    )
+    _, img_payload = api_handler.dispatch(server, "GET", "/api/datasets/coco_mini/annotations/image/000001.jpg", {})
     assert img_payload["annotations"][0]["bbox"] == [1, 2, 10, 12]
     assert server.coco_state["coco_mini"]["path"] == "instances_train2017.json"
 
@@ -166,27 +164,33 @@ def test_dispatch_saves_annotations_back_to_existing_file(tmp_path: Path) -> Non
 # Roboflow split-dir COCO: val/test annotations visible via _load_dataset_coco
 # ---------------------------------------------------------------------------
 
+
 def _make_roboflow_dataset(root: Path, name: str = "rfds") -> Path:
     """Create a Roboflow-style dataset with train/ valid/ test/ split COCO JSONs."""
     ds = root / name
     for split, img_name, ann_id, img_id in [
         ("train", "train_img.jpg", 1, 10),
-        ("valid", "val_img.jpg",   2, 20),
-        ("test",  "test_img.jpg",  3, 30),
+        ("valid", "val_img.jpg", 2, 20),
+        ("test", "test_img.jpg", 3, 30),
     ]:
         (ds / split).mkdir(parents=True, exist_ok=True)
         _write_file(ds / split / img_name)
         coco_doc = {
             "images": [{"id": img_id, "file_name": img_name, "width": 8, "height": 8}],
             "annotations": [
-                {"id": ann_id, "image_id": img_id, "category_id": 1,
-                 "bbox": [0, 0, 4, 4], "area": 16, "iscrowd": 0, "segmentation": []}
+                {
+                    "id": ann_id,
+                    "image_id": img_id,
+                    "category_id": 1,
+                    "bbox": [0, 0, 4, 4],
+                    "area": 16,
+                    "iscrowd": 0,
+                    "segmentation": [],
+                }
             ],
             "categories": [{"id": 1, "name": "obj"}],
         }
-        (ds / split / "_annotations.coco.json").write_text(
-            json.dumps(coco_doc), encoding="utf-8"
-        )
+        (ds / split / "_annotations.coco.json").write_text(json.dumps(coco_doc), encoding="utf-8")
     return ds
 
 
@@ -195,9 +199,7 @@ def test_load_dataset_coco_merges_all_splits(tmp_path: Path) -> None:
     _make_roboflow_dataset(tmp_path)
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/rfds/annotations", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/rfds/annotations", {})
 
     assert status == 200
     assert len(payload["images"]) == 3
@@ -209,9 +211,7 @@ def test_val_image_annotations_visible_after_merge(tmp_path: Path) -> None:
     _make_roboflow_dataset(tmp_path)
     server = _make_server(tmp_path)
 
-    _, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/rfds/annotations/image/val_img.jpg", {}
-    )
+    _, payload = api_handler.dispatch(server, "GET", "/api/datasets/rfds/annotations/image/val_img.jpg", {})
 
     assert len(payload["annotations"]) == 1
     assert payload["annotations"][0]["bbox"] == [0, 0, 4, 4]
@@ -222,9 +222,7 @@ def test_test_image_annotations_visible_after_merge(tmp_path: Path) -> None:
     _make_roboflow_dataset(tmp_path)
     server = _make_server(tmp_path)
 
-    _, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/rfds/annotations/image/test_img.jpg", {}
-    )
+    _, payload = api_handler.dispatch(server, "GET", "/api/datasets/rfds/annotations/image/test_img.jpg", {})
 
     assert len(payload["annotations"]) == 1
     assert payload["annotations"][0]["bbox"] == [0, 0, 4, 4]
@@ -267,9 +265,7 @@ def test_dispatch_images_search_filters_results(tmp_path: Path) -> None:
     _make_image_dataset(tmp_path, ["face_001.jpg", "face_002.jpg", "car_001.jpg"])
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/imgds/images?search=face", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/imgds/images?search=face", {})
 
     assert status == 200
     assert payload["total"] == 2
@@ -282,9 +278,7 @@ def test_dispatch_images_search_is_case_insensitive(tmp_path: Path) -> None:
     _make_image_dataset(tmp_path, ["Face_001.jpg", "FACE_002.jpg", "other.jpg"], "cids")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/cids/images?search=face", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/cids/images?search=face", {})
 
     assert status == 200
     assert payload["total"] == 2
@@ -295,9 +289,7 @@ def test_dispatch_images_search_total_reflects_filtered_count(tmp_path: Path) ->
     _make_image_dataset(tmp_path, ["face.jpg", "dog.jpg", "cat.jpg"], "fds")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/fds/images?search=dog", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/fds/images?search=dog", {})
 
     assert status == 200
     assert payload["total"] == 1
@@ -313,9 +305,7 @@ def test_dispatch_images_search_combined_with_pagination(tmp_path: Path) -> None
     )
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pgds/images?search=face&page=1&per_page=2", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pgds/images?search=face&page=1&per_page=2", {})
 
     assert status == 200
     assert payload["total"] == 3
@@ -328,13 +318,12 @@ def test_dispatch_images_search_no_match_returns_empty(tmp_path: Path) -> None:
     _make_image_dataset(tmp_path, ["apple.jpg", "banana.jpg"], "eds")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/eds/images?search=zzz_nomatch", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/eds/images?search=zzz_nomatch", {})
 
     assert status == 200
     assert payload["total"] == 0
     assert payload["images"] == []
+
 
 # ---------------------------------------------------------------------------
 # Task D7: Auto-annotate API endpoint  (/api/assist/auto-annotate)
@@ -372,9 +361,7 @@ def _fake_server_with_assist(data_root: Path, assist: "_FakeDetectAssist") -> Si
 def test_auto_annotate_missing_dataset_returns_400(tmp_path: Path) -> None:
     server = _fake_server_with_assist(tmp_path, _FakeDetectAssist([]))
 
-    status, payload = api_handler.dispatch(
-        server, "POST", "/api/assist/auto-annotate", {"image_filename": "cat.jpg"}
-    )
+    status, payload = api_handler.dispatch(server, "POST", "/api/assist/auto-annotate", {"image_filename": "cat.jpg"})
 
     assert status == 400
     assert "dataset" in payload["error"].lower()
@@ -383,9 +370,7 @@ def test_auto_annotate_missing_dataset_returns_400(tmp_path: Path) -> None:
 def test_auto_annotate_missing_image_filename_returns_400(tmp_path: Path) -> None:
     server = _fake_server_with_assist(tmp_path, _FakeDetectAssist([]))
 
-    status, payload = api_handler.dispatch(
-        server, "POST", "/api/assist/auto-annotate", {"dataset": "myds"}
-    )
+    status, payload = api_handler.dispatch(server, "POST", "/api/assist/auto-annotate", {"dataset": "myds"})
 
     assert status == 400
     assert "image_filename" in payload["error"].lower()
@@ -772,10 +757,16 @@ def _make_annotated_image_dataset(root: Path, ds_name: str = "annds") -> Path:
         categories=[{"id": 1, "name": "cat", "supercategory": "cat"}],
     )
     ann_coco["annotations"] = [
-        {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 10, 10],
-         "area": 100, "iscrowd": 0, "segmentation": []},
-        {"id": 2, "image_id": 1, "category_id": 1, "bbox": [5, 5, 8, 8],
-         "area": 64, "iscrowd": 0, "segmentation": []},
+        {
+            "id": 1,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [0, 0, 10, 10],
+            "area": 100,
+            "iscrowd": 0,
+            "segmentation": [],
+        },
+        {"id": 2, "image_id": 1, "category_id": 1, "bbox": [5, 5, 8, 8], "area": 64, "iscrowd": 0, "segmentation": []},
     ]
     coco_io.save_annotations(ann_coco, dataset / "annotations" / "instances.json")
     return dataset
@@ -796,8 +787,15 @@ def _make_stats_dataset(root: Path, ds_name: str = "statsds") -> Path:
         categories=[{"id": 1, "name": "cat", "supercategory": "cat"}],
     )
     stats_coco["annotations"] = [
-        {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 10, 10],
-         "area": 100, "iscrowd": 0, "segmentation": []},
+        {
+            "id": 1,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [0, 0, 10, 10],
+            "area": 100,
+            "iscrowd": 0,
+            "segmentation": [],
+        },
     ]
     coco_io.save_annotations(stats_coco, dataset / "annotations" / "instances.json")
     return dataset
@@ -815,8 +813,15 @@ def _setup_patch_dataset(root: Path, ds_name: str = "patchds") -> Path:
         ],
     )
     patch_coco["annotations"] = [
-        {"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 20, 50, 60],
-         "area": 3000, "iscrowd": 0, "segmentation": []},
+        {
+            "id": 1,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [10, 20, 50, 60],
+            "area": 3000,
+            "iscrowd": 0,
+            "segmentation": [],
+        },
     ]
     coco_io.save_annotations(patch_coco, dataset / "annotations" / "instances.json")
     return dataset
@@ -847,9 +852,7 @@ def test_dispatch_images_pagination_first_page_returns_correct_count(tmp_path: P
     _make_pageable_dataset(tmp_path, 10, "pg_a2")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a2/images?page=1&per_page=3", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a2/images?page=1&per_page=3", {})
 
     assert status == 200
     assert len(payload["images"]) == 3
@@ -874,9 +877,7 @@ def test_dispatch_images_pagination_total_and_total_pages_correct(tmp_path: Path
     _make_pageable_dataset(tmp_path, 7, "pg_a4")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a4/images?page=1&per_page=3", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a4/images?page=1&per_page=3", {})
 
     assert status == 200
     assert payload["total"] == 7
@@ -888,9 +889,7 @@ def test_dispatch_images_pagination_last_page_has_fewer_items(tmp_path: Path) ->
     _make_pageable_dataset(tmp_path, 7, "pg_a5")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a5/images?page=3&per_page=3", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a5/images?page=3&per_page=3", {})
 
     assert status == 200
     assert len(payload["images"]) == 1  # 7 - 6 = 1 image on last page
@@ -901,9 +900,7 @@ def test_dispatch_images_pagination_out_of_range_page_clamped(tmp_path: Path) ->
     _make_pageable_dataset(tmp_path, 5, "pg_a6")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a6/images?page=999&per_page=3", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a6/images?page=999&per_page=3", {})
 
     assert status == 200
     assert len(payload["images"]) >= 1  # clamped to last page, not empty
@@ -914,9 +911,7 @@ def test_dispatch_images_pagination_non_integer_page_returns_400(tmp_path: Path)
     _make_pageable_dataset(tmp_path, 3, "pg_a7")
     server = _make_server(tmp_path)
 
-    status, _ = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a7/images?page=abc", {}
-    )
+    status, _ = api_handler.dispatch(server, "GET", "/api/datasets/pg_a7/images?page=abc", {})
 
     assert status == 400
 
@@ -926,9 +921,7 @@ def test_dispatch_images_pagination_non_integer_per_page_returns_400(tmp_path: P
     _make_pageable_dataset(tmp_path, 3, "pg_a8")
     server = _make_server(tmp_path)
 
-    status, _ = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a8/images?per_page=xyz", {}
-    )
+    status, _ = api_handler.dispatch(server, "GET", "/api/datasets/pg_a8/images?per_page=xyz", {})
 
     assert status == 400
 
@@ -938,9 +931,7 @@ def test_dispatch_images_pagination_zero_per_page_returns_400(tmp_path: Path) ->
     _make_pageable_dataset(tmp_path, 3, "pg_a9")
     server = _make_server(tmp_path)
 
-    status, _ = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a9/images?per_page=0", {}
-    )
+    status, _ = api_handler.dispatch(server, "GET", "/api/datasets/pg_a9/images?per_page=0", {})
 
     assert status == 400
 
@@ -950,9 +941,7 @@ def test_dispatch_images_pagination_negative_per_page_returns_400(tmp_path: Path
     _make_pageable_dataset(tmp_path, 3, "pg_a10")
     server = _make_server(tmp_path)
 
-    status, _ = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a10/images?per_page=-1", {}
-    )
+    status, _ = api_handler.dispatch(server, "GET", "/api/datasets/pg_a10/images?per_page=-1", {})
 
     assert status == 400
 
@@ -962,9 +951,7 @@ def test_dispatch_images_pagination_envelope_has_all_required_keys(tmp_path: Pat
     _make_pageable_dataset(tmp_path, 2, "pg_a11")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a11/images?page=1&per_page=5", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a11/images?page=1&per_page=5", {})
 
     assert status == 200
     for key in ("images", "total", "page", "per_page", "total_pages"):
@@ -976,9 +963,7 @@ def test_dispatch_images_page_1_per_page_10_returns_10(tmp_path: Path) -> None:
     _make_pageable_dataset(tmp_path, 25, "pg_a12")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a12/images?page=1&per_page=10", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a12/images?page=1&per_page=10", {})
 
     assert status == 200
     assert len(payload["images"]) == 10
@@ -990,12 +975,8 @@ def test_dispatch_images_page_2_per_page_10_returns_next_10(tmp_path: Path) -> N
     _make_pageable_dataset(tmp_path, 25, "pg_a13")
     server = _make_server(tmp_path)
 
-    _, p1 = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a13/images?page=1&per_page=10", {}
-    )
-    _, p2 = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a13/images?page=2&per_page=10", {}
-    )
+    _, p1 = api_handler.dispatch(server, "GET", "/api/datasets/pg_a13/images?page=1&per_page=10", {})
+    _, p2 = api_handler.dispatch(server, "GET", "/api/datasets/pg_a13/images?page=2&per_page=10", {})
 
     assert len(p2["images"]) == 10
     p1_files = {img["filename"] for img in p1["images"]}
@@ -1019,9 +1000,7 @@ def test_dispatch_images_pagination_empty_dataset_returns_envelope(tmp_path: Pat
     (tmp_path / "pg_a15" / "images").mkdir(parents=True, exist_ok=True)
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/pg_a15/images?page=1&per_page=10", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/pg_a15/images?page=1&per_page=10", {})
 
     assert status == 200
     assert payload["total"] == 0
@@ -1038,9 +1017,7 @@ def test_dispatch_images_split_train_returns_only_train(tmp_path: Path) -> None:
     _make_split_image_dataset(tmp_path, "sp_a1")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/sp_a1/images?split=train", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/sp_a1/images?split=train", {})
 
     assert status == 200
     assert payload["total"] == 2
@@ -1053,9 +1030,7 @@ def test_dispatch_images_split_val_returns_only_val(tmp_path: Path) -> None:
     _make_split_image_dataset(tmp_path, "sp_a2")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/sp_a2/images?split=val", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/sp_a2/images?split=val", {})
 
     assert status == 200
     assert payload["total"] == 1
@@ -1067,9 +1042,7 @@ def test_dispatch_images_split_test_returns_only_test(tmp_path: Path) -> None:
     _make_split_image_dataset(tmp_path, "sp_a3")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/sp_a3/images?split=test", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/sp_a3/images?split=test", {})
 
     assert status == 200
     assert payload["total"] == 1
@@ -1081,9 +1054,7 @@ def test_dispatch_images_split_invalid_value_returns_empty(tmp_path: Path) -> No
     _make_split_image_dataset(tmp_path, "sp_a4")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/sp_a4/images?split=nonexistent", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/sp_a4/images?split=nonexistent", {})
 
     assert status == 200
     assert payload["total"] == 0
@@ -1109,12 +1080,8 @@ def test_dispatch_images_no_split_param_returns_all(tmp_path: Path) -> None:
     _make_split_image_dataset(tmp_path, "sp_a6")
     server = _make_server(tmp_path)
 
-    _, all_payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/sp_a6/images", {}
-    )
-    _, train_payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/sp_a6/images?split=train", {}
-    )
+    _, all_payload = api_handler.dispatch(server, "GET", "/api/datasets/sp_a6/images", {})
+    _, train_payload = api_handler.dispatch(server, "GET", "/api/datasets/sp_a6/images?split=train", {})
 
     assert all_payload["total"] == 4
     assert all_payload["total"] > train_payload["total"]
@@ -1159,9 +1126,7 @@ def test_dispatch_images_sort_name_asc_is_alphabetical(tmp_path: Path) -> None:
     _make_size_varied_dataset(tmp_path, "so_a1")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/so_a1/images?sort=name_asc", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/so_a1/images?sort=name_asc", {})
 
     assert status == 200
     filenames = [img["filename"] for img in payload["images"]]
@@ -1173,9 +1138,7 @@ def test_dispatch_images_sort_name_desc_is_reverse_alpha(tmp_path: Path) -> None
     _make_size_varied_dataset(tmp_path, "so_a2")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/so_a2/images?sort=name_desc", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/so_a2/images?sort=name_desc", {})
 
     assert status == 200
     filenames = [img["filename"] for img in payload["images"]]
@@ -1187,9 +1150,7 @@ def test_dispatch_images_sort_size_largest_first(tmp_path: Path) -> None:
     _make_size_varied_dataset(tmp_path, "so_a3")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/so_a3/images?sort=size", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/so_a3/images?sort=size", {})
 
     assert status == 200
     sizes = [img["size_bytes"] for img in payload["images"]]
@@ -1202,9 +1163,7 @@ def test_dispatch_images_sort_newest_returns_200(tmp_path: Path) -> None:
     _make_size_varied_dataset(tmp_path, "so_a4")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/so_a4/images?sort=newest", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/so_a4/images?sort=newest", {})
 
     assert status == 200
     assert len(payload["images"]) == 3
@@ -1215,9 +1174,7 @@ def test_dispatch_images_invalid_sort_returns_400(tmp_path: Path) -> None:
     _make_image_dataset(tmp_path, ["a.jpg"], "so_a5")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/so_a5/images?sort=random", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/so_a5/images?sort=random", {})
 
     assert status == 400
     assert "sort" in payload["error"].lower()
@@ -1387,8 +1344,7 @@ def test_dispatch_stats_browse_progress_100_when_all_annotated(tmp_path: Path) -
         categories=[{"id": 1, "name": "cat", "supercategory": "cat"}],
     )
     full_coco["annotations"] = [
-        {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 5, 5],
-         "area": 25, "iscrowd": 0, "segmentation": []},
+        {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 5, 5], "area": 25, "iscrowd": 0, "segmentation": []},
     ]
     coco_io.save_annotations(full_coco, dataset / "annotations" / "instances.json")
     server = _make_server(tmp_path)
@@ -1412,9 +1368,7 @@ def test_dispatch_patch_category_id_updates_annotation(tmp_path: Path) -> None:
     server = _make_server(tmp_path)
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a1/annotations", {})
 
-    status, payload = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a1/annotations/1", {"category_id": 2}
-    )
+    status, payload = api_handler.dispatch(server, "PATCH", "/api/datasets/pt_a1/annotations/1", {"category_id": 2})
 
     assert status == 200
     assert payload["updated"] == 1
@@ -1430,7 +1384,9 @@ def test_dispatch_patch_attributes_merges_correctly(tmp_path: Path) -> None:
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a2/annotations", {})
 
     status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a2/annotations/1",
+        server,
+        "PATCH",
+        "/api/datasets/pt_a2/annotations/1",
         {"attributes": {"occluded": True, "truncated": False}},
     )
 
@@ -1448,7 +1404,9 @@ def test_dispatch_patch_id_in_body_is_silently_ignored(tmp_path: Path) -> None:
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a3/annotations", {})
 
     status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a3/annotations/1",
+        server,
+        "PATCH",
+        "/api/datasets/pt_a3/annotations/1",
         {"id": 999, "category_id": 2},
     )
 
@@ -1465,9 +1423,7 @@ def test_dispatch_patch_nonexistent_annotation_returns_404(tmp_path: Path) -> No
     server = _make_server(tmp_path)
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a4/annotations", {})
 
-    status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a4/annotations/9999", {"category_id": 1}
-    )
+    status, _ = api_handler.dispatch(server, "PATCH", "/api/datasets/pt_a4/annotations/9999", {"category_id": 1})
 
     assert status == 404
 
@@ -1479,7 +1435,9 @@ def test_dispatch_patch_invalid_body_category_id_type_returns_400(tmp_path: Path
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a5/annotations", {})
 
     status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a5/annotations/1",
+        server,
+        "PATCH",
+        "/api/datasets/pt_a5/annotations/1",
         {"category_id": "not-an-int"},
     )
 
@@ -1493,9 +1451,7 @@ def test_dispatch_patch_bbox_updates_bbox_field(tmp_path: Path) -> None:
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a6/annotations", {})
 
     new_bbox = [5, 10, 30, 40]
-    status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a6/annotations/1", {"bbox": new_bbox}
-    )
+    status, _ = api_handler.dispatch(server, "PATCH", "/api/datasets/pt_a6/annotations/1", {"bbox": new_bbox})
 
     assert status == 200
     _, img_payload = api_handler.dispatch(server, "GET", "/api/datasets/pt_a6/annotations/image/img.jpg", {})
@@ -1508,9 +1464,7 @@ def test_dispatch_patch_non_integer_ann_id_in_url_returns_400(tmp_path: Path) ->
     _setup_patch_dataset(tmp_path, "pt_a7")
     server = _make_server(tmp_path)
 
-    status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a7/annotations/abc", {"category_id": 1}
-    )
+    status, _ = api_handler.dispatch(server, "PATCH", "/api/datasets/pt_a7/annotations/abc", {"category_id": 1})
 
     assert status == 400
 
@@ -1522,7 +1476,9 @@ def test_dispatch_patch_prototype_injection_key_returns_400(tmp_path: Path) -> N
     api_handler.dispatch(server, "GET", "/api/datasets/pt_a8/annotations", {})
 
     status, _ = api_handler.dispatch(
-        server, "PATCH", "/api/datasets/pt_a8/annotations/1",
+        server,
+        "PATCH",
+        "/api/datasets/pt_a8/annotations/1",
         {"__proto__": {"admin": True}},
     )
 
@@ -1539,9 +1495,7 @@ def test_dispatch_images_query_string_in_path_is_parsed(tmp_path: Path) -> None:
     _make_image_dataset(tmp_path, ["alpha.jpg", "beta.jpg", "alpha_2.jpg"], "qp_a1")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/qp_a1/images?search=alpha", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/qp_a1/images?search=alpha", {})
 
     assert status == 200
     assert payload["total"] == 2
@@ -1588,9 +1542,7 @@ def test_dispatch_images_all_valid_sort_values_return_200(tmp_path: Path) -> Non
     server = _make_server(tmp_path)
 
     for sort_val in ("name_asc", "name_desc", "newest", "oldest", "size"):
-        status, _ = api_handler.dispatch(
-            server, "GET", f"/api/datasets/qp_a4/images?sort={sort_val}", {}
-        )
+        status, _ = api_handler.dispatch(server, "GET", f"/api/datasets/qp_a4/images?sort={sort_val}", {})
         assert status == 200, f"Expected 200 for sort={sort_val}, got {status}"
 
 
@@ -1599,9 +1551,7 @@ def test_dispatch_images_query_search_case_insensitive_via_url(tmp_path: Path) -
     _make_image_dataset(tmp_path, ["UPPER_001.jpg", "lower_001.jpg"], "qp_a5")
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/qp_a5/images?search=upper", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/qp_a5/images?search=upper", {})
 
     assert status == 200
     assert payload["total"] == 1
@@ -1618,9 +1568,7 @@ def test_dispatch_rescan_post_returns_202(tmp_path: Path) -> None:
     _make_coco_dataset(tmp_path)
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "POST", "/api/datasets/coco_mini/rescan", {}
-    )
+    status, payload = api_handler.dispatch(server, "POST", "/api/datasets/coco_mini/rescan", {})
 
     assert status == 202
     assert payload.get("status") in {"started", "already_running"}
@@ -1630,9 +1578,7 @@ def test_dispatch_rescan_post_unknown_dataset_returns_404(tmp_path: Path) -> Non
     """POST /api/datasets/<name>/rescan returns 404 when the dataset directory does not exist."""
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "POST", "/api/datasets/nonexistent_xyz/rescan", {}
-    )
+    status, payload = api_handler.dispatch(server, "POST", "/api/datasets/nonexistent_xyz/rescan", {})
 
     assert status == 404
     assert "error" in payload
@@ -1643,9 +1589,7 @@ def test_dispatch_rescan_get_returns_idle_before_any_start(tmp_path: Path) -> No
     _make_coco_dataset(tmp_path)
     server = _make_server(tmp_path)
 
-    status, payload = api_handler.dispatch(
-        server, "GET", "/api/datasets/coco_mini/rescan", {}
-    )
+    status, payload = api_handler.dispatch(server, "GET", "/api/datasets/coco_mini/rescan", {})
 
     assert status == 200
     assert payload.get("status") == "idle"
@@ -1681,9 +1625,7 @@ def test_dispatch_rescan_post_twice_returns_already_running(tmp_path: Path) -> N
     with server._rescan_lock:
         server._rescan_jobs["coco_mini"] = {"status": "running"}
 
-    status, payload = api_handler.dispatch(
-        server, "POST", "/api/datasets/coco_mini/rescan", {}
-    )
+    status, payload = api_handler.dispatch(server, "POST", "/api/datasets/coco_mini/rescan", {})
 
     assert status == 202
     assert payload.get("status") == "already_running"
@@ -1707,12 +1649,15 @@ def test_list_datasets_cache_valid_true_after_write(tmp_path: Path) -> None:
     dm = DatasetManager(tmp_path)
 
     # Write cache
-    dm.write_dataset_cache("coco_mini", {
-        "image_count": 42,
-        "type": "coco",
-        "has_annotations": True,
-        "last_scanned": "2025-01-01T00:00:00+00:00",
-    })
+    dm.write_dataset_cache(
+        "coco_mini",
+        {
+            "image_count": 42,
+            "type": "coco",
+            "has_annotations": True,
+            "last_scanned": "2025-01-01T00:00:00+00:00",
+        },
+    )
 
     datasets = dm.list_datasets()
     entry = next(d for d in datasets if d["name"] == "coco_mini")

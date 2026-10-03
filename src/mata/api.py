@@ -1486,6 +1486,7 @@ def train(
     global _TRAIN_BETA_WARNED
     if not _TRAIN_BETA_WARNED:
         import warnings
+
         warnings.warn(
             "mata.train() is in beta — API may change in v2.1.0. "
             "Please report issues at https://github.com/datamata-io/mata/issues",
@@ -1538,7 +1539,6 @@ def finetune(
     freeze_backbone: bool = True,
     **kwargs: Any,
 ) -> TrainingResult:
-
     """Fine-tune a pre-trained model on custom data.
 
     .. warning::
