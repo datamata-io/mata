@@ -16,7 +16,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [2.0.0] — Will be released on 2026-04-17
+## [2.0.0] — 2026-10-03
 
 ### Added
 
