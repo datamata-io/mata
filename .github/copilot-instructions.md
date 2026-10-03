@@ -9,7 +9,7 @@ MATA is a **task-centric, model-agnostic** computer vision framework with a unif
 - HuggingFace: `mata.load("embed", "openai/clip-vit-base-patch32")` — 400+ models, auto-detects arch
 - ONNX: `mata.load("embed", "./model.onnx")` — portable, CPU-efficient, no special deps
 
-**v2.0.0 Roadmap:** v1.9.x is feature-complete (maintenance mode). v2.0.0 targets `mata.annotate()`, `mata.train()`, and quantized ONNX export as co-planned milestones.
+**v2.0.0 (released):** ships `mata.annotate()` and `mata.train()` (beta). Quantized ONNX export is deferred to v2.1.0.
 
 **Annotation workflow (v2.0.0):**
 
