@@ -144,13 +144,13 @@ dmypy.json
 *.pt
 *.onnx
 *.bin
-models/
-cache/
-transformers_cache/
+/models/
+/cache/
+/transformers_cache/
 
 # Data
-data/
-datasets/
+/data/
+/datasets/
 *.jpg
 *.jpeg
 *.mp4
@@ -159,13 +159,13 @@ examples/images/000000039769.jpg
 examples/images/000000015338.jpg
 
 # Logs
-logs/
+/logs/
 *.log
-smoke_logs/
+/smoke_logs/
 
 # Model output and validation runs
-output/
-runs/
+/output/
+/runs/
 
 # Dev Plan Artifacts
 docs/plans/
