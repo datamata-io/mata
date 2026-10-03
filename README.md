@@ -273,7 +273,7 @@ See [Supported Models](docs/SUPPORTED_MODELS.md) for model IDs, benchmarks, and 
 
 ## When NOT to Use MATA
 
-- **Training-first workflows** — `mata.train()` is planned for v2.0.0. If training is your primary need today, use HuggingFace Trainer or PyTorch Lightning directly.
+- **Training-first workflows** — `mata.train()` and `mata.finetune()` are beta in v2.0.0. If training is your primary need today, HuggingFace Trainer or PyTorch Lightning remain the safe default until the module reaches GA (targeted for v2.1.0).
 - **Edge / mobile deployment** — TensorRT and TFLite export are planned but not yet available.
 - **Single-model, maximum-throughput** — MATA's adapter layer adds ~1-2ms overhead. For bare-metal speed on one model, use the runtime directly.
 
