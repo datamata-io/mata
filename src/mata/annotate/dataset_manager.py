@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Dataset manager — safe file-system operations for the annotation data root.
 
 Every method that accepts user-supplied path components routes through
 ``_safe_resolve()`` to prevent path traversal attacks.
 """
+
+from __future__ import annotations
 
 import json
 import mimetypes
@@ -414,7 +414,7 @@ class DatasetManager:
 
             # Fallback: COCO file_names have no path prefix — detect splits and
             # compute sizes by scanning known image subdirectories.
-            _KNOWN_SPLIT_DIRS = (
+            _known_split_dirs = (
                 "train",
                 "val",
                 "valid",
@@ -426,12 +426,12 @@ class DatasetManager:
                 "val2014",
                 "test2014",
             )
-            _IMG_SUBDIRS = ("images",) + _KNOWN_SPLIT_DIRS
+            _img_subdirs = ("images",) + _known_split_dirs
             if not splits_total:
                 _basename_to_id: dict[str, int] = {
                     Path(img.get("file_name", "")).name: img["id"] for img in coco_images if img.get("id") is not None
                 }
-                for _sd in _KNOWN_SPLIT_DIRS:
+                for _sd in _known_split_dirs:
                     _sdir = dataset_dir / _sd
                     if not _sdir.is_dir():
                         continue
@@ -450,7 +450,7 @@ class DatasetManager:
             # File sizes: scan known image subdirs only (avoids root rglob and
             # skips large annotation JSON files in annotations/).
             total_size_bytes = 0
-            for _sub in _IMG_SUBDIRS:
+            for _sub in _img_subdirs:
                 _sub_dir = dataset_dir / _sub
                 if _sub_dir.is_dir():
                     for _f in _sub_dir.rglob("*"):
@@ -628,10 +628,10 @@ class DatasetManager:
             ValueError: If *target_split* is not one of ``train``, ``val``, ``test``.
             FileNotFoundError: If *filename* is not found inside the dataset.
         """
-        _VALID_SPLITS = {"train", "val", "test"}
-        if target_split not in _VALID_SPLITS:
+        _valid_splits = {"train", "val", "test"}
+        if target_split not in _valid_splits:
             raise ValueError(
-                f"Invalid target_split '{target_split}'. " f"Must be one of: {', '.join(sorted(_VALID_SPLITS))}."
+                f"Invalid target_split '{target_split}'. " f"Must be one of: {', '.join(sorted(_valid_splits))}."
             )
 
         dataset_dir = self._safe_resolve(dataset)
@@ -703,9 +703,9 @@ class DatasetManager:
             return "coco"
 
         # COCO — Roboflow style: _annotations.coco.json co-located in split dirs
-        _SPLIT_NAMES_COCO = frozenset({"train", "val", "test", "valid"})
+        _split_names_coco = frozenset({"train", "val", "test", "valid"})
         for child in dataset_dir.iterdir():
-            if child.is_dir() and child.name.lower() in _SPLIT_NAMES_COCO:
+            if child.is_dir() and child.name.lower() in _split_names_coco:
                 if any(child.glob("*.json")):
                     return "coco"
 
@@ -724,9 +724,9 @@ class DatasetManager:
         # mixed with subdirs.  A split whose top-level children are ALL files
         # (e.g. a flat test/ dump) is simply skipped so one bad split doesn't
         # veto detection for the rest.
-        _SPLIT_NAMES = frozenset({"train", "val", "test", "valid"})
-        _PRIMARY_SPLITS = frozenset({"train", "val"})
-        split_dirs = [d for d in child_dirs if d.name.lower() in _SPLIT_NAMES]
+        _split_names = frozenset({"train", "val", "test", "valid"})
+        _primary_splits = frozenset({"train", "val"})
+        split_dirs = [d for d in child_dirs if d.name.lower() in _split_names]
         if split_dirs:
 
             def _split_layout(split_dir: Path) -> str:
@@ -747,7 +747,7 @@ class DatasetManager:
             if not any(v == "mixed" for v in layouts.values()):
                 class_folder_splits = [d for d, v in layouts.items() if v == "class_folder"]
                 # At least one primary split (train/val) must be class-folder
-                has_primary = any(d.name.lower() in _PRIMARY_SPLITS for d in class_folder_splits)
+                has_primary = any(d.name.lower() in _primary_splits for d in class_folder_splits)
                 if class_folder_splits and has_primary:
                     return "classification"
 
@@ -846,12 +846,12 @@ class DatasetManager:
                 split = "test"
             assignments.append((path, split))
 
-        _VALID_SPLITS_SET = {"train", "val", "test"}
+        _valid_splits_set = {"train", "val", "test"}
         # Track basename → new relative file_name for COCO JSON update.
         moved_map: dict[str, str] = {}  # basename → "split/basename"
         moved = 0
         for image_path, target_split in assignments:
-            if target_split not in _VALID_SPLITS_SET:
+            if target_split not in _valid_splits_set:
                 continue
             target_dir = dataset_dir / target_split
             destination = target_dir / image_path.name
@@ -910,9 +910,9 @@ def _update_coco_file_names(dataset_dir: Path, moved_map: dict[str, str]) -> Non
     ann_dir = dataset_dir / "annotations"
     if ann_dir.is_dir():
         candidates.extend(ann_dir.glob("*.json"))
-    _SPLIT_NAMES = frozenset({"train", "val", "valid", "test"})
+    _split_names = frozenset({"train", "val", "valid", "test"})
     for split_dir in sorted(dataset_dir.iterdir()):
-        if split_dir.is_dir() and split_dir.name.lower() in _SPLIT_NAMES:
+        if split_dir.is_dir() and split_dir.name.lower() in _split_names:
             candidates.extend(split_dir.glob("*.json"))
 
     for json_path in candidates:
@@ -971,11 +971,11 @@ def _fast_image_count(dataset_dir: Path) -> int:
             return total
 
     # -- Strategy 1.5: Roboflow / co-located split-dir JSONs ----------------
-    _SPLIT_NAMES_FIC = frozenset({"train", "val", "valid", "test"})
+    _split_names_fic = frozenset({"train", "val", "valid", "test"})
     total = 0
     counted = False
     for split_dir in sorted(dataset_dir.iterdir()):
-        if not (split_dir.is_dir() and split_dir.name.lower() in _SPLIT_NAMES_FIC):
+        if not (split_dir.is_dir() and split_dir.name.lower() in _split_names_fic):
             continue
         for json_path in sorted(split_dir.glob("*.json")):
             try:
@@ -1162,7 +1162,7 @@ def _has_annotation_files(dataset_dir: Path) -> bool:
 
 
 def _run_rescan_worker(
-    dm: "DatasetManager",
+    dm: DatasetManager,
     name: str,
     jobs: dict,
     lock: threading.Lock,
@@ -1197,7 +1197,7 @@ def _run_rescan_worker(
 
 
 def _run_redistribute_worker(
-    dm: "DatasetManager",
+    dm: DatasetManager,
     name: str,
     params: dict,
     jobs: dict,
@@ -1244,7 +1244,7 @@ def _merge_split_coco_jsons(dataset_dir: Path) -> dict | None:
 
     Returns ``None`` if no qualifying JSON files are found.
     """
-    _SPLIT_NAMES = frozenset({"train", "val", "valid", "test"})
+    _split_names = frozenset({"train", "val", "valid", "test"})
     merged_images: list[dict] = []
     merged_annotations: list[dict] = []
     merged_categories: list[dict] = []
@@ -1254,7 +1254,7 @@ def _merge_split_coco_jsons(dataset_dir: Path) -> dict | None:
     found_any = False
 
     for split_dir in sorted(dataset_dir.iterdir()):
-        if not split_dir.is_dir() or split_dir.name.lower() not in _SPLIT_NAMES:
+        if not split_dir.is_dir() or split_dir.name.lower() not in _split_names:
             continue
         for json_file in sorted(split_dir.glob("*.json")):
             try:

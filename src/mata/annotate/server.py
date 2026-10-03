@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
 import http.server
 import json
 import mimetypes
 import socketserver
 import threading
 import webbrowser
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -67,7 +67,7 @@ class AnnotateHandler(http.server.BaseHTTPRequestHandler):
     """Request handler for the annotation server."""
 
     # ``server`` is typed as AnnotateServer at runtime
-    server: "AnnotateServer"
+    server: AnnotateServer
 
     # ------------------------------------------------------------------
     # HTTP verb dispatch

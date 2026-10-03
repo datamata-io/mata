@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """REST API routing layer for the MATA annotation server.
 
 ``dispatch()`` is the single entry point called by ``AnnotateHandler`` for
@@ -16,6 +14,8 @@ Because backend modules (B1–E3) may not yet be implemented, calls that
 require them are wrapped so they return 501 gracefully when the relevant
 module hasn't been filled in yet.
 """
+
+from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Any
@@ -86,7 +86,7 @@ def _parse_path(path: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _dm(server: "AnnotateServer") -> Any:
+def _dm(server: AnnotateServer) -> Any:
     """Return the DatasetManager attached to *server*, or raise NotImplementedError."""
     dm = getattr(server, "dataset_manager", None)
     if dm is None:
@@ -94,7 +94,7 @@ def _dm(server: "AnnotateServer") -> Any:
     return dm
 
 
-def _ai(server: "AnnotateServer") -> Any:
+def _ai(server: AnnotateServer) -> Any:
     """Return the AIAssist instance attached to *server*, or raise NotImplementedError."""
     ai = getattr(server, "ai_assist", None)
     if ai is None:
@@ -102,7 +102,7 @@ def _ai(server: "AnnotateServer") -> Any:
     return ai
 
 
-def _coco_state(server: "AnnotateServer") -> dict[str, dict[str, Any]]:
+def _coco_state(server: AnnotateServer) -> dict[str, dict[str, Any]]:
     """Return the per-dataset COCO cache attached to *server*."""
     state = getattr(server, "coco_state", None)
     if state is None:
@@ -115,7 +115,7 @@ def _coco_state(server: "AnnotateServer") -> dict[str, dict[str, Any]]:
 _API_IMAGE_URL_RE = re.compile(r"^/?(?:api/)?datasets/(?P<dataset>[^/]+)/images/(?P<filename>.+)$")
 
 
-def _resolve_assist_image_path(server: "AnnotateServer", image_path: str) -> str:
+def _resolve_assist_image_path(server: AnnotateServer, image_path: str) -> str:
     """Resolve *image_path* to a real filesystem path.
 
     The frontend sends API-style URLs (``/api/datasets/<ds>/images/<file>``)
@@ -132,6 +132,7 @@ def _resolve_assist_image_path(server: "AnnotateServer", image_path: str) -> str
     m = _API_IMAGE_URL_RE.match(image_path)
     if m:
         from urllib.parse import unquote as _unquote
+
         from mata.annotate.dataset_manager import _resolve_image_path
 
         dataset = _unquote(m.group("dataset"))
@@ -151,7 +152,7 @@ def _rank_annotation_paths(paths: list[Any]) -> list[Any]:
       4 — test/_annotations*.json
       5 — everything else
     """
-    _SPLIT_ORDER = {"train": 2, "val": 3, "valid": 3, "test": 4}
+    _split_order = {"train": 2, "val": 3, "valid": 3, "test": 4}
 
     def sort_key(path: Any) -> tuple[int, str]:
         name = str(getattr(path, "name", path)).lower()
@@ -161,7 +162,7 @@ def _rank_annotation_paths(paths: list[Any]) -> list[Any]:
             return 0, name
         if name.startswith("instances"):
             return 1, name
-        split_rank = _SPLIT_ORDER.get(parent_name)
+        split_rank = _split_order.get(parent_name)
         if split_rank is not None:
             return split_rank, name
         return 5, name
@@ -169,7 +170,7 @@ def _rank_annotation_paths(paths: list[Any]) -> list[Any]:
     return sorted(paths, key=sort_key)
 
 
-def _annotation_path(server: "AnnotateServer", dataset: str, *, create: bool = False) -> Any:
+def _annotation_path(server: AnnotateServer, dataset: str, *, create: bool = False) -> Any:
     """Resolve the persisted COCO JSON file for *dataset*.
 
     Existing files are preferred over creating a new ``instances.json`` so split
@@ -196,9 +197,9 @@ def _annotation_path(server: "AnnotateServer", dataset: str, *, create: bool = F
     candidates.extend(path for path in dataset_dir.glob("*.json") if path.is_file())
 
     # Roboflow style: _annotations.coco.json inside split dirs (train/valid/test)
-    _SPLIT_NAMES = frozenset({"train", "val", "test", "valid"})
+    _split_names = frozenset({"train", "val", "test", "valid"})
     for split_dir in sorted(dataset_dir.iterdir()):
-        if split_dir.is_dir() and split_dir.name.lower() in _SPLIT_NAMES:
+        if split_dir.is_dir() and split_dir.name.lower() in _split_names:
             candidates.extend(p for p in split_dir.glob("*.json") if p.is_file())
 
     ranked = _rank_annotation_paths(candidates)
@@ -210,7 +211,7 @@ def _annotation_path(server: "AnnotateServer", dataset: str, *, create: bool = F
     return preferred
 
 
-def _load_dataset_coco(server: "AnnotateServer", dataset: str) -> tuple[Any, dict]:
+def _load_dataset_coco(server: AnnotateServer, dataset: str) -> tuple[Any, dict]:
     """Load and cache the COCO document for *dataset*.
 
     For Roboflow-style datasets whose annotation files live inside split
@@ -229,8 +230,8 @@ def _load_dataset_coco(server: "AnnotateServer", dataset: str) -> tuple[Any, dic
 
     # When the selected annotation file lives inside a split dir, merge all
     # split-dir COCO JSONs so that val/test annotations are visible too.
-    _SPLIT_NAMES = frozenset({"train", "val", "valid", "test"})
-    if path.parent.name.lower() in _SPLIT_NAMES:
+    _split_names = frozenset({"train", "val", "valid", "test"})
+    if path.parent.name.lower() in _split_names:
         dataset_dir = _dm(server)._safe_resolve(dataset)
         merged = _merge_split_coco_jsons(dataset_dir)
         if merged is not None:
@@ -246,7 +247,7 @@ def _load_dataset_coco(server: "AnnotateServer", dataset: str) -> tuple[Any, dic
     return path, coco
 
 
-def _save_dataset_coco(server: "AnnotateServer", dataset: str, coco: dict) -> Any:
+def _save_dataset_coco(server: AnnotateServer, dataset: str, coco: dict) -> Any:
     """Persist and cache the COCO document for *dataset*."""
     from mata.annotate import coco_io
 
@@ -262,7 +263,7 @@ def _save_dataset_coco(server: "AnnotateServer", dataset: str, coco: dict) -> An
 
 
 def _handle_datasets(
-    server: "AnnotateServer", method: str, parts: list[str], body: dict, query: dict | None = None
+    server: AnnotateServer, method: str, parts: list[str], body: dict, query: dict | None = None
 ) -> tuple[int, Any]:
     """Handle all /api/datasets/... routes."""
     if query is None:
@@ -677,7 +678,7 @@ def _handle_datasets(
 # ---------------------------------------------------------------------------
 
 
-def _handle_assist(server: "AnnotateServer", method: str, parts: list[str], body: dict) -> tuple[int, Any]:
+def _handle_assist(server: AnnotateServer, method: str, parts: list[str], body: dict) -> tuple[int, Any]:
     """Handle all /api/assist/... routes."""
     if len(parts) < 2:
         return 404, {"error": "Not found", "code": 404}
@@ -779,7 +780,7 @@ def _handle_assist(server: "AnnotateServer", method: str, parts: list[str], body
 # ---------------------------------------------------------------------------
 
 
-def _handle_train(server: "AnnotateServer", method: str, parts: list[str], body: dict) -> tuple[int, Any]:
+def _handle_train(server: AnnotateServer, method: str, parts: list[str], body: dict) -> tuple[int, Any]:
     """Handle all /api/train/... routes."""
     # POST /api/train  — start training
     if method == "POST" and len(parts) == 1:
@@ -814,7 +815,7 @@ def _handle_train(server: "AnnotateServer", method: str, parts: list[str], body:
 
 
 def dispatch(
-    server: "AnnotateServer",
+    server: AnnotateServer,
     method: str,
     path: str,
     body: dict,

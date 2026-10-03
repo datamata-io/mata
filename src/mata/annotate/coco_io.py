@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """COCO JSON annotation I/O — read, write, and mutate COCO annotation files.
 
 Schema reference (matches ``scripts/generate_coco_mini.py`` output):
@@ -19,6 +17,8 @@ All writes are atomic via ``tempfile`` + ``os.replace()``.
 Category IDs are **1-indexed** (COCO standard).
 Annotation IDs auto-increment from the current maximum.
 """
+
+from __future__ import annotations
 
 import json
 import os
@@ -152,11 +152,11 @@ def update_annotation(coco: dict, ann_id: int, **fields: Any) -> None:
     Protected fields (``id``, ``image_id``) are silently ignored to prevent
     accidental identity corruption.
     """
-    _PROTECTED = {"id", "image_id"}
+    _protected = {"id", "image_id"}
     for ann in coco.get("annotations", []):
         if ann["id"] == ann_id:
             for k, v in fields.items():
-                if k not in _PROTECTED:
+                if k not in _protected:
                     ann[k] = v
             return
     raise KeyError(f"Annotation id={ann_id} not found.")
