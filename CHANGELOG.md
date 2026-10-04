@@ -46,6 +46,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Keyboard Shortcuts**: View-scoped shortcut system — Browser View handles `ArrowLeft`/`ArrowRight` (grid navigation) and `Enter` (open editor); Editor View adds `V` (select), `B` (bbox), `P` (polygon), `A` (AI), `Ctrl+Z` (undo), `Ctrl+Y` (redo — placeholder), `Ctrl+S` (save), `Delete`/`Backspace` (delete annotation), `Space`+drag (pan); shortcuts never fire while focus is in `<input>` / `<textarea>`
 - **Responsive**: `@media (max-width: 860px)` — browser sidebar becomes a slide-out overlay with backdrop dimming; editor left panel slides independently via hamburger toggle; tool palette moves to a fixed bottom bar (flex-direction: row); touch targets expanded to 44×44 px
 
+### Fixed
+
+**Pre-release E2E sweep fixes (full 46-task feature matrix, real models)**
+
+- `mata.run("embed", ...)` now accepts a list/tuple of images (paths, PIL images, numpy arrays) and returns a stacked `(N, D)` embedding matrix — the documented batch-crops workflow previously raised `ValueError`
+- `Gallery.similarity_thresh` is now a public read/write property (previously only the private `_similarity_thresh` existed, breaking the documented recognize/gallery usage)
+- `examples/detect/zeroshot_detection.py`, `examples/segment/basic_segmentation.py`, `examples/segment/grounding_sam_pipeline.py` — create output directories before saving (previously `FileNotFoundError` on a fresh clone)
+- `examples/barcode/basic_scan.py` — default sample paths now point at the assets shipped in the repo (`banana_barcode.png`, `sample_qr.png`) so the documented default run scans instead of silently skipping
+- `examples/graph/graph_reid_pipeline.py` — ReID node and cross-camera wiring are now gated on `--valkey` bridge availability (default no-valkey mode previously crashed with `KeyError: Capability 'reid' not found`)
+- `examples/annotate/quickstart.py` — redistributes images into train/val splits before export (the export endpoint requires split directories)
+- `examples/inference/embed_example.py` — real model mode now uses the shipped sample images and writes artifacts under `runs/`
+- Docs: CLI recognize gallery-build snippet (README + `5_recognize_examples.sh`) and `GRAPH_COOKBOOK.md` updated to the current `Gallery` API
+
 ---
 
 ## [1.9.8]

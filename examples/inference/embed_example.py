@@ -140,7 +140,13 @@ def example_preloaded_adapter(use_real: bool = False):
     else:
         embedder = _make_mock_adapter()
 
-    image_paths = ["photo_1.jpg", "photo_2.jpg", "photo_3.jpg"]
+    if use_real:
+        image_paths = [
+            "examples/images/000000039769.jpg",
+            "examples/images/000000015338.jpg",
+        ]
+    else:
+        image_paths = ["photo_1.jpg", "photo_2.jpg", "photo_3.jpg"]
     all_embeddings = []
 
     for path in image_paths:
@@ -215,6 +221,8 @@ if __name__ == "__main__":
     example_single_image(use_real)
     example_batch_crops(use_real)
     example_preloaded_adapter(use_real)
-    example_save_load(Path("."))
+    save_dir = Path("runs/embed_example")
+    save_dir.mkdir(parents=True, exist_ok=True)
+    example_save_load(save_dir)
 
     print("\nAll examples completed successfully.")
