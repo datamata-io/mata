@@ -136,7 +136,9 @@ class TrainingConfig:
             raise ConfigurationError(f"weight_decay must be >= 0, got {self.weight_decay}.")
         if self.warmup_epochs < 0:
             raise ConfigurationError(f"warmup_epochs must be >= 0, got {self.warmup_epochs}.")
-        if self.warmup_epochs >= self.epochs:
+        # Single-epoch runs have no warmup phase: the default warmup_epochs (1)
+        # must not make epochs=1 impossible (e.g. quick jobs from the annotate UI).
+        if self.epochs > 1 and self.warmup_epochs >= self.epochs:
             raise ConfigurationError(f"warmup_epochs ({self.warmup_epochs}) must be less than epochs ({self.epochs}).")
         if self.save_every < 0:
             raise ConfigurationError(f"save_every must be >= 0, got {self.save_every}.")

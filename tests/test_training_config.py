@@ -189,6 +189,12 @@ class TestTrainingConfigValidConfigurations:
         cfg = TrainingConfig(task="detect", model="m", data="d", warmup_epochs=0, epochs=2)
         cfg.validate()
 
+    def test_epochs_one_with_default_warmup_validates(self):
+        """Regression: a 1-epoch run is valid (the annotate-UI minimum); the
+        default warmup_epochs=1 must not block it."""
+        cfg = TrainingConfig(task="detect", model="m", data="d", epochs=1)
+        cfg.validate()
+
 
 # =============================================================================
 # Invalid configurations — validate() must raise ConfigurationError

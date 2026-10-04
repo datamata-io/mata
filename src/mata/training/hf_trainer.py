@@ -458,7 +458,9 @@ class HFTrainingEngine:
                 1,
                 -(-train_size // (cfg.batch_size * cfg.gradient_accumulation_steps)),  # ceil
             )
-            warmup_steps = int(cfg.warmup_epochs * steps_per_epoch)
+            # Warmup cannot exceed the run: a single-epoch run has no warmup phase.
+            effective_warmup = min(cfg.warmup_epochs, max(cfg.epochs - 1, 0))
+            warmup_steps = int(effective_warmup * steps_per_epoch)
         else:
             # Fallback: ratio-based (no dataset size available at config time)
             warmup_steps = 0

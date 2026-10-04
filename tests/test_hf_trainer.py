@@ -304,6 +304,22 @@ class TestBuildTrainingArgs:
         tf["TrainingArguments"].assert_called_once()
         assert args is tf["_mock_training_args"]
 
+    def test_warmup_steps_from_epochs_and_size(self):
+        engine, tf = self._engine_with_tf(epochs=2, warmup_epochs=1, batch_size=2)
+        with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
+            engine._build_training_args(train_size=4)
+        call_kwargs = tf["TrainingArguments"].call_args[1]
+        assert call_kwargs["warmup_steps"] == 2  # 1 warmup epoch × 2 steps/epoch
+
+    def test_single_epoch_run_has_no_warmup(self):
+        """Regression: epochs=1 (default warmup_epochs=1) must not warm up the
+        entire run — effective warmup is clamped to epochs-1."""
+        engine, tf = self._engine_with_tf(epochs=1, warmup_epochs=1, batch_size=2)
+        with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
+            engine._build_training_args(train_size=4)
+        call_kwargs = tf["TrainingArguments"].call_args[1]
+        assert call_kwargs["warmup_steps"] == 0
+
     def test_lr_passed_to_training_args(self):
         engine, tf = self._engine_with_tf(lr=5e-5)
         with patch("mata.training.hf_trainer._ensure_transformers", return_value=tf):
