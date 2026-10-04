@@ -7,12 +7,57 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — Maintenance
+## [Unreleased]
 
-> **v1.9.x is now feature-complete.** All subsequent 1.9.x releases will contain
-> bug fixes and documentation updates only. New features — including `mata.annotate()`,
-> `mata.train()`, and quantized ONNX export — are targeting **v2.0.0**.
-> See the README [Roadmap](README.md#roadmap) for details.
+> Post-v2.0.0 development. Training module stabilization (beta → GA) targeting v2.1.0.
+> Quantized ONNX export deferred from v2.0.0.
+
+---
+
+---
+
+## [2.0.0] — 2026-10-03
+
+### Added
+
+**Browser-based dataset annotation — `mata.annotate()` and `mata annotate`**
+
+- `mata.annotate(data="data", ...)` — public Python API for launching the local annotation server
+- `mata annotate [--data] [--host] [--port] [--no-browser] [--detect-model] [--vlm-model] [--embed-model]` — CLI entrypoint for the same workflow
+- Browser-based annotation UI for COCO-style bounding boxes and polygons, plus ImageFolder reclassification mode
+- Local dataset management via `src/mata/annotate/` with path-safe file serving and COCO JSON persistence
+- Background training bridge from the annotation UI with status polling and stop requests
+- `docs/ANNOTATION_GUIDE.md` — full user guide for startup, dataset layouts, annotation tools, export, training, and security notes
+
+**Annotation Workflow Redesign — two-view UI (v2.0.0)**
+
+- **Browser View**: Paginated thumbnail grid with split tabs (All / Train / Val / Test), case-insensitive filename search, sort options (Name A→Z / Z→A / Newest / Largest), browse progress bar, per-image annotation checkmark badge, and dataset type badges (`coco` / `imagefolder` / `voc` / `empty`)
+- **Editor View**: Three-column layout — left panel (Labels / Attributes / Raw Data tabs), center canvas, right vertical tool palette; top bar with breadcrumb navigation and image prev/next; bottom bar with zoom controls and brightness popover
+- **Tool Palette**: 11 tool buttons — Select (`V`), BBox (`B`), Polygon (`P`), Polyline, Rotate, AI (`A`), Split, Merge, Undo (`Ctrl+Z`), Redo, Delete (`Del`); 6 active tools, 5 "Coming Soon" (disabled with tooltip); single active tool radio behavior; tool state resets to Select on image change
+- **Annotation Properties Panel**: Inline bbox (xyxy), area (px²), category dropdown, and confidence score badge for the selected annotation; live-updates during drag/resize; auto-saves on category change
+- **Attributes Tab**: Per-annotation key-value metadata with inline add / edit / delete; values persist via annotation auto-save
+- **Raw Data Tab**: Syntax-highlighted COCO JSON for the current image with one-click Copy JSON; updates on every annotation change
+- **Class Color Legend**: Classes sub-tab renders a centralized 8-color palette swatch next to each category; canvas annotations, legend, and layers list all use the same `getCategoryColor()` source of truth
+- **Auto Annotate**: Mode dropdown switching between Detect (confidence threshold), VLM (free-text prompt), and CLIP (class names) modes; AI candidates rendered as dashed-border draft annotations; status spinner → checkmark; error message when required model is not loaded; CLIP mode pre-fills class names from existing categories
+- **Theme Toggle**: Dark / Light / System mode cycling via top-bar button; selection persisted in `localStorage` under key `mata-annotate-theme`; smooth 300 ms CSS transition on all theme properties
+- **Zoom / Pan**: Mouse-wheel zoom (10% steps, 10%–500% range) anchored to cursor position; `−` / `+` / RESET buttons in bottom bar; Space+drag and middle-click pan with edge-clamping so the image cannot scroll off-screen
+- **Brightness / Contrast**: Popover with two sliders (0–200%) and a Reset button; CSS-filter-only — does not modify source images or saved annotations
+- **Backend**: Paginated image listing (`?page=&per_page=`), split filter (`?split=`), sort (`?sort=`), and filename search (`?search=`) query parameters on `/api/datasets/<name>/images`; enhanced `/api/datasets/<name>/stats` response with `total_annotated`, `total_unannotated`, `browse_progress`, per-split counts, and `total_size_bytes`; annotation PATCH endpoint supporting `category_id`, `attributes`, and `bbox` updates
+- **Keyboard Shortcuts**: View-scoped shortcut system — Browser View handles `ArrowLeft`/`ArrowRight` (grid navigation) and `Enter` (open editor); Editor View adds `V` (select), `B` (bbox), `P` (polygon), `A` (AI), `Ctrl+Z` (undo), `Ctrl+Y` (redo — placeholder), `Ctrl+S` (save), `Delete`/`Backspace` (delete annotation), `Space`+drag (pan); shortcuts never fire while focus is in `<input>` / `<textarea>`
+- **Responsive**: `@media (max-width: 860px)` — browser sidebar becomes a slide-out overlay with backdrop dimming; editor left panel slides independently via hamburger toggle; tool palette moves to a fixed bottom bar (flex-direction: row); touch targets expanded to 44×44 px
+
+### Fixed
+
+**Pre-release E2E sweep fixes (full 46-task feature matrix, real models)**
+
+- `mata.run("embed", ...)` now accepts a list/tuple of images (paths, PIL images, numpy arrays) and returns a stacked `(N, D)` embedding matrix — the documented batch-crops workflow previously raised `ValueError`
+- `Gallery.similarity_thresh` is now a public read/write property (previously only the private `_similarity_thresh` existed, breaking the documented recognize/gallery usage)
+- `examples/detect/zeroshot_detection.py`, `examples/segment/basic_segmentation.py`, `examples/segment/grounding_sam_pipeline.py` — create output directories before saving (previously `FileNotFoundError` on a fresh clone)
+- `examples/barcode/basic_scan.py` — default sample paths now point at the assets shipped in the repo (`banana_barcode.png`, `sample_qr.png`) so the documented default run scans instead of silently skipping
+- `examples/graph/graph_reid_pipeline.py` — ReID node and cross-camera wiring are now gated on `--valkey` bridge availability (default no-valkey mode previously crashed with `KeyError: Capability 'reid' not found`)
+- `examples/annotate/quickstart.py` — redistributes images into train/val splits before export (the export endpoint requires split directories)
+- `examples/inference/embed_example.py` — real model mode now uses the shipped sample images and writes artifacts under `runs/`
+- Docs: CLI recognize gallery-build snippet (README + `5_recognize_examples.sh`) and `GRAPH_COOKBOOK.md` updated to the current `Gallery` API
 
 ---
 
@@ -162,18 +207,16 @@ for qr in result["search_results"].results:
 - `CompiledGraph.edge_conditions` — internal mapping of `node_name → condition_callable`; populated at compile time; used by scheduler during execution
 - `examples/notebooks/12_graph_control_flow.ipynb` — demo notebook covering all three primitives with mock nodes (no model download required); includes a multi-scenario triage pipeline and matplotlib execution-path visualizations
 
-### Notes
+### Added
 
-- `mata.run("recognize", ...)` is the single-image convenience form; for per-ROI recognition in graphs, use `GalleryMatchNode` directly
-- **Graph control-flow primitives are intentionally minimal** — `EarlyExit`, `While`, and `Graph.add(condition=...)` are small, composable building blocks. Their use cases are deliberately broader than what the examples or documentation cover: quality gates, cost-aware routing, adaptive multi-pass pipelines, frame-level triage, feedback loops, confidence-threshold branching, A/B model selection, and more. Users are encouraged to compose these primitives freely; the provided examples illustrate mechanics, not the full solution space.
-- Zero regressions; all 5346+ pre-existing tests pass
+**Training module — `mata.train()` and `mata.finetune()` (Beta)**
 
-### Tests
+- `mata.train()` — train a model from scratch or continue training from a checkpoint (**Beta**)
+- `mata.finetune()` — fine-tune a pre-trained model on custom data (**Beta**)
+- `TrainingConfig` and `TrainingOrchestrator` — unified training configuration and orchestration layer (**Beta**)
+- `docs/TRAINING_GUIDE.md` — full guide for training, configuration, and advanced usage (**Beta**)
 
-- `tests/test_matches_artifact.py` — 39 new tests for `Matches` and `MatchEntry` artifacts
-- `tests/test_recognize_api.py` — 34 new tests for `mata.run("recognize", ...)` API
-- `tests/test_cli_recognize.py` — 18 new tests for `mata recognize` CLI subcommand
-- `tests/test_graph_control_flow.py` — tests for `EarlyExit`, `EarlyExitException`, `While`, and `Graph.add(condition=...)` covering standalone behaviour, scheduler integration, `max_iterations` cap, and nested composition
+<!-- Quantized ONNX export moved to [Unreleased] -->
 
 ### Fixed
 
@@ -222,11 +265,12 @@ for qr in result["search_results"].results:
 - Example notebooks: `examples/notebooks/01_detection.ipynb` through `06_vlm_query.ipynb`
 - `.gitattributes` with `*.ipynb filter=nbstripout` to strip cell outputs on commit
 
-### Notes
+### Note
 
-- All notebook display is fully optional — `import mata` works without IPython or matplotlib
-- All user content is HTML-escaped (XSS-safe)
-- `frozen=True` dataclasses unaffected — only methods added, no field mutations
+`mata.train()` and `mata.finetune()` are released as **beta** in v2.0.0.
+The API surface is stable but internal engine behavior may change in v2.1.0.
+Quantized ONNX export is deferred to a future release.
+
 - 50+ new tests in `tests/test_notebook.py`
 
 ### Tests

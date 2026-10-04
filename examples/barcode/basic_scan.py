@@ -30,8 +30,8 @@ IMAGE_DIR = Path(__file__).parent.parent / "images"
 
 # Use a command-line argument if provided, otherwise fall back to a sample image
 _cli_image = sys.argv[1] if len(sys.argv) > 1 else None
-BARCODE_IMAGE = Path(_cli_image) if _cli_image else IMAGE_DIR / "sample_barcode.jpg"
-QR_IMAGE = Path(_cli_image) if _cli_image else IMAGE_DIR / "sample_qr.jpg"
+BARCODE_IMAGE = Path(_cli_image) if _cli_image else IMAGE_DIR / "barcode" / "banana_barcode.png"
+QR_IMAGE = Path(_cli_image) if _cli_image else IMAGE_DIR / "sample_qr.png"
 MULTI_IMAGE = Path(_cli_image) if _cli_image else IMAGE_DIR / "sample_graph_barcode.png"
 
 
@@ -90,8 +90,8 @@ def section_switch_engines():
         return
 
     engines = {
-        "pyzbar":  "pip install datamata[barcode]",
-        "zxing":   "pip install datamata[barcode-zxing]",
+        "pyzbar": "pip install datamata[barcode]",
+        "zxing": "pip install datamata[barcode-zxing]",
     }
     for engine, install_hint in engines.items():
         try:
@@ -217,6 +217,7 @@ def section_roi_pipeline():
         # Exclude "rois" — it contains raw pixel arrays and inflates JSON to gigabytes.
         # Save only the meaningful channels: detections and decoded barcodes.
         import json
+
         slim = {
             "channels": {k: v for k, v in result.to_dict()["channels"].items() if k != "rois"},
             "provenance": result.provenance,
@@ -231,6 +232,7 @@ def section_roi_pipeline():
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
+
 
 def main():
     print("MATA Barcode Scanning Examples")

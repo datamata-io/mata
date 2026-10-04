@@ -50,6 +50,7 @@ Requirements:
     # For cross-camera ReID:
     pip install datamata[valkey]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,10 +59,10 @@ import threading
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # GlobalIDRegistry — maps (camera_id, local_track_id) → stable global ID
 # ---------------------------------------------------------------------------
+
 
 class GlobalIDRegistry:
     """Map ``(camera_id, local_track_id)`` pairs to stable cross-camera IDs.
@@ -80,10 +81,7 @@ class GlobalIDRegistry:
         """Update last-seen timestamps and evict stale entries."""
         for key in active_keys:
             self._last_seen[key] = frame_idx
-        expired = [
-            k for k, last_f in self._last_seen.items()
-            if frame_idx - last_f > self.ttl_frames
-        ]
+        expired = [k for k, last_f in self._last_seen.items() if frame_idx - last_f > self.ttl_frames]
         for k in expired:
             self._map.pop(k, None)
             del self._last_seen[k]
@@ -126,8 +124,10 @@ class GlobalIDRegistry:
 # Mock helpers (used when --model / --reid-model are not supplied)
 # ---------------------------------------------------------------------------
 
+
 def _make_mock_detector():
     from unittest.mock import Mock
+
     from mata.core.types import Instance, VisionResult
 
     call_count = {"n": 0}
@@ -138,10 +138,8 @@ def _make_mock_detector():
         x = 80 + (n % 40) * 4
         return VisionResult(
             instances=[
-                Instance(bbox=(x, 50, x + 80, 260), label=0,
-                         score=0.91, label_name="person"),
-                Instance(bbox=(350, 110, 480, 265), label=0,
-                         score=0.85, label_name="person"),
+                Instance(bbox=(x, 50, x + 80, 260), label=0, score=0.91, label_name="person"),
+                Instance(bbox=(350, 110, 480, 265), label=0, score=0.85, label_name="person"),
             ],
             meta={"frame_idx": n},
         )
@@ -153,8 +151,9 @@ def _make_mock_detector():
 
 
 def _make_mock_encoder(embedding_dim: int = 128):
-    import numpy as np
     from unittest.mock import Mock
+
+    import numpy as np
 
     def mock_predict(crops, **kwargs):
         if not crops:
@@ -172,6 +171,7 @@ def _make_mock_encoder(embedding_dim: int = 128):
 def _make_mock_tracker():
     """Return a SimpleIOUTracker (built-in, no external deps)."""
     from mata.nodes.track import SimpleIOUTracker
+
     return SimpleIOUTracker()
 
 
@@ -179,10 +179,12 @@ def _make_mock_tracker():
 # Graph builder
 # ---------------------------------------------------------------------------
 
+
 def _build_graph(
     name: str,
     conf: float,
     has_encoder: bool,
+    has_bridge: bool,
     cam_label: str,
     cam_color: tuple[int, int, int],
     show_trails: bool,
@@ -211,6 +213,7 @@ def _build_graph(
             Embed(using="encoder", src="rois", out="embeddings", normalize=True),
             inputs={"rois": "ExtractROIs.rois"},
         )
+    if has_bridge:
         g = g.add(
             ReID(using="bridge", out="cross_matches"),
             inputs={"tracks": "Track.tracks", "embeddings": "Embed.embeddings"},
@@ -221,7 +224,7 @@ def _build_graph(
         "detections": "Track.tracks",
         "tracks": "Track.tracks",
     }
-    if has_encoder:
+    if has_bridge:
         annotate_inputs["cross_matches"] = "ReID.cross_matches"
 
     g = g.add(
@@ -233,7 +236,7 @@ def _build_graph(
             camera_color=cam_color,
             out="annotated",
             tracks_src="tracks",
-            cross_matches_src="cross_matches" if has_encoder else None,
+            cross_matches_src="cross_matches" if has_bridge else None,
         ),
         inputs=annotate_inputs,
     )
@@ -244,6 +247,7 @@ def _build_graph(
 # ReIDBridge initialisation
 # ---------------------------------------------------------------------------
 
+
 def _init_reid_bridge(
     cam_id: str,
     valkey_url: str,
@@ -252,6 +256,7 @@ def _init_reid_bridge(
 ) -> Any | None:
     try:
         from mata.trackers import ReIDBridge
+
         return ReIDBridge(
             valkey_url,
             camera_id=cam_id,
@@ -267,24 +272,31 @@ def _init_reid_bridge(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Graph-based single-camera tracking + cross-camera ReID",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--video", default=None, metavar="PATH",
+        "--video",
+        default=None,
+        metavar="PATH",
         help="Path to a video file. Omit to run in mock (synthetic) mode.",
     )
     p.add_argument(
-        "--model", default=None, metavar="MODEL",
+        "--model",
+        default=None,
+        metavar="MODEL",
         help=(
             "Detection model — HuggingFace ID, .onnx/.pt path, or config alias. "
             "Example: 'facebook/detr-resnet-50'. Omit for mock mode."
         ),
     )
     p.add_argument(
-        "--reid-model", default=None, metavar="MODEL",
+        "--reid-model",
+        default=None,
+        metavar="MODEL",
         help=(
             "ReID / appearance encoder — HuggingFace ID or local .onnx path. "
             "Example: 'openai/clip-vit-base-patch32'. "
@@ -292,49 +304,56 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     p.add_argument("--tracker", default="botsort", choices=["botsort", "bytetrack"])
-    p.add_argument("--conf", type=float, default=0.5,
-                   help="Detection confidence threshold.")
+    p.add_argument("--conf", type=float, default=0.5, help="Detection confidence threshold.")
     p.add_argument(
-        "--camera-id", default="cam-1", metavar="ID",
+        "--camera-id",
+        default="cam-1",
+        metavar="ID",
         help="Logical camera identifier used when publishing embeddings to Valkey.",
     )
     p.add_argument(
-        "--valkey", default=None, metavar="URL",
+        "--valkey",
+        default=None,
+        metavar="URL",
         help=(
             "Valkey / Redis URL for cross-camera embedding sharing. "
             "Example: 'valkey://localhost:6379'. "
             "Omit to disable cross-camera ReID (single-camera mode)."
         ),
     )
-    p.add_argument("--reid-thresh", type=float, default=0.65,
-                   help="Cosine-similarity threshold for a positive cross-camera match.")
-    p.add_argument("--reid-ttl", type=int, default=10,
-                   help="Embedding TTL in seconds for Valkey store.")
-    p.add_argument("--frame-stride", type=int, default=1,
-                   help="Process every Nth frame (1 = all frames).")
-    p.add_argument("--max-frames", type=int, default=None,
-                   help="Stop after this many frames (useful for quick demos).")
-    p.add_argument("--trails", dest="trails", default=True, action="store_true",
-                   help="Draw track trail overlays.")
+    p.add_argument(
+        "--reid-thresh", type=float, default=0.65, help="Cosine-similarity threshold for a positive cross-camera match."
+    )
+    p.add_argument("--reid-ttl", type=int, default=10, help="Embedding TTL in seconds for Valkey store.")
+    p.add_argument("--frame-stride", type=int, default=1, help="Process every Nth frame (1 = all frames).")
+    p.add_argument("--max-frames", type=int, default=None, help="Stop after this many frames (useful for quick demos).")
+    p.add_argument("--trails", dest="trails", default=True, action="store_true", help="Draw track trail overlays.")
     p.add_argument("--no-trails", dest="trails", action="store_false")
     p.add_argument("--trail-length", type=int, default=30)
-    p.add_argument("--cell-size", default="640x360", metavar="WxH",
-                   help="Output frame dimensions (width x height).")
-    p.add_argument("--headless", action="store_true", default=False,
-                   help="Suppress the live preview window.")
-    p.add_argument("--save", default=None, metavar="PATH",
-                   help="Write annotated output to this .mp4 path.")
+    p.add_argument("--cell-size", default="640x360", metavar="WxH", help="Output frame dimensions (width x height).")
+    p.add_argument("--headless", action="store_true", default=False, help="Suppress the live preview window.")
+    p.add_argument("--save", default=None, metavar="PATH", help="Write annotated output to this .mp4 path.")
     p.add_argument(
-        "--save-crops", default=None, metavar="DIR",
+        "--save-crops",
+        default=None,
+        metavar="DIR",
         help=(
             "Save cropped images for each cross-camera ReID match into "
             "DIR/id_NNNN/ subfolders (requires --reid-model)."
         ),
     )
-    p.add_argument("--max-crops-per-id", type=int, default=100,
-                   help="Maximum crop images saved per global identity (0 = unlimited).")
-    p.add_argument("--id-ttl-frames", type=int, default=30,
-                   help="Evict a (camera, track_id) → global_id mapping after N frames of absence.")
+    p.add_argument(
+        "--max-crops-per-id",
+        type=int,
+        default=100,
+        help="Maximum crop images saved per global identity (0 = unlimited).",
+    )
+    p.add_argument(
+        "--id-ttl-frames",
+        type=int,
+        default=30,
+        help="Evict a (camera, track_id) → global_id mapping after N frames of absence.",
+    )
     return p.parse_args(argv)
 
 
@@ -342,14 +361,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     mock_mode = args.model is None or args.video is None
 
     if args.save_crops and not args.reid_model:
         print(
-            "[WARN] --save-crops has no effect without --reid-model "
-            "(no cross-camera matches to crop).",
+            "[WARN] --save-crops has no effect without --reid-model " "(no cross-camera matches to crop).",
             file=sys.stderr,
         )
 
@@ -364,12 +383,13 @@ def main(argv: list[str] | None = None) -> None:
     # -----------------------------------------------------------------------
     if mock_mode:
         detector = _make_mock_detector()
-        encoder  = _make_mock_encoder() if args.reid_model else None
+        encoder = _make_mock_encoder() if args.reid_model else None
     else:
         import mata
+
         print(f"Loading detector: {args.model}")
         detector = mata.load("detect", args.model)
-        encoder  = None
+        encoder = None
         if args.reid_model:
             print(f"Loading ReID encoder: {args.reid_model}")
             encoder = mata.load("embed", args.reid_model)
@@ -379,12 +399,12 @@ def main(argv: list[str] | None = None) -> None:
     # -----------------------------------------------------------------------
     if args.tracker == "botsort":
         from mata.nodes.track import BotSortWrapper
-        tracker = BotSortWrapper(track_buffer=30, frame_rate=30,
-                                 track_thresh=args.conf)
+
+        tracker = BotSortWrapper(track_buffer=30, frame_rate=30, track_thresh=args.conf)
     else:
         from mata.nodes.track import ByteTrackWrapper
-        tracker = ByteTrackWrapper(track_buffer=30, frame_rate=30,
-                                   track_thresh=args.conf)
+
+        tracker = ByteTrackWrapper(track_buffer=30, frame_rate=30, track_thresh=args.conf)
 
     # -----------------------------------------------------------------------
     # Build ReIDBridge (cross-camera, optional)
@@ -392,13 +412,13 @@ def main(argv: list[str] | None = None) -> None:
     bridge = None
     if encoder is not None and args.valkey:
         bridge = _init_reid_bridge(
-            args.camera_id, args.valkey, args.reid_thresh, args.reid_ttl,
+            args.camera_id,
+            args.valkey,
+            args.reid_thresh,
+            args.reid_ttl,
         )
     elif encoder is not None:
-        print(
-            "[info] No --valkey URL supplied. ReID embeddings will not be "
-            "shared across cameras (single-camera appearance mode only)."
-        )
+        print("[info] No --valkey URL supplied. Cross-camera ReID disabled — " "running detect + track + embed only.")
 
     # -----------------------------------------------------------------------
     # Assemble providers
@@ -418,12 +438,13 @@ def main(argv: list[str] | None = None) -> None:
         cell_w, cell_h = 640, 360
 
     cam_label = f" {args.camera_id.upper()} "
-    cam_color  = (60, 100, 255)  # blue — override per camera if needed
+    cam_color = (60, 100, 255)  # blue — override per camera if needed
 
     graph = _build_graph(
         name="reid_pipeline",
         conf=args.conf,
         has_encoder=(encoder is not None),
+        has_bridge=(bridge is not None),
         cam_label=cam_label,
         cam_color=cam_color,
         show_trails=args.trails,
@@ -442,6 +463,7 @@ def main(argv: list[str] | None = None) -> None:
     # Real-mode: process video file
     # -----------------------------------------------------------------------
     import cv2
+
     from mata.core.graph.temporal import FramePolicyEveryN
 
     vid_path = Path(args.video)
@@ -478,15 +500,13 @@ def main(argv: list[str] | None = None) -> None:
         )
 
         tracks_art = result.channels.get("tracks")
-        n_active = (
-            len(tracks_art.get_active_tracks().tracks) if tracks_art else 0
-        )
+        n_active = len(tracks_art.get_active_tracks().tracks) if tracks_art else 0
         cross_art = result.channels.get("cross_matches")
         n_xcam = len(cross_art) if cross_art is not None else 0
         print(
-            f"\r  frame={frame_num:5d}  active={n_active}  "
-            f"xcam={n_xcam}  crops={crops_saved[0]}   ",
-            end="", flush=True,
+            f"\r  frame={frame_num:5d}  active={n_active}  " f"xcam={n_xcam}  crops={crops_saved[0]}   ",
+            end="",
+            flush=True,
         )
 
         # Save identity crops for cross-camera ReID matches
@@ -506,8 +526,10 @@ def main(argv: list[str] | None = None) -> None:
                 if bbox is None:
                     continue
                 gid = global_id_registry.resolve(
-                    args.camera_id, local_tid,
-                    match.remote_camera_id, match.remote_track_id,
+                    args.camera_id,
+                    local_tid,
+                    match.remote_camera_id,
+                    match.remote_track_id,
                 )
                 if gid == -1:
                     continue
@@ -560,10 +582,11 @@ def main(argv: list[str] | None = None) -> None:
 # Mock loop (no video / model required)
 # ---------------------------------------------------------------------------
 
+
 def _run_mock_loop(graph: Any, providers: dict[str, Any], args: argparse.Namespace) -> None:
     """Run a short synthetic loop to demonstrate the graph structure."""
     import numpy as np
-    from mata.core.graph.temporal import FramePolicyEveryN
+
 
     print("\n=== Mock Graph ReID Pipeline ===")
     print(f"Graph nodes: {[n.__class__.__name__ for n in graph._nodes]}\n")
@@ -574,14 +597,12 @@ def _run_mock_loop(graph: Any, providers: dict[str, Any], args: argparse.Namespa
         frame_bgr = np.zeros((360, 640, 3), dtype=np.uint8)
         # Draw a moving rectangle to simulate a person
         x = 80 + i * 30
-        frame_bgr[50:260, x:x+80] = (200, 150, 100)
+        frame_bgr[50:260, x : x + 80] = (200, 150, 100)
 
         try:
             result = graph.infer(frame_bgr, providers=providers)
             tracks_art = result.channels.get("tracks")
-            n_tracks = (
-                len(tracks_art.get_active_tracks().tracks) if tracks_art else 0
-            )
+            n_tracks = len(tracks_art.get_active_tracks().tracks) if tracks_art else 0
         except Exception:
             n_tracks = "N/A"
 

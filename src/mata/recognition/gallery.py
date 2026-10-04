@@ -229,6 +229,15 @@ class Gallery:
                 result.append(label)
         return result
 
+    @property
+    def similarity_thresh(self) -> float:
+        """Default minimum cosine similarity for search results."""
+        return self._similarity_thresh
+
+    @similarity_thresh.setter
+    def similarity_thresh(self, value: float) -> None:
+        self._similarity_thresh = float(value)
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------

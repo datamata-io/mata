@@ -274,7 +274,7 @@ class ConfusionMatrix:
         ax.set_title("Confusion Matrix (normalised)" if normalize else "Confusion Matrix")
 
         # Annotate cells
-        thresh = m.max() / 2.0 if m.max() > 0 else 0.5
+        thresh = np.max(m) / 2.0 if np.max(m) > 0 else 0.5
         for i in range(m.shape[0]):
             for j in range(m.shape[1]):
                 val = m[i, j]

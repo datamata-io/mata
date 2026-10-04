@@ -26,9 +26,14 @@ if TYPE_CHECKING:
     from .core.artifacts.result import MultiResult
     from .core.graph.graph import Graph
     from .core.graph.node import Node
+    from .training.result import TrainingResult
+
 
 # Singleton universal loader instance
 _universal_loader: UniversalLoader | None = None
+
+# --- Beta warning flag for training (v2.0.0) ---
+_TRAIN_BETA_WARNED = False
 
 
 def _get_universal_loader() -> UniversalLoader:
@@ -112,11 +117,11 @@ def load(task: str, model: str | None = None, model_type: str | ModelType | None
 
 def run(
     task: str,
-    input: str | Path | Image.Image | np.ndarray,
+    input: str | Path | Image.Image | np.ndarray | list[Any] | tuple[Any, ...],
     model: str | None = None,
     model_type: str | ModelType | None = None,
     **kwargs: Any,
-) -> DetectResult | SegmentResult | ClassifyResult | DepthResult | VisionResult:
+) -> DetectResult | SegmentResult | ClassifyResult | DepthResult | VisionResult | np.ndarray:
     """One-shot inference on an input.
 
     Provides YOLO-like UX for quick inference without manually
@@ -259,6 +264,28 @@ def run(
                 else:
                     mm_input["image"] = input
                 return adapter._encoder.predict_multimodal(mm_input)
+
+        # Batch input — list/tuple of images (paths, PIL images, arrays) → (N, D) stack
+        if isinstance(input, (list, tuple)):
+            vectors = []
+            for item in input:
+                if isinstance(item, (str, Path)):
+                    item_artifact = ImageArtifact.from_path(str(item))
+                elif isinstance(item, Image.Image):
+                    item_artifact = ImageArtifact.from_pil(item)
+                elif isinstance(item, np.ndarray):
+                    item_artifact = ImageArtifact.from_numpy(item)
+                else:
+                    raise ValueError(
+                        f"Unsupported batch item type for embed task: {type(item).__name__}. "
+                        "Expected items of: file path, PIL Image, or numpy array."
+                    )
+                item_emb = adapter.embed(item_artifact)
+                item_arr = item_emb.embeddings if hasattr(item_emb, "embeddings") else np.asarray(item_emb)
+                vectors.append(np.atleast_2d(item_arr).astype(np.float32))
+            if not vectors:
+                return np.empty((0, 0), dtype=np.float32)
+            return np.vstack(vectors)
 
         # Standard image input — backward compatible
         if isinstance(input, (str, Path)):
@@ -1405,6 +1432,222 @@ def val(
         split=split,
         **kwargs,
     ).run()
+
+
+def train(
+    task: str,
+    *,
+    model: str,
+    data: str | dict,
+    val_data: str | dict | None = None,
+    epochs: int = 10,
+    batch_size: int = 8,
+    lr: float = 1e-4,
+    optimizer: str = "adamw",
+    weight_decay: float = 0.01,
+    scheduler: str = "cosine",
+    warmup_epochs: int = 1,
+    device: str = "auto",
+    amp: bool = True,
+    save_dir: str = "runs/train",
+    save_every: int = 0,
+    val_every: int = 1,
+    patience: int = 0,
+    freeze_backbone: bool = False,
+    freeze_layers: list[str] | None = None,
+    augment: bool = True,
+    augment_config: dict | None = None,
+    resume: str | None = None,
+    num_workers: int = 4,
+    seed: int = 42,
+    verbose: bool = True,
+    **kwargs: Any,
+) -> TrainingResult:
+    """Train a model from scratch or continue training.
+
+    .. warning::
+        Beta in v2.0.0 — API may change in v2.1.0.
+
+    Args:
+        task: Task type — "detect", "classify", or "segment"
+        model: Model source (HuggingFace ID, torchvision/*, config alias, local path)
+        data: Training data (YAML config path, directory, or COCO JSON)
+        val_data: Validation data (same formats as data). Defaults to None.
+        epochs: Number of training epochs. Defaults to 10.
+        batch_size: Batch size. Defaults to 8.
+        lr: Learning rate. Defaults to 1e-4.
+        optimizer: Optimizer name ("adamw", "adam", "sgd"). Defaults to "adamw".
+        weight_decay: Weight decay for regularization. Defaults to 0.01.
+        scheduler: LR scheduler ("cosine", "linear", "step", "none"). Defaults to "cosine".
+        warmup_epochs: Epochs to warm up LR from 0. Defaults to 1.
+        device: Device to train on ("auto", "cuda", "cpu"). Defaults to "auto".
+        amp: Enable automatic mixed precision. Defaults to True.
+        save_dir: Root directory for saving checkpoints. Defaults to "runs/train".
+        save_every: Save checkpoint every N epochs (0 = only best/last). Defaults to 0.
+        val_every: Run validation every N epochs. Defaults to 1.
+        patience: Early stopping patience in epochs (0 = disabled). Defaults to 0.
+        freeze_backbone: Freeze backbone weights during training. Defaults to False.
+        freeze_layers: List of layer name patterns to freeze. Defaults to None.
+        augment: Enable data augmentation. Defaults to True.
+        augment_config: Augmentation configuration dict. Defaults to None.
+        resume: Path to checkpoint directory to resume from. Defaults to None.
+        num_workers: DataLoader worker processes. Defaults to 4.
+        seed: Random seed for reproducibility. Defaults to 42.
+        verbose: Print training progress. Defaults to True.
+        **kwargs: Additional keyword arguments for future extensibility.
+
+    Returns:
+        TrainingResult with metrics, checkpoint paths, and training history.
+
+    Example:
+        >>> result = mata.train("detect", model="facebook/detr-resnet-50",
+        ...     data="coco.yaml", epochs=10, lr=1e-4)
+        >>> print(f"Best mAP50: {result.best_metrics.box.map50:.3f}")
+    """
+
+    global _TRAIN_BETA_WARNED
+    if not _TRAIN_BETA_WARNED:
+        import warnings
+
+        warnings.warn(
+            "mata.train() is in beta — API may change in v2.1.0. "
+            "Please report issues at https://github.com/datamata-io/mata/issues",
+            stacklevel=2,
+        )
+        _TRAIN_BETA_WARNED = True
+
+    from mata.training import TrainingConfig, TrainingOrchestrator
+
+    config = TrainingConfig(
+        task=task,
+        model=model,
+        data=data,
+        val_data=val_data,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        optimizer=optimizer,
+        weight_decay=weight_decay,
+        scheduler=scheduler,
+        warmup_epochs=warmup_epochs,
+        device=device,
+        amp=amp,
+        save_dir=save_dir,
+        save_every=save_every,
+        val_every=val_every,
+        patience=patience,
+        freeze_backbone=freeze_backbone,
+        freeze_layers=freeze_layers,
+        augment=augment,
+        augment_config=augment_config,
+        resume=resume,
+        num_workers=num_workers,
+        seed=seed,
+        verbose=verbose,
+    )
+    config.validate()
+    return TrainingOrchestrator(config).train()
+
+
+def finetune(
+    task: str,
+    *,
+    model: str,
+    data: str | dict,
+    val_data: str | dict | None = None,
+    epochs: int = 5,
+    batch_size: int = 16,
+    lr: float = 1e-5,
+    freeze_backbone: bool = True,
+    **kwargs: Any,
+) -> TrainingResult:
+    """Fine-tune a pre-trained model on custom data.
+
+    .. warning::
+        Beta in v2.0.0 — API may change in v2.1.0.
+
+    Like train() but with fine-tuning defaults: lower LR, fewer epochs, frozen backbone.
+
+    Args:
+        task: Task type — "detect", "classify", or "segment"
+        model: Model source (HuggingFace ID, torchvision/*, config alias, local path)
+        data: Training data (YAML config path, directory, or COCO JSON)
+        val_data: Validation data. Defaults to None.
+        epochs: Number of fine-tuning epochs. Defaults to 5.
+        batch_size: Batch size. Defaults to 16.
+        lr: Learning rate. Defaults to 1e-5.
+        freeze_backbone: Freeze backbone weights. Defaults to True.
+        **kwargs: Additional keyword arguments forwarded to train().
+
+    Returns:
+        TrainingResult with metrics, checkpoint paths, and training history.
+
+    Example:
+        >>> result = mata.finetune("classify", model="microsoft/resnet-50",
+        ...     data="/data/flowers/", epochs=5)
+        >>> print(f"Top-1: {result.best_metrics.top1:.1%}")
+    """
+    return train(
+        task,
+        model=model,
+        data=data,
+        val_data=val_data,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        freeze_backbone=freeze_backbone,
+        **kwargs,
+    )
+
+
+def annotate(
+    data: str = "data",
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8710,
+    open_browser: bool = True,
+    block: bool = True,
+    detect_model: str | None = None,
+    vlm_model: str | None = None,
+    embed_model: str | None = None,
+    zeroshot_model: str | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Launch the MATA annotation web tool.
+
+    Starts a browser-based annotation server for creating and editing
+    datasets with AI-assisted labeling. Outputs COCO JSON annotations
+    and YAML configs compatible with mata.train().
+
+    Args:
+        data: Root data directory to manage. Defaults to "data".
+        host: Server bind address. Defaults to "127.0.0.1" (localhost only).
+        port: Server port. Defaults to 8710.
+        open_browser: Auto-open browser. Defaults to True.
+        block: Block until server stops. Defaults to True.
+        detect_model: Detection model for AI-assist pre-labeling.
+        vlm_model: VLM model for AI-assist auto-annotation.
+        embed_model: Embedding model for CLIP classify suggestions.
+        zeroshot_model: Grounding DINO model for zero-shot detection AI-assist.
+        **kwargs: Additional server configuration.
+
+    Returns:
+        AnnotateServer instance.
+    """
+    from .annotate import start_server
+
+    return start_server(
+        data=data,
+        host=host,
+        port=port,
+        open_browser=open_browser,
+        block=block,
+        detect_model=detect_model,
+        vlm_model=vlm_model,
+        embed_model=embed_model,
+        zeroshot_model=zeroshot_model,
+        **kwargs,
+    )
 
 
 def verbose(level: int = 2) -> None:

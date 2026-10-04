@@ -285,15 +285,18 @@ class DatasetLoader:
         else:
             self._images_dir = root
 
-        # Resolve annotations JSON
-        ann_rel: str = cfg.get("annotations", "")
+        # Resolve annotations JSON: split-specific key first, then fallback
+        ann_rel: str = cfg.get(f"{self._split}_annotations", "") or cfg.get("annotations", "")
         if ann_rel:
             ann_path = root / ann_rel
             if not ann_path.exists():
                 raise FileNotFoundError(f"Annotations file not found: {ann_path}")
             self._annotations_path = ann_path
         else:
-            raise ValueError("YAML config must contain an 'annotations' key pointing to a COCO JSON file.")
+            raise ValueError(
+                "YAML config must contain a split-specific annotations key "
+                f"('{self._split}_annotations') or an 'annotations' key pointing to a COCO JSON file."
+            )
 
         # Optional depth GT directory
         depth_rel: str = cfg.get("depth_gt", "")

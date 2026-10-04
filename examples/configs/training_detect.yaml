@@ -1,0 +1,31 @@
+# MATA Training Configuration — Object Detection
+# Usage: mata.train("detect", **TrainingConfig.from_yaml("training_detect.yaml"))
+#   or:  mata.train("detect", model="facebook/detr-resnet-50", data="examples/configs/coco.yaml")
+
+task: detect # Task type: detect | classify | segment
+model: facebook/detr-resnet-50 # HuggingFace model ID (or torchvision/*, alias, local path)
+data: examples/configs/coco.yaml # Training dataset (YAML config, directory, or COCO JSON)
+val_data: null # Validation dataset — null uses 'val' split from data config
+
+epochs: 20 # Number of training epochs
+batch_size: 4 # Training batch size (reduce if OOM)
+lr: 1.0e-4 # Learning rate
+optimizer: adamw # Optimizer: adamw | adam | sgd
+weight_decay: 0.01 # L2 regularization
+scheduler: cosine # LR scheduler: cosine | linear | step | none
+warmup_epochs: 2 # Epochs to linearly warm up LR from 0
+
+device: auto # Device: auto | cpu | cuda | cuda:0
+amp: true # Automatic mixed precision (requires CUDA)
+
+save_dir: runs/train/detect # Directory for checkpoints and logs
+save_every: 5 # Save checkpoint every N epochs (0 = best + last only)
+val_every: 1 # Validate every N epochs
+patience: 10 # Early stopping patience (0 = disabled)
+
+freeze_backbone: false # Freeze backbone weights (set true for fine-tuning)
+augment: true # Enable built-in data augmentation
+
+num_workers: 4 # DataLoader worker processes
+seed: 42 # Random seed for reproducibility
+verbose: true # Print progress to console

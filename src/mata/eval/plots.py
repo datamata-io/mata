@@ -226,7 +226,7 @@ def plot_f1_curve(
         labels.append(lbl)
 
     mean_py = py.mean(axis=0)
-    mean_max = float(mean_py.max())
+    mean_max = float(np.max(mean_py))
     mean_lbl = f"all classes {mean_max:.3f}" if nc > 1 else class_names[0]
     (mean_line,) = ax.plot(px, mean_py, linewidth=3, color="#1f77b4", label=mean_lbl)
     handles.insert(0, mean_line)
@@ -300,7 +300,7 @@ def plot_p_curve(
         labels.append(lbl)
 
     mean_py = py.mean(axis=0)
-    mean_max = float(mean_py.max())
+    mean_max = float(np.max(mean_py))
     mean_lbl = f"all classes {mean_max:.3f}" if nc > 1 else class_names[0]
     (mean_line,) = ax.plot(px, mean_py, linewidth=3, color="#1f77b4", label=mean_lbl)
     handles.insert(0, mean_line)
@@ -374,7 +374,7 @@ def plot_r_curve(
         labels.append(lbl)
 
     mean_py = py.mean(axis=0)
-    mean_max = float(mean_py.max())
+    mean_max = float(np.max(mean_py))
     mean_lbl = f"all classes {mean_max:.3f}" if nc > 1 else class_names[0]
     (mean_line,) = ax.plot(px, mean_py, linewidth=3, color="#1f77b4", label=mean_lbl)
     handles.insert(0, mean_line)

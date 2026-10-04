@@ -1,0 +1,28 @@
+# COCO-mini synthetic dataset for smoke testing.
+#
+# Generate the dataset first:
+#   python scripts/generate_coco_mini.py
+#
+# Dataset structure (auto-generated):
+#   data/coco_mini/
+#   ├── train2017/          ← 16 synthetic 320×320 JPEG images
+#   ├── val2017/            ← 4  synthetic 320×320 JPEG images
+#   └── annotations/
+#       ├── instances_train2017.json
+#       └── instances_val2017.json
+#
+# 3 classes (COCO-compatible category IDs so pre-trained weights load cleanly):
+#   0 → person (cat_id 1)
+#   1 → car    (cat_id 3)
+#   2 → dog    (cat_id 17)
+
+path: data\coco_mini
+train: train2017
+val: val2017
+train_annotations: annotations/instances_train2017.json
+val_annotations: annotations/instances_val2017.json
+
+names:
+  0: person
+  1: car
+  2: dog

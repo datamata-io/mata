@@ -266,6 +266,36 @@ class TestRunEmbed:
             with pytest.raises((ValueError, TypeError)):
                 mata.run("embed", 12345, model="org/model")
 
+    def test_run_embed_batch_list_returns_stacked_ndarray(self):
+        """Batch list input returns an (N, D) stacked ndarray (one row per item)."""
+        mock_enc = _make_mock_hf_reid()
+        with patch(
+            "mata.adapters.reid_adapter.HuggingFaceReIDAdapter",
+            return_value=mock_enc,
+        ):
+            crops = [_make_rgb_array(64, 32) for _ in range(5)]
+            result = mata.run("embed", crops, model="org/model")
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (5, _DIM)
+        assert np.allclose(result, 1.0)
+
+    def test_run_embed_batch_accepts_mixed_item_types(self, tmp_path):
+        """Batch items may mix a file path, a PIL image, and a numpy array."""
+        img_file = tmp_path / "crop.png"
+        PILImage.new("RGB", (32, 32)).save(img_file)
+
+        mock_enc = _make_mock_hf_reid()
+        with patch(
+            "mata.adapters.reid_adapter.HuggingFaceReIDAdapter",
+            return_value=mock_enc,
+        ):
+            items = [str(img_file), PILImage.new("RGB", (32, 32)), _make_rgb_array(32, 32)]
+            result = mata.run("embed", items, model="org/model")
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (3, _DIM)
+
     def test_run_embed_dtype_float32(self):
         """Output array is float32."""
         pil = PILImage.new("RGB", (64, 64))

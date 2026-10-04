@@ -1,0 +1,24 @@
+# COCO-mini synthetic training dataset for segmentation example scripts.
+#
+# Identical layout to coco_custom_train.yaml; used by finetune_segmentation.py.
+# The coco_mini instances_train2017.json includes polygon segmentation masks,
+# making it compatible with both detection and instance-segmentation training.
+#
+# Generate with:  python scripts/generate_coco_mini.py
+#
+# Dataset root is resolved relative to this YAML file's directory:
+#   examples/configs/ + ../../data/coco_mini = data/coco_mini
+#
+# 3 classes: person (cat_id 1), car (cat_id 3), dog (cat_id 17)
+
+path: ../../data/coco_mini # relative to this YAML → data/coco_mini
+train: train2017
+val: val2017
+train_annotations: annotations/instances_train2017.json
+val_annotations: annotations/instances_val2017.json
+annotations: annotations/instances_val2017.json # required by mata.val()
+
+names:
+  0: person
+  1: car
+  2: dog

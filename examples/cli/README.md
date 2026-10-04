@@ -107,8 +107,14 @@ A `.npz` gallery is required. Build one with Python before running:
 
 ```python
 import mata
-gallery = mata.Gallery(threshold=0.7)
-gallery.add("image1.jpg", model="openai/clip-vit-base-patch32", label="person_a")
+
+gallery = mata.Gallery(similarity_thresh=0.7)
+for label, path in [
+    ("cat_scene", "../images/000000039769.jpg"),
+    ("other_scene", "../images/000000015338.jpg"),
+]:
+    emb = mata.run("embed", path, model="openai/clip-vit-base-patch32")
+    gallery.add(label, emb[0])
 gallery.save("gallery.npz")
 ```
 

@@ -394,3 +394,19 @@ class TestGalleryPublicAPI:
         g.add("a", _unit())
         g.add("b", _unit())
         assert g.size == 2
+
+    def test_similarity_thresh_public_property(self):
+        """`similarity_thresh` is a public attribute (documented + used by examples)."""
+        g = Gallery(similarity_thresh=0.7)
+        assert g.similarity_thresh == 0.7
+
+    def test_similarity_thresh_settable_and_survives_roundtrip(self, tmp_path):
+        g = Gallery(similarity_thresh=0.42)
+        g.similarity_thresh = 0.9
+        assert g.similarity_thresh == 0.9
+
+        path = tmp_path / "g.npz"
+        g.add("a", _unit())
+        g.save(str(path))
+        g2 = Gallery.load(str(path))
+        assert g2.similarity_thresh == 0.9

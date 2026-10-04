@@ -60,7 +60,7 @@ def instance_vs_panoptic():
     result = segmenter.predict(IMAGE)
 
     instances = result.get_instances()  # countable objects (person, cat, ...)
-    stuff = result.get_stuff()          # background regions (sky, floor, ...)
+    stuff = result.get_stuff()  # background regions (sky, floor, ...)
 
     print(f"  Instances: {len(instances)}, Stuff regions: {len(stuff)}")
     for mask in sorted(instances, key=lambda m: m.score, reverse=True)[:3]:
@@ -82,6 +82,8 @@ def save_results():
         model="facebook/mask2former-swin-tiny-coco-instance",
         threshold=0.5,
     )
+    out_dir = Path("runs/segmentation")
+    out_dir.mkdir(parents=True, exist_ok=True)
     result.save("runs/segmentation/overlay.png", show_masks=True, show_boxes=True)
     result.save("runs/segmentation/result.json")
     print("  Saved overlay.png and result.json to runs/segmentation/")

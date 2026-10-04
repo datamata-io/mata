@@ -23,7 +23,6 @@ import mata
 def visualize_instances(image, result, output_path):
     """Visualize instances with both bboxes and masks."""
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    draw_overlay = ImageDraw.Draw(overlay)
     draw_image = ImageDraw.Draw(image)
 
     try:
@@ -54,6 +53,7 @@ def visualize_instances(image, result, output_path):
                 mask_array = instance.mask.to_binary()
             else:
                 from mata.visualization import _mask_to_binary  # private fallback for raw mask dicts
+
                 mask_array = _mask_to_binary(instance.mask, image_size=image.size)
 
             mask_img = Image.fromarray((mask_array * 255).astype(np.uint8), mode="L")
@@ -77,6 +77,7 @@ def visualize_instances(image, result, output_path):
             draw_image.text((x1 + 2, y1 - text_height - 2), label_text, fill="white", font=font)
 
     image = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path)
     print(f"Saved visualization to: {output_path}")
 
@@ -91,9 +92,7 @@ def example_basic_pipeline():
 
     print("\n[1/4] Loading GroundingDINO>SAM pipeline...")
     pipeline = mata.load(
-        "pipeline", 
-        detector_model_id="IDEA-Research/grounding-dino-tiny", 
-        sam_model_id="facebook/sam-vit-base"
+        "pipeline", detector_model_id="IDEA-Research/grounding-dino-tiny", sam_model_id="facebook/sam-vit-base"
     )
 
     print("[2/4] Creating test image...")
