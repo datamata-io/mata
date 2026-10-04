@@ -91,6 +91,7 @@ def example_grounding_dino():
 
     output_image = draw_detections(image.copy(), result, text_prompts)
     output_path = "runs/zeroshot_detection/output_grounding_dino.jpg"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     output_image.save(output_path)
     print(f"\n Saved visualization to: {output_path}")
 
@@ -122,6 +123,7 @@ def example_owlvit_v2():
 
     output_image = draw_detections(image.copy(), result, text_prompts)
     output_path = "runs/zeroshot_detection/output_owlvit_v2.jpg"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     output_image.save(output_path)
     print(f"\n Saved visualization to: {output_path}")
 
@@ -255,6 +257,7 @@ def main():
     except Exception as e:
         print(f"\n Error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
