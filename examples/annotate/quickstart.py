@@ -21,7 +21,6 @@ from __future__ import annotations
 import http.client
 import json
 import shutil
-import sys
 import time
 from pathlib import Path
 
@@ -29,15 +28,16 @@ from pathlib import Path
 # Configuration — edit these to match your environment
 # ---------------------------------------------------------------------------
 
-DATA_ROOT = Path("data")            # Where datasets are stored
-DATASET_NAME = "annotate_demo"      # Name for the demo dataset
-PORT = 8710                         # Server port (set 0 for random OS-assigned)
+DATA_ROOT = Path("data")  # Where datasets are stored
+DATASET_NAME = "annotate_demo"  # Name for the demo dataset
+PORT = 8710  # Server port (set 0 for random OS-assigned)
 HOST = "127.0.0.1"
 
 
 # ---------------------------------------------------------------------------
 # HTTP helpers (no external dependencies — pure stdlib)
 # ---------------------------------------------------------------------------
+
 
 def _get(port: int, path: str) -> tuple[int, object]:
     conn = http.client.HTTPConnection(HOST, port, timeout=10)
@@ -73,6 +73,7 @@ def _post(port: int, path: str, body: dict | None = None) -> tuple[int, object]:
 # Step 1: Start the annotation server
 # ---------------------------------------------------------------------------
 
+
 def start_server() -> object:
     """Start the annotation server in the background (non-blocking)."""
     import mata  # noqa: PLC0415
@@ -99,6 +100,7 @@ def start_server() -> object:
 # Step 2: Prepare the dataset directory and sample images
 # ---------------------------------------------------------------------------
 
+
 def prepare_dataset(server_port: int) -> Path:
     """Create a demo dataset and populate it with sample images."""
     dataset_dir = DATA_ROOT / DATASET_NAME
@@ -120,8 +122,7 @@ def prepare_dataset(server_port: int) -> Path:
         # the server's image-list endpoint; real inference would need valid JPEG)
         for i in range(1, 3):
             (images_dir / f"sample_{i:03d}.jpg").write_bytes(
-                b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
-                b"\xff\xd9"
+                b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00" b"\xff\xd9"
             )
         print(f"[2] Created {DATASET_NAME} with 2 synthetic stub images")
     else:
@@ -136,6 +137,7 @@ def prepare_dataset(server_port: int) -> Path:
 # Step 3: List images and save COCO annotations
 # ---------------------------------------------------------------------------
 
+
 def annotate_dataset(server_port: int, dataset_dir: Path) -> None:
     """Push a sample COCO annotation payload to the server."""
     # List images known to the server
@@ -143,10 +145,7 @@ def annotate_dataset(server_port: int, dataset_dir: Path) -> None:
     assert status == 200, f"Image listing failed: {body}"
     # API returns list of dicts: [{"filename": "...", "size_bytes": ...}, ...]
     raw_items: list = body if isinstance(body, list) else body.get("images", [])
-    image_files: list[str] = [
-        item["filename"] if isinstance(item, dict) else item
-        for item in raw_items
-    ]
+    image_files: list[str] = [item["filename"] if isinstance(item, dict) else item for item in raw_items]
     print(f"[3] Images in dataset: {image_files}")
 
     if not image_files:
@@ -160,15 +159,17 @@ def annotate_dataset(server_port: int, dataset_dir: Path) -> None:
 
     for idx, fname in enumerate(image_files, start=1):
         images.append({"id": idx, "file_name": fname, "width": 640, "height": 480})
-        annotations.append({
-            "id": idx,
-            "image_id": idx,
-            "category_id": 1,
-            "bbox": [10.0, 10.0, 100.0, 80.0],   # x, y, w, h  (COCO xywh)
-            "area": 8000.0,
-            "iscrowd": 0,
-            "segmentation": [],
-        })
+        annotations.append(
+            {
+                "id": idx,
+                "image_id": idx,
+                "category_id": 1,
+                "bbox": [10.0, 10.0, 100.0, 80.0],  # x, y, w, h  (COCO xywh)
+                "area": 8000.0,
+                "iscrowd": 0,
+                "segmentation": [],
+            }
+        )
 
     coco_payload = {
         "info": {"description": "annotate_demo", "version": "1.0"},
@@ -188,8 +189,36 @@ def annotate_dataset(server_port: int, dataset_dir: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Step 3b: Redistribute images into train/val splits (required before export)
+# ---------------------------------------------------------------------------
+
+
+def redistribute_splits(server_port: int) -> None:
+    """Organise images into splits — the export endpoint requires train/val/test dirs."""
+    status, body = _post(
+        server_port,
+        f"/api/datasets/{DATASET_NAME}/redistribute",
+        {"train": 50, "val": 50, "test": 0},
+    )
+    assert status in (200, 202), f"Redistribute failed: {body}"
+
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        _status, job = _get(server_port, f"/api/datasets/{DATASET_NAME}/redistribute")
+        state = job.get("status") if isinstance(job, dict) else None
+        if state == "done":
+            print(f"[3b] Redistributed dataset into splits ({job})")
+            return
+        if state == "error":
+            raise AssertionError(f"Redistribute error: {job}")
+        time.sleep(0.5)
+    raise AssertionError("Redistribute did not finish within 30s")
+
+
+# ---------------------------------------------------------------------------
 # Step 4 & 5: Export dataset and verify COCO output
 # ---------------------------------------------------------------------------
+
 
 def export_and_verify(server_port: int, dataset_dir: Path) -> Path:
     """Export the dataset to YAML + COCO JSON, then validate the output."""
@@ -233,6 +262,7 @@ def export_and_verify(server_port: int, dataset_dir: Path) -> Path:
 # (Optional) Step 6: Trigger training
 # ---------------------------------------------------------------------------
 
+
 def trigger_training(server_port: int, yaml_path: Path) -> None:
     """Demonstrate the training trigger endpoint (mocked — no GPU required)."""
     if not yaml_path.exists():
@@ -241,7 +271,7 @@ def trigger_training(server_port: int, yaml_path: Path) -> None:
 
     # mata.train() would normally be called here.  We just show the API shape.
     print("[6] Training trigger example (not executing real training):")
-    print(f"    mata.train('detect', model='facebook/detr-resnet-50',")
+    print("    mata.train('detect', model='facebook/detr-resnet-50',")
     print(f"               data='{yaml_path}', epochs=10)")
     print("    Use `mata train detect --model ... --data ... --epochs 10` from CLI")
 
@@ -250,6 +280,7 @@ def trigger_training(server_port: int, yaml_path: Path) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     DATA_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -257,6 +288,7 @@ def main() -> None:
     try:
         dataset_dir = prepare_dataset(server.port)
         annotate_dataset(server.port, dataset_dir)
+        redistribute_splits(server.port)
         yaml_path = export_and_verify(server.port, dataset_dir)
         trigger_training(server.port, yaml_path)
         print("\nQuickstart complete — annotation workflow demonstrated successfully.")

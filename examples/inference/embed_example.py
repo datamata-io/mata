@@ -32,6 +32,7 @@ if str(_SRC) not in sys.path:
 # Mock adapter — no model download required
 # ---------------------------------------------------------------------------
 
+
 def _make_mock_adapter(dim: int = 512):
     """Return a mock EmbedAdapter for demonstration."""
     from unittest.mock import MagicMock
@@ -55,12 +56,14 @@ def _make_mock_adapter(dim: int = 512):
     mock_encoder.predict.side_effect = _predict
 
     from mata.adapters.embed_adapter import EmbedAdapter
+
     return EmbedAdapter(encoder=mock_encoder)
 
 
 # ---------------------------------------------------------------------------
 # Example 1: Single image embedding — mata.run("embed", ...)
 # ---------------------------------------------------------------------------
+
 
 def example_single_image(use_real: bool = False):
     """Extract a single embedding from an image."""
@@ -69,8 +72,10 @@ def example_single_image(use_real: bool = False):
     if use_real:
         import mata
         from mata.core.types import EmbedResult
-        _raw = mata.run("embed", "examples/images/000000039769.jpg",
-                        model="openai/clip-vit-base-patch32")  # returns np.ndarray
+
+        _raw = mata.run(
+            "embed", "examples/images/000000039769.jpg", model="openai/clip-vit-base-patch32"
+        )  # returns np.ndarray
         result = EmbedResult(embeddings=_raw)
     else:
         from mata.core.types import EmbedResult
@@ -91,6 +96,7 @@ def example_single_image(use_real: bool = False):
 # Example 2: Batch crops — mata.run("embed", list_of_arrays, ...)
 # ---------------------------------------------------------------------------
 
+
 def example_batch_crops(use_real: bool = False):
     """Extract embeddings from a batch of numpy crops."""
     print("\n--- 2. Batch crop embeddings ---")
@@ -99,7 +105,10 @@ def example_batch_crops(use_real: bool = False):
 
     if use_real:
         import mata
-        result = mata.run("embed", crops, model="openai/clip-vit-base-patch32")
+        from mata.core.types import EmbedResult
+
+        _raw = mata.run("embed", crops, model="openai/clip-vit-base-patch32")  # (N, D) ndarray
+        result = EmbedResult(embeddings=_raw)
     else:
         from mata.core.types import EmbedResult
 
@@ -109,7 +118,7 @@ def example_batch_crops(use_real: bool = False):
         result = EmbedResult(embeddings=vecs)
 
     print(f"  input crops   : {len(crops)} arrays of shape (64, 32, 3)")
-    print(f"  embeddings    : shape={result.embeddings.shape}")   # (5, 512)
+    print(f"  embeddings    : shape={result.embeddings.shape}")  # (5, 512)
     print(f"  .dim          : {result.dim}")
     norms = np.linalg.norm(result.embeddings, axis=1)
     print(f"  norms         : min={norms.min():.4f}, max={norms.max():.4f}  (all ~1.0)")
@@ -119,12 +128,14 @@ def example_batch_crops(use_real: bool = False):
 # Example 3: Pre-loaded adapter — mata.load("embed", ...)
 # ---------------------------------------------------------------------------
 
+
 def example_preloaded_adapter(use_real: bool = False):
     """Load an adapter once and call predict() many times."""
     print("\n--- 3. Pre-loaded adapter ---")
 
     if use_real:
         import mata
+
         embedder = mata.load("embed", "openai/clip-vit-base-patch32")
     else:
         embedder = _make_mock_adapter()
@@ -136,10 +147,12 @@ def example_preloaded_adapter(use_real: bool = False):
         if use_real:
             from mata.core.artifacts.image import Image as ImageArtifact
             from mata.core.types import EmbedResult
+
             _raw = embedder.embed(ImageArtifact.from_path(path))  # (1, D) ndarray
             result = EmbedResult(embeddings=_raw)
         else:
             from mata.core.types import EmbedResult
+
             vec = np.random.randn(512).astype(np.float32)
             vec /= np.linalg.norm(vec)
             result = EmbedResult(embeddings=vec.reshape(1, -1))
@@ -154,6 +167,7 @@ def example_preloaded_adapter(use_real: bool = False):
 # ---------------------------------------------------------------------------
 # Example 4: Save and load EmbedResult
 # ---------------------------------------------------------------------------
+
 
 def example_save_load(tmp_dir: Path):
     """Serialize EmbedResult to JSON and NPZ."""

@@ -117,11 +117,11 @@ def load(task: str, model: str | None = None, model_type: str | ModelType | None
 
 def run(
     task: str,
-    input: str | Path | Image.Image | np.ndarray,
+    input: str | Path | Image.Image | np.ndarray | list[Any] | tuple[Any, ...],
     model: str | None = None,
     model_type: str | ModelType | None = None,
     **kwargs: Any,
-) -> DetectResult | SegmentResult | ClassifyResult | DepthResult | VisionResult:
+) -> DetectResult | SegmentResult | ClassifyResult | DepthResult | VisionResult | np.ndarray:
     """One-shot inference on an input.
 
     Provides YOLO-like UX for quick inference without manually
@@ -264,6 +264,28 @@ def run(
                 else:
                     mm_input["image"] = input
                 return adapter._encoder.predict_multimodal(mm_input)
+
+        # Batch input — list/tuple of images (paths, PIL images, arrays) → (N, D) stack
+        if isinstance(input, (list, tuple)):
+            vectors = []
+            for item in input:
+                if isinstance(item, (str, Path)):
+                    item_artifact = ImageArtifact.from_path(str(item))
+                elif isinstance(item, Image.Image):
+                    item_artifact = ImageArtifact.from_pil(item)
+                elif isinstance(item, np.ndarray):
+                    item_artifact = ImageArtifact.from_numpy(item)
+                else:
+                    raise ValueError(
+                        f"Unsupported batch item type for embed task: {type(item).__name__}. "
+                        "Expected items of: file path, PIL Image, or numpy array."
+                    )
+                item_emb = adapter.embed(item_artifact)
+                item_arr = item_emb.embeddings if hasattr(item_emb, "embeddings") else np.asarray(item_emb)
+                vectors.append(np.atleast_2d(item_arr).astype(np.float32))
+            if not vectors:
+                return np.empty((0, 0), dtype=np.float32)
+            return np.vstack(vectors)
 
         # Standard image input — backward compatible
         if isinstance(input, (str, Path)):

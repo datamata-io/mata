@@ -1513,7 +1513,7 @@ from mata.core.graph import Graph
 # ── Step 1: Build and save gallery (run once) ──────────────────────────
 encoder = mata.load("embed", "openai/clip-vit-base-patch32")
 
-gallery = Gallery(threshold=0.6)
+gallery = Gallery(similarity_thresh=0.6)
 for name, image_path in [("alice", "alice.jpg"), ("bob", "bob.jpg")]:
     emb_result = mata.run("embed", image_path, model="openai/clip-vit-base-patch32")
     gallery.add(name, emb_result.embeddings[0])
