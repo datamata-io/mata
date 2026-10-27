@@ -580,6 +580,48 @@ Provider capability: `Detector.predict()`. Extra kwargs forwarded to predict (e.
 
 ---
 
+#### `TiledDetect`
+
+Run detection over overlapping tiles and merge the results back into source-image coordinates.
+
+```python
+TiledDetect(
+    using: str,
+    out: str = "dets",
+    slice_size: tuple[int, int] | int = (640, 640),
+    overlap: float = 0.2,
+    include_full_image: bool = True,
+    iou_threshold: float = 0.5,
+    max_det: int | None = None,
+    name: str = None,
+    **kwargs,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Output | `detections` | `Detections` |
+
+Provider capability: `Detector.predict()`. Extra kwargs forwarded to every tile inference.
+
+Notes:
+
+- Edge tiles are shifted inward so they stay inside the image; no padding is added.
+- `include_full_image=True` adds one full-frame inference (useful for objects larger than a tile) and is skipped when the image already fits in one tile.
+- Detections are offset by the tile origin, then class-aware NMS (`iou_threshold`) removes seam duplicates; `max_det` caps the merged result.
+- Detection-only: masks and keypoints are not remapped. Use `Detect` for single-pass inference.
+
+```python
+from mata.nodes import TiledDetect
+
+graph = Graph("tiled").then(
+    TiledDetect(using="detector", slice_size=(640, 640), overlap=0.2, out="dets")
+)
+```
+
+---
+
 #### `Classify`
 
 Run image classification via a provider.

@@ -37,6 +37,11 @@ you have read and accepted those terms independently.
 MATA makes no representation or warranty regarding the licensing terms of
 any third-party model weights accessed through this framework.
 
+Note that a model's licence may also be constrained by the terms of the data
+it was trained on. A permissive model-card licence does not override dataset
+restrictions; some datasets permit academic or non-commercial use only, and
+those terms can extend to models trained on them.
+
 ===========================================================================
 THIRD-PARTY SOFTWARE
 ===========================================================================
