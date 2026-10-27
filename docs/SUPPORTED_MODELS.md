@@ -17,6 +17,16 @@ adapter = mata.load("<task>", "<HuggingFace ID or file path>")
 result  = mata.run("<task>", "image.jpg", model="<HuggingFace ID or file path>")
 ```
 
+## Weights, model cards, and training data
+
+MATA ships no model weights. Three separate terms apply when you load a model:
+
+1. **Framework code** — Apache-2.0 (this repository).
+2. **Model card / weights licence** — set by the model publisher (Apache-2.0, MIT, CC-BY-NC, community licences, …). Check it on the model page.
+3. **Training-data terms** — a permissive model-card licence does not override restrictions attached to the data a model was trained on. Some crowd-counting and surveillance datasets are limited to academic, non-commercial use, and their terms can extend to models trained on them.
+
+Loading a model through `mata.load()` does not grant any right to use its weights or training data. If you deploy a model commercially, verify all three layers.
+
 ## Object Detection
 
 ### Transformer Models (HuggingFace)
