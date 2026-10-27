@@ -46,6 +46,7 @@ from mata.nodes.reid import ReID
 from mata.nodes.roi import ExtractROIs
 from mata.nodes.segment import SegmentImage
 from mata.nodes.segment_everything import SegmentEverything
+from mata.nodes.tiled_detect import TiledDetect
 from mata.nodes.topk import TopK
 from mata.nodes.track import Track
 
@@ -61,6 +62,7 @@ from mata.nodes.vlm_query import VLMQuery
 __all__ = [
     # Core task nodes
     "Detect",
+    "TiledDetect",
     "Classify",
     "SegmentImage",
     "EstimateDepth",

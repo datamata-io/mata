@@ -1328,6 +1328,7 @@ def _build_capability_map() -> dict[str, str]:
     return {
         # Detection
         "Detect": "detect",
+        "TiledDetect": "detect",
         # Classification
         "Classify": "classify",
         # Segmentation
