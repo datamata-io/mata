@@ -269,13 +269,13 @@ MATA works with any model from HuggingFace Transformers, Torchvision, or local O
 | **Embedding**      | CLIP, OSNet, X-CLIP                                                       | PyTorch, ONNX                           |
 | **Barcode**        | pyzbar, zxing-cpp                                                         | Native                                  |
 
-See [Supported Models](docs/SUPPORTED_MODELS.md) for model IDs, benchmarks, and runtime compatibility matrix.
+See [Supported Models](docs/SUPPORTED_MODELS.md) for model IDs, benchmarks, and runtime compatibility matrix. For YOLO-family ONNX exports, [YOLO ONNX Parity](docs/benchmarks/YOLO_ONNX_PARITY.md) documents the preprocessing defaults and the measured parity with the reference decoder.
 
 ## When NOT to Use MATA
 
-- **Training-first workflows** — `mata.train()` and `mata.finetune()` are beta in v2.0.0. If training is your primary need today, HuggingFace Trainer or PyTorch Lightning remain the safe default until the module reaches GA (targeted for v2.1.0).
+- **Training-first workflows** — `mata.train()` and `mata.finetune()` are beta in v2.0.1. If training is your primary need today, HuggingFace Trainer or PyTorch Lightning remain the safe default until the module reaches GA (targeted for v2.1.0).
 - **Edge / mobile deployment** — TensorRT and TFLite export are planned but not yet available.
-- **Single-model, maximum-throughput** — MATA's adapter layer adds ~1-2ms overhead. For bare-metal speed on one model, use the runtime directly.
+- **Single-model, maximum-throughput** — MATA's adapter layer adds dispatch overhead, and at 4K the preprocessing path can dominate the frame (see the [YOLO ONNX parity benchmark](docs/benchmarks/YOLO_ONNX_PARITY.md)). For bare-metal speed on one model, use the runtime directly.
 
 ## Architecture
 
@@ -299,8 +299,9 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-- **v2.0.0** (current) — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()` — beta), breaking API cleanup.
-- **v2.1.0** — Training module GA, quantized ONNX export
+- **v2.0.1** (current) — YOLO-family ONNX correctness patch: letterbox preprocessing, detection cap, configurable NMS IoU, channel order, provider truthfulness.
+- **v2.0.0** — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()` — beta), breaking API cleanup.
+- **v2.1.0** — Training module GA, native tiled inference, batch detection, quantized ONNX export
 - **v2.x** — HuggingFace Hub model recommendations, KACA CNN integration, V2L HyperLoRA research
 - **v2.5+** — 3D vision, edge deployment, Auto-ML
 <p align="center">
