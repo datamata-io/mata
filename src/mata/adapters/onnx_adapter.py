@@ -5,6 +5,7 @@ Supports ONNX models with automatic I/O tensor detection.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -802,3 +803,123 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
 
         logger.debug(f"Found {len(instances)} detections above threshold {conf_threshold}")
         return result
+
+    @property
+    def supports_batch(self) -> bool:
+        """Whether the ONNX input declares a batch dimension greater than one.
+
+        A symbolic first dimension (``"batch"`` or ``None``) is treated as
+        dynamic. Static batch-1 models fall back to sequential inference.
+        """
+        if len(self.input_shape) != 4:
+            return False
+        dim = self.input_shape[0]
+        if dim is None or isinstance(dim, str):
+            return True
+        return isinstance(dim, int) and dim > 1
+
+    def predict_batch(
+        self,
+        images: Sequence[str | Path | Image.Image | np.ndarray],
+        threshold: float | None = None,
+        batch_size: int | None = None,
+        **kwargs: Any,
+    ) -> list[VisionResult]:
+        """Run object detection on several images with optional batching.
+
+        YOLO-family models with a dynamic batch dimension are stacked into one
+        session call per chunk. Static batch-1 models, non-YOLO heads, and
+        models with extra inputs fall back to sequential ``predict()`` calls,
+        preserving the same results.
+
+        Args:
+            images: Image paths, PIL images, or numpy arrays.
+            threshold: Optional confidence threshold override.
+            batch_size: Images per session call. Defaults to all images.
+            **kwargs: Forwarded to ``predict()`` on the sequential path.
+
+        Returns:
+            One ``VisionResult`` per input image, in input order.
+
+        Raises:
+            ValueError: If ``batch_size`` is not positive.
+        """
+        items = list(images)
+        if not items:
+            return []
+        if batch_size is not None and batch_size <= 0:
+            raise ValueError(f"batch_size must be positive, got {batch_size}")
+
+        conf_threshold = threshold if threshold is not None else self.threshold
+        if len(items) == 1 or not self._is_yolo or len(self.input_names) != 1 or not self.supports_batch:
+            return [self.predict(image, threshold=conf_threshold, **kwargs) for image in items]
+
+        size = batch_size or len(items)
+        results: list[VisionResult] = []
+        for start in range(0, len(items), size):
+            results.extend(self._predict_yolo_chunk(items[start : start + size], conf_threshold))
+        return results
+
+    def _predict_yolo_chunk(
+        self,
+        images: Sequence[str | Path | Image.Image | np.ndarray],
+        conf_threshold: float,
+    ) -> list[VisionResult]:
+        """Stack preprocessed images, run one session call, split the outputs."""
+        tensors: list[np.ndarray] = []
+        transforms: list[LetterboxTransform | None] = []
+        metas: list[tuple[int, int, str | None]] = []
+
+        for image in images:
+            pil_image, input_path = self._load_image(image)
+            if self.preprocess == "letterbox":
+                tensor, transform = self._preprocess_yolo_letterbox(pil_image)
+            else:
+                tensor, transform = self._preprocess_yolo(pil_image), None
+            tensors.append(tensor)
+            transforms.append(transform)
+            metas.append((pil_image.width, pil_image.height, input_path))
+
+        batch_tensor = np.concatenate(tensors, axis=0)
+        outputs = self.session.run(self.output_names, {self.input_name: batch_tensor})
+        raw = outputs[0]
+        if raw.shape[0] != len(images):
+            raise RuntimeError(
+                f"Batch output has {raw.shape[0]} rows for {len(images)} inputs; "
+                "the model likely ignores the batch dimension"
+            )
+
+        results: list[VisionResult] = []
+        for index, (width, height, input_path) in enumerate(metas):
+            detections = self._postprocess_yolo(
+                [raw[index : index + 1]],
+                width,
+                height,
+                conf_threshold,
+                iou_threshold=self.iou_threshold,
+                transform=transforms[index],
+            )
+            instances = [
+                Instance(
+                    bbox=tuple(d.bbox),
+                    score=d.score,
+                    label=d.label,
+                    label_name=d.label_name,
+                )
+                for d in detections
+            ]
+            results.append(
+                VisionResult(
+                    instances=instances,
+                    meta={
+                        "model_path": str(self.model_path),
+                        "threshold": conf_threshold,
+                        "image_size": [width, height],
+                        "backend": "onnxruntime",
+                        "providers": getattr(self, "active_providers", self.providers),
+                        "input_path": input_path,
+                        "batch_size": len(images),
+                    },
+                )
+            )
+        return results

@@ -594,6 +594,7 @@ TiledDetect(
     iou_threshold: float = 0.5,
     max_det: int | None = None,
     merge: str = "nms",
+    batch_size: int = 1,
     name: str = None,
     **kwargs,
 )
@@ -611,6 +612,7 @@ Notes:
 - Edge tiles are shifted inward so they stay inside the image; no padding is added.
 - `include_full_image=True` adds one full-frame inference (useful for objects larger than a tile) and is skipped when the image already fits in one tile.
 - Detections are offset by the tile origin, then class-aware duplicate handling removes seam duplicates. `merge="nms"` (default) suppresses the lower-scoring box; `merge="nmm"` merges duplicates into a union box with the higher score. `max_det` caps the merged result.
+- `batch_size > 1` calls the provider's `predict_batch()` when available; providers without it fall back to one `predict()` per tile. Batching is opt-in — see [Batch inference](benchmarks/BATCH_INFERENCE.md) for CPU measurements.
 - Detection-only: tile-local masks and keypoints are dropped rather than returned in the wrong coordinate frame. Use `Detect` for single-pass inference.
 
 ```python

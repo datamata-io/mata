@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 
 from mata.core.artifacts.detections import Detections
 from mata.core.artifacts.image import Image
@@ -123,6 +124,42 @@ def test_tile_local_masks_and_keypoints_are_dropped():
     assert len(dets) == 1
     assert dets[0].mask is None
     assert dets[0].keypoints is None
+
+
+def test_batch_size_uses_predict_batch_once():
+    provider = MagicMock()
+    provider.predict_batch.return_value = [
+        VisionResult(instances=[Instance(bbox=(5, 5, 25, 25), score=0.9, label=0)]) for _ in range(4)
+    ]
+    node = TiledDetect(using="fake", slice_size=60, overlap=0.0, include_full_image=False, batch_size=4)
+    result = node.run(_make_ctx(provider), image=_image())
+    assert provider.predict_batch.call_count == 1
+    assert provider.predict.call_count == 0
+    assert len(result["dets"].instances) == 4
+
+
+def test_provider_without_predict_batch_falls_back_to_loop():
+    class SequentialProvider:
+        def __init__(self):
+            self.calls = 0
+
+        def predict(self, image, **kwargs):
+            self.calls += 1
+            return VisionResult(instances=[Instance(bbox=(5, 5, 25, 25), score=0.9, label=0)])
+
+    provider = SequentialProvider()
+    node = TiledDetect(using="fake", slice_size=60, overlap=0.0, include_full_image=False, batch_size=4)
+    result = node.run(_make_ctx(provider), image=_image())
+    assert provider.calls == 4
+    assert len(result["dets"].instances) == 4
+
+
+def test_batch_result_count_mismatch_raises():
+    provider = MagicMock()
+    provider.predict_batch.return_value = [VisionResult(instances=[Instance(bbox=(5, 5, 25, 25), score=0.9, label=0)])]
+    node = TiledDetect(using="fake", slice_size=60, overlap=0.0, include_full_image=False, batch_size=4)
+    with pytest.raises(RuntimeError):
+        node.run(_make_ctx(provider), image=_image())
 
 
 def test_tiled_detect_is_exported_and_runs_in_a_graph():

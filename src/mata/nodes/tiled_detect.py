@@ -77,6 +77,7 @@ class TiledDetect(Node):
         iou_threshold: float = 0.5,
         max_det: int | None = None,
         merge: str = "nms",
+        batch_size: int = 1,
         name: str | None = None,
         **predict_kwargs: Any,
     ) -> None:
@@ -89,6 +90,8 @@ class TiledDetect(Node):
             raise ValueError(f"max_det must be positive or None, got {max_det}")
         if merge not in ("nms", "nmm"):
             raise ValueError(f"merge must be 'nms' or 'nmm', got {merge!r}")
+        if batch_size <= 0:
+            raise ValueError(f"batch_size must be positive, got {batch_size}")
         if isinstance(slice_size, int):
             slice_size = (slice_size, slice_size)
         if len(slice_size) != 2 or slice_size[0] <= 0 or slice_size[1] <= 0:
@@ -102,6 +105,7 @@ class TiledDetect(Node):
         self.iou_threshold = float(iou_threshold)
         self.max_det = max_det
         self.merge = merge
+        self.batch_size = batch_size
         self.kwargs = predict_kwargs
 
     def run(self, ctx: ExecutionContext, image: Image) -> dict[str, Artifact]:
@@ -116,9 +120,17 @@ class TiledDetect(Node):
             tiles = [Tile(0, 0, width, height), *tiles]
 
         raw_instances = []
-        for tile in tiles:
-            crop = pil_image.crop((tile.x1, tile.y1, tile.x2, tile.y2))
-            result = detector.predict(Image.from_pil(crop), **self.kwargs)
+        tile_inputs = [Image.from_pil(pil_image.crop((tile.x1, tile.y1, tile.x2, tile.y2))) for tile in tiles]
+        batch_predict: Any = getattr(detector, "predict_batch", None) if self.batch_size > 1 else None
+        results: list[Any]
+        if callable(batch_predict):
+            results = batch_predict(tile_inputs, batch_size=self.batch_size, **self.kwargs)
+        else:
+            results = [detector.predict(tile_input, **self.kwargs) for tile_input in tile_inputs]
+        if len(results) != len(tiles):
+            raise RuntimeError(f"Provider returned {len(results)} results for {len(tiles)} tiles")
+
+        for tile, result in zip(tiles, results):
             detections = result if isinstance(result, Detections) else Detections.from_vision_result(result)
             for inst in detections.instances:
                 if inst.bbox is None:
