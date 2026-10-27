@@ -593,6 +593,7 @@ TiledDetect(
     include_full_image: bool = True,
     iou_threshold: float = 0.5,
     max_det: int | None = None,
+    merge: str = "nms",
     name: str = None,
     **kwargs,
 )
@@ -609,8 +610,8 @@ Notes:
 
 - Edge tiles are shifted inward so they stay inside the image; no padding is added.
 - `include_full_image=True` adds one full-frame inference (useful for objects larger than a tile) and is skipped when the image already fits in one tile.
-- Detections are offset by the tile origin, then class-aware NMS (`iou_threshold`) removes seam duplicates; `max_det` caps the merged result.
-- Detection-only: masks and keypoints are not remapped. Use `Detect` for single-pass inference.
+- Detections are offset by the tile origin, then class-aware duplicate handling removes seam duplicates. `merge="nms"` (default) suppresses the lower-scoring box; `merge="nmm"` merges duplicates into a union box with the higher score. `max_det` caps the merged result.
+- Detection-only: tile-local masks and keypoints are dropped rather than returned in the wrong coordinate frame. Use `Detect` for single-pass inference.
 
 ```python
 from mata.nodes import TiledDetect

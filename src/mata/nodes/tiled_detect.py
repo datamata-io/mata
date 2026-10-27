@@ -37,8 +37,10 @@ class TiledDetect(Node):
         include_full_image: Also run the provider on the full image (adds one
             inference, catches objects larger than a tile). Ignored when the
             image already fits in a single tile.
-        iou_threshold: NMS IoU used when merging tile detections.
+        iou_threshold: NMS/NMM IoU used when merging tile detections.
         max_det: Optional cap on the number of returned detections.
+        merge: ``"nms"`` (default) drops the lower-scoring duplicate;
+            ``"nmm"`` merges duplicates into a union box with the higher score.
         name: Optional human-readable node name.
         **predict_kwargs: Extra keyword arguments forwarded to ``predict()``.
 
@@ -74,6 +76,7 @@ class TiledDetect(Node):
         include_full_image: bool = True,
         iou_threshold: float = 0.5,
         max_det: int | None = None,
+        merge: str = "nms",
         name: str | None = None,
         **predict_kwargs: Any,
     ) -> None:
@@ -84,6 +87,8 @@ class TiledDetect(Node):
             raise ValueError(f"iou_threshold must be in (0, 1], got {iou_threshold}")
         if max_det is not None and max_det <= 0:
             raise ValueError(f"max_det must be positive or None, got {max_det}")
+        if merge not in ("nms", "nmm"):
+            raise ValueError(f"merge must be 'nms' or 'nmm', got {merge!r}")
         if isinstance(slice_size, int):
             slice_size = (slice_size, slice_size)
         if len(slice_size) != 2 or slice_size[0] <= 0 or slice_size[1] <= 0:
@@ -96,6 +101,7 @@ class TiledDetect(Node):
         self.include_full_image = include_full_image
         self.iou_threshold = float(iou_threshold)
         self.max_det = max_det
+        self.merge = merge
         self.kwargs = predict_kwargs
 
     def run(self, ctx: ExecutionContext, image: Image) -> dict[str, Artifact]:
@@ -117,9 +123,12 @@ class TiledDetect(Node):
             for inst in detections.instances:
                 if inst.bbox is None:
                     continue
-                raw_instances.append(replace(inst, bbox=tile.offset_box(inst.bbox)))
+                # Detection-only: tile-local masks/keypoints cannot be mapped
+                # back without a per-tile transform, so drop them rather than
+                # return coordinates in the wrong frame.
+                raw_instances.append(replace(inst, bbox=tile.offset_box(inst.bbox), mask=None, keypoints=None))
 
-        merged = merge_instances(raw_instances, self.iou_threshold, self.max_det)
+        merged = merge_instances(raw_instances, self.iou_threshold, self.max_det, mode=self.merge)
         latency_ms = (time.time() - start) * 1000
 
         ctx.record_metric(self.name, "latency_ms", latency_ms)
@@ -144,7 +153,7 @@ class TiledDetect(Node):
         extra = ", ".join(f"{k}={v!r}" for k, v in self.kwargs.items())
         parts = (
             f"TiledDetect(using='{self.provider_name}', out='{self.output_name}', "
-            f"slice_size={self.slice_size}, overlap={self.overlap}"
+            f"slice_size={self.slice_size}, overlap={self.overlap}, merge='{self.merge}'"
         )
         if extra:
             parts += f", {extra}"

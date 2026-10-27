@@ -88,6 +88,43 @@ def test_small_image_runs_once():
     assert len(result["dets"].instances) == 1
 
 
+def test_nmm_mode_unions_seam_duplicates():
+    provider = MagicMock()
+    provider.predict.return_value = VisionResult(instances=[Instance(bbox=(0, 0, 60, 60), score=0.9, label=0)])
+    node = TiledDetect(
+        using="fake",
+        slice_size=(60, 60),
+        overlap=0.5,
+        include_full_image=False,
+        iou_threshold=0.5,
+        merge="nmm",
+    )
+    result = node.run(_make_ctx(provider), image=_image(70, 60))
+    dets = result["dets"].instances
+    assert len(dets) == 1
+    assert tuple(dets[0].bbox) == (0, 0, 70, 60)
+
+
+def test_tile_local_masks_and_keypoints_are_dropped():
+    provider = MagicMock()
+    provider.predict.return_value = VisionResult(
+        instances=[
+            Instance(
+                bbox=(1, 2, 11, 12),
+                mask=np.ones((10, 10), dtype=bool),
+                keypoints=np.zeros((1, 3), dtype=np.float32),
+                score=0.7,
+                label=0,
+            )
+        ]
+    )
+    node = TiledDetect(using="fake", slice_size=640, overlap=0.0, include_full_image=False)
+    dets = node.run(_make_ctx(provider), image=_image())["dets"].instances
+    assert len(dets) == 1
+    assert dets[0].mask is None
+    assert dets[0].keypoints is None
+
+
 def test_tiled_detect_is_exported_and_runs_in_a_graph():
     from mata.nodes import TiledDetect as ExportedTiledDetect
 

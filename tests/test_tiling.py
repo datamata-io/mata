@@ -78,6 +78,32 @@ def test_merge_keeps_non_overlapping_boxes_and_caps():
     assert len(merge_instances(instances, iou_threshold=0.5, max_det=2)) == 2
 
 
+def test_merge_nmm_unions_duplicate_boxes():
+    instances = [
+        Instance(bbox=(0, 0, 10, 10), score=0.9, label=0),
+        Instance(bbox=(1, 1, 11, 11), score=0.8, label=0),
+    ]
+    merged = merge_instances(instances, iou_threshold=0.5, mode="nmm")
+    assert len(merged) == 1
+    assert merged[0].score == 0.9
+    assert tuple(merged[0].bbox) == (0, 0, 11, 11)
+
+
+def test_merge_nmm_is_class_aware_and_keeps_separate_boxes():
+    instances = [
+        Instance(bbox=(0, 0, 10, 10), score=0.9, label=0),
+        Instance(bbox=(0, 0, 10, 10), score=0.8, label=1),
+        Instance(bbox=(100, 100, 110, 110), score=0.7, label=0),
+    ]
+    merged = merge_instances(instances, iou_threshold=0.5, mode="nmm")
+    assert len(merged) == 3
+
+
+def test_merge_rejects_unknown_mode():
+    with pytest.raises(ValueError):
+        merge_instances([], mode="soft-nms")
+
+
 def test_merge_skips_instances_without_bbox():
     mask_only = Instance(bbox=None, mask=np.zeros((4, 4), dtype=bool), score=0.9, label=0)
     merged = merge_instances([mask_only], iou_threshold=0.5)
