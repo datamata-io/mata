@@ -83,6 +83,11 @@ class TestONNXClassifyAdapter:
         mock_ort.SessionOptions.return_value = MagicMock()
         mock_ensure_ort.return_value = mock_ort
 
+        mock_ort.get_available_providers.return_value = [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ]
+
         ONNXClassifyAdapter(model_path=temp_onnx_file, device="cuda")
 
         # Verify CUDA provider was requested
@@ -281,6 +286,11 @@ class TestONNXClassifyAdapter:
         mock_ort.GraphOptimizationLevel.ORT_ENABLE_BASIC = 1
         mock_ort.SessionOptions.return_value = MagicMock()
         mock_ensure_ort.return_value = mock_ort
+
+        mock_ort.get_available_providers.return_value = [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ]
 
         adapter = ONNXClassifyAdapter(model_path=temp_onnx_file, top_k=10, device="cuda")
 
