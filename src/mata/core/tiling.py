@@ -8,7 +8,7 @@ merge helpers so adapters, nodes and tests share one implementation.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -115,13 +115,16 @@ def merge_instances(
     instances: Iterable[Instance],
     iou_threshold: float = 0.5,
     max_det: int | None = None,
+    mode: str = "nms",
 ) -> list[Instance]:
-    """Class-aware NMS over detections collected from overlapping tiles.
+    """Class-aware duplicate handling for detections collected from overlapping tiles.
 
     Args:
         instances: Detections already mapped to source-image coordinates.
-        iou_threshold: IoU above which a lower-scoring same-class box is dropped.
+        iou_threshold: IoU above which two same-class boxes are considered duplicates.
         max_det: Optional cap on the number of returned instances.
+        mode: ``"nms"`` (default) suppresses the lower-scoring box; ``"nmm"``
+            merges duplicates into a union box with the higher score.
 
     Returns:
         Kept instances sorted by descending score.
@@ -130,6 +133,8 @@ def merge_instances(
         raise ValueError(f"iou_threshold must be in (0, 1], got {iou_threshold}")
     if max_det is not None and max_det <= 0:
         raise ValueError(f"max_det must be positive or None, got {max_det}")
+    if mode not in ("nms", "nmm"):
+        raise ValueError(f"mode must be 'nms' or 'nmm', got {mode!r}")
 
     candidates = [inst for inst in instances if inst.bbox is not None]
     if not candidates:
@@ -139,16 +144,61 @@ def merge_instances(
     for label in sorted({int(inst.label) for inst in candidates}):
         group = [inst for inst in candidates if int(inst.label) == label]
         group.sort(key=lambda inst: float(inst.score), reverse=True)
-        boxes = np.array([inst.bbox for inst in group], dtype=np.float32)
-        remaining = list(range(len(group)))
-        while remaining:
-            best = remaining[0]
-            kept.append(group[best])
-            if len(remaining) == 1:
-                break
-            rest = np.array(remaining[1:], dtype=np.int64)
-            ious = _iou_one_to_many(boxes[best], boxes[rest])
-            remaining = [int(rest[i]) for i in np.flatnonzero(ious <= iou_threshold)]
+        if mode == "nms":
+            kept.extend(_nms_group(group, iou_threshold))
+        else:
+            kept.extend(_nmm_group(group, iou_threshold))
 
     kept.sort(key=lambda inst: float(inst.score), reverse=True)
     return kept[:max_det] if max_det is not None else kept
+
+
+def _nms_group(group: list[Instance], iou_threshold: float) -> list[Instance]:
+    """Greedy NMS within one class, highest score first."""
+    boxes = np.array([inst.bbox for inst in group], dtype=np.float32)
+    remaining = list(range(len(group)))
+    kept: list[Instance] = []
+    while remaining:
+        best = remaining[0]
+        kept.append(group[best])
+        if len(remaining) == 1:
+            break
+        rest = np.array(remaining[1:], dtype=np.int64)
+        ious = _iou_one_to_many(boxes[best], boxes[rest])
+        remaining = [int(rest[i]) for i in np.flatnonzero(ious <= iou_threshold)]
+    return kept
+
+
+def _nmm_group(group: list[Instance], iou_threshold: float) -> list[Instance]:
+    """Greedy non-maximum merging within one class, highest score first.
+
+    Each kept box absorbs the lower-scoring boxes whose IoU with it exceeds the
+    threshold, and the result carries the highest score and the union box. The
+    match set is computed once per kept box (vectorized), matching the greedy
+    reference behaviour rather than growing the union transitively.
+    """
+    remaining = list(group)
+    kept: list[Instance] = []
+    while remaining:
+        keep = remaining.pop(0)
+        assert keep.bbox is not None
+        box = np.array(keep.bbox, dtype=np.float32)
+        if remaining:
+            boxes = np.array([inst.bbox for inst in remaining], dtype=np.float32)
+            ious = _iou_one_to_many(box, boxes)
+            matched = ious > iou_threshold
+            if matched.any():
+                hits = boxes[matched]
+                union = np.concatenate([box.reshape(1, 4), hits], axis=0)
+                box = np.array(
+                    [
+                        union[:, 0].min(axis=0),
+                        union[:, 1].min(axis=0),
+                        union[:, 2].max(axis=0),
+                        union[:, 3].max(axis=0),
+                    ],
+                    dtype=np.float32,
+                )
+                remaining = [inst for inst, hit in zip(remaining, matched) if not hit]
+        kept.append(replace(keep, bbox=(float(box[0]), float(box[1]), float(box[2]), float(box[3]))))
+    return kept
