@@ -8,11 +8,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 from PIL import Image
 
 from mata.adapters.onnx_base import ONNXBaseAdapter
-from mata.core.exceptions import ModelLoadError
+from mata.core.exceptions import InvalidInputError, ModelLoadError
 from mata.core.logging import get_logger
 from mata.core.preprocess import LetterboxTransform, letterbox
 from mata.core.types import Detection, Instance, VisionResult
@@ -286,11 +287,30 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         img_array = np.array(resized, dtype=np.float32) / 255.0
         return np.expand_dims(np.transpose(img_array, (2, 0, 1)), axis=0)
 
-    def _preprocess_yolo_letterbox(self, image: Image.Image) -> tuple[np.ndarray, LetterboxTransform]:
+    def _as_rgb_array(self, image: np.ndarray) -> np.ndarray:
+        """Normalize a numpy image to HWC RGB uint8 without a PIL round-trip."""
+        array = image
+        if array.ndim == 2:
+            array = cv2.cvtColor(array, cv2.COLOR_GRAY2RGB)
+        if array.ndim != 3 or array.shape[2] not in (3, 4):
+            raise InvalidInputError(
+                f"Unsupported array shape for detection: {array.shape}. " "Expected HxW, HxWx3, or HxWx4."
+            )
+        if array.shape[2] == 4:
+            array = cv2.cvtColor(array, cv2.COLOR_RGBA2RGB)
+        if self.channel_order == "bgr":
+            array = cv2.cvtColor(array, cv2.COLOR_BGR2RGB)
+        if array.dtype != np.uint8:
+            array = np.clip(array, 0, 255).astype(np.uint8)
+        return array if array.flags.c_contiguous else np.ascontiguousarray(array)
+
+    def _preprocess_yolo_letterbox(self, image: Image.Image | np.ndarray) -> tuple[np.ndarray, LetterboxTransform]:
         """Letterbox to the model input size; return the tensor and its geometry."""
         target_h, target_w = self._get_input_size()
         canvas, transform = letterbox(image, (target_w, target_h))
-        tensor = np.ascontiguousarray(np.transpose(canvas.astype(np.float32) / 255.0, (2, 0, 1)))[None]
+        tensor = np.empty((1, 3, target_h, target_w), dtype=np.float32)
+        np.copyto(tensor[0], canvas.transpose(2, 0, 1))
+        tensor /= 255.0
         return tensor, transform
 
     def _to_original_xyxy(
@@ -723,9 +743,23 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         Raises:
             InvalidInputError: If image is invalid
         """
-        # Load and validate image (capture original path if from file)
-        pil_image, input_path = self._load_image(image)
-        orig_width, orig_height = pil_image.size
+        # Load and validate image (capture original path if from file).
+        # Numpy inputs on the default YOLO letterbox path stay as arrays: the
+        # PIL round-trip costs more than resize + pad + normalize combined.
+        source: Image.Image | np.ndarray
+        if (
+            isinstance(image, np.ndarray)
+            and image.dtype == np.uint8
+            and self._is_yolo
+            and self.preprocess == "letterbox"
+        ):
+            source = self._as_rgb_array(image)
+            orig_height, orig_width = source.shape[:2]
+            input_path: str | None = None
+        else:
+            pil_image, input_path = self._load_image(image)
+            orig_width, orig_height = pil_image.size
+            source = pil_image
 
         # Use provided threshold or default
         conf_threshold = threshold if threshold is not None else self.threshold
@@ -734,11 +768,11 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         transform: LetterboxTransform | None = None
         if self._is_yolo:
             if self.preprocess == "letterbox":
-                input_tensor, transform = self._preprocess_yolo_letterbox(pil_image)
+                input_tensor, transform = self._preprocess_yolo_letterbox(source)
             else:
-                input_tensor = self._preprocess_yolo(pil_image)
+                input_tensor = self._preprocess_yolo(source)  # type: ignore[arg-type]
         else:
-            input_tensor = self._preprocess(pil_image)
+            input_tensor = self._preprocess(source)  # type: ignore[arg-type]
 
         # Prepare input feed dict - handle multiple inputs
         input_feed = {self.input_name: input_tensor}

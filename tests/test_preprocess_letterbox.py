@@ -32,3 +32,12 @@ def test_letterbox_square_image_is_unchanged():
     assert tf.ratio == 1.0
     assert (tf.pad_left, tf.pad_top) == (0, 0)
     assert np.allclose(canvas[100, 100], (10, 20, 30))
+
+
+def test_letterbox_array_matches_pil_exactly():
+    rng = np.random.default_rng(0)
+    array = rng.integers(0, 256, size=(720, 1280, 3), dtype=np.uint8)
+    from_array, tf_array = letterbox(array, (640, 640))
+    from_pil, tf_pil = letterbox(Image.fromarray(array), (640, 640))
+    assert np.array_equal(from_array, from_pil)
+    assert tf_array == tf_pil

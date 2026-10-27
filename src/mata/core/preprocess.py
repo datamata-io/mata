@@ -26,19 +26,30 @@ class LetterboxTransform:
 
 
 def letterbox(
-    image: Image.Image,
+    image: Image.Image | np.ndarray,
     size: tuple[int, int],
     pad_value: tuple[int, int, int] = PAD_VALUE,
 ) -> tuple[np.ndarray, LetterboxTransform]:
     """Resize preserving aspect ratio and pad to ``size`` = (width, height).
 
+    Accepts a PIL image or an HWC RGB uint8 array. Passing an array avoids the
+    PIL round-trip entirely; the geometry and output pixels are identical.
+
     Mirrors the reference export pipeline: OpenCV ``INTER_LINEAR`` resize,
     integer pad rounding, constant 114 border.
     """
     target_w, target_h = int(size[0]), int(size[1])
-    orig_w, orig_h = image.size
+    if isinstance(image, np.ndarray):
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError(f"Expected an HWC 3-channel array, got shape {image.shape}")
+        orig_h, orig_w = image.shape[:2]
+        rgb = image
+    else:
+        orig_w, orig_h = image.size
+        # convert() is a no-op for RGB images but still copies; skip it.
+        rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
     if orig_w <= 0 or orig_h <= 0:
-        raise ValueError(f"Invalid image size: {image.size}")
+        raise ValueError(f"Invalid image size: {(orig_w, orig_h)}")
 
     ratio = min(target_w / orig_w, target_h / orig_h)
     new_w, new_h = round(orig_w * ratio), round(orig_h * ratio)
@@ -46,7 +57,6 @@ def letterbox(
     left, right = round(dw - 0.1), round(dw + 0.1)
     top, bottom = round(dh - 0.1), round(dh + 0.1)
 
-    rgb = np.asarray(image.convert("RGB"))
     if (new_w, new_h) != (orig_w, orig_h):
         rgb = cv2.resize(rgb, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
     canvas = cv2.copyMakeBorder(rgb, top, bottom, left, right, cv2.BORDER_CONSTANT, value=pad_value)
