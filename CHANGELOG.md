@@ -9,8 +9,38 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-> Post-v2.0.0 development. Training module stabilization (beta → GA) targeting v2.1.0.
-> Quantized ONNX export deferred from v2.0.0.
+---
+
+## [2.1.0] — 2026-10-27
+
+### Added
+
+**Native tiled inference — `TiledDetect`**
+
+- `mata.nodes.TiledDetect(using, slice_size=(640, 640), overlap=0.2, include_full_image=True, iou_threshold=0.5, max_det=None, merge="nms")` runs a detection provider over overlapping tiles, maps boxes back to source-image pixels, and merges seam duplicates.
+- `merge="nmm"` unions duplicate boxes (higher score wins) for pipelines that expect non-maximum merging; `"nms"` remains the default.
+- Tile geometry matches the reference slicer exactly: stride `slice - int(slice * overlap)`, edge tiles shifted inward, no padding. Verified on 3,000 random size/overlap combinations.
+- `docs/benchmarks/TILED_INFERENCE.md` — 24-frame protocol and results: 0.000 % count delta, F1 1.000, mean IoU 1.000 (NMS) / 0.9999 (NMM).
+- `benchmarks/tiled_parity.py` — reproducible oracle harness (SAHI optional, test-only).
+
+### Changed
+
+**Performance**
+
+- 4K letterbox preprocessing: uint8 numpy inputs stay as arrays, the tensor is written into a preallocated NCHW buffer, and normalisation is in-place. 2 560 × 1 440 → 960 × 960: **30.47 ms → 4.13 ms** (7.4×), tensors bit-identical.
+- ByteTrack updates: cached `tlwh`/`xyxy`/`xywh` views, batched Kalman prediction, cheaper IoU lookup and float32 IoU. 132-frame stream at 275 tracks: **98.26 ms → 48.67 ms** per update (−50.5 %), identical track IDs.
+
+### Fixed
+
+- Tiled detection drops tile-local masks and keypoints instead of returning them in the wrong coordinate frame.
+- `letterbox()` no longer converts an RGB PIL image twice; array inputs skip the PIL round-trip entirely.
+
+### Documentation
+
+- `NOTICE` and `docs/SUPPORTED_MODELS.md` state that a model-card licence does not override training-data terms; MATA ships no weights.
+- New benchmark pages: `TILED_INFERENCE.md`, `TRACKER_CACHE.md`, `PREPROCESSING.md`.
+
+**Compatibility:** no breaking API changes. Existing detection, tracking and preprocessing calls keep their defaults and outputs.
 
 ---
 
