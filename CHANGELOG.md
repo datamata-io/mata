@@ -14,6 +14,35 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.1] — 2026-10-27
+
+### Fixed
+
+**YOLO-family ONNX detection parity**
+
+- Letterbox preprocessing is now the default for YOLO ONNX exports (was a
+  square stretch). Detection output changes for non-square inputs; pass
+  `preprocess="stretch"` to restore the old geometry.
+- Detection boxes are mapped back through the letterbox padding and scale, so
+  coordinates land in original-image pixels on the first pass.
+- `max_det` (default 300) caps detections after NMS, matching the reference
+  export pipeline; `max_det=None` disables the cap.
+- `iou_threshold` is configurable (default 0.45) instead of hardcoded.
+- `channel_order="bgr"` converts OpenCV frames before inference; the default
+  remains `"rgb"` and is unchanged.
+- `device="cuda"` now raises `ConfigurationError` when onnxruntime has no CUDA
+  provider instead of silently running on CPU. `device="auto"` keeps the
+  fallback. Provider metadata reports the session's real providers.
+- `session_options` passes thread/arena settings to `onnxruntime.SessionOptions`.
+- Per-frame inference logs moved from INFO to DEBUG.
+
+### Added
+
+- `docs/benchmarks/YOLO_ONNX_PARITY.md` — reproducible parity protocol and
+  measurements (F1 1.000 / mean IoU 1.000 against the reference ONNX decoder).
+- `tests/test_onnx_detect_adapter.py` and a committed tiny ONNX fixture covering
+  preprocessing, decoding, caps, channels and provider handling.
+
 ---
 
 ## [2.0.0] — 2026-10-03

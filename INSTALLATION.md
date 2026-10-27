@@ -49,6 +49,26 @@ pip install datamata
 **Pros**: 5-10x faster inference (~50-100ms per image)  
 **Cons**: Larger download (~2GB), requires NVIDIA GPU
 
+#### ONNX Runtime GPU (optional)
+
+The default `datamata[onnx]` extra installs the CPU build of ONNX Runtime. For
+CUDA inference, install the GPU build instead:
+
+```bash
+pip install "datamata[onnx-gpu]"
+```
+
+The CUDA runtime must match the ONNX Runtime wheel (CUDA 12.x for current
+`onnxruntime-gpu` releases). Check the active providers before a run:
+
+```python
+import onnxruntime as ort
+print(ort.get_available_providers())  # should include CUDAExecutionProvider
+```
+
+`device="cuda"` fails loudly with `ConfigurationError` when the provider is
+missing; `device="auto"` falls back to CPU.
+
 ### Option 3: From source (for contributors)
 
 Best for: Making changes to MATA itself or running the latest unreleased code.

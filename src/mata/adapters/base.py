@@ -57,18 +57,23 @@ class BaseAdapter(ABC):
         self,
         threshold: float = 0.3,
         id2label: dict[int, str] | None = None,
+        channel_order: str = "rgb",
     ):
         """Initialize base adapter.
 
         Args:
             threshold: Confidence threshold [0.0, 1.0] (default: 0.3)
             id2label: Optional custom label mapping dict
+            channel_order: Channel order of numpy inputs, "rgb" (default) or "bgr"
 
         Raises:
-            ValueError: If threshold out of valid range
+            ValueError: If threshold out of range or channel_order is invalid
         """
+        if channel_order not in ("rgb", "bgr"):
+            raise ValueError(f"channel_order must be 'rgb' or 'bgr', got {channel_order!r}")
         self.threshold = self._validate_threshold(threshold)
         self.id2label = id2label or {}
+        self.channel_order = channel_order
 
     @staticmethod
     def _validate_threshold(threshold: float) -> float:
@@ -147,8 +152,13 @@ class BaseAdapter(ABC):
                 pil_image = image.convert("RGB")
                 logger.debug(f"Converted PIL Image to RGB (mode was {image.mode})")
             elif isinstance(image, np.ndarray):
-                pil_image = Image.fromarray(image).convert("RGB")
-                logger.debug(f"Converted numpy array to PIL Image (shape: {image.shape})")
+                array = image
+                if array.ndim == 3 and array.shape[2] == 3 and self.channel_order == "bgr":
+                    array = np.ascontiguousarray(array[..., ::-1])
+                pil_image = Image.fromarray(array).convert("RGB")
+                logger.debug(
+                    f"Converted numpy array to PIL Image (shape: {image.shape}, channel_order: {self.channel_order})"
+                )
             else:
                 raise InvalidInputError(
                     f"Unsupported image type: {type(image).__name__}. "

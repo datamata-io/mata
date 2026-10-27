@@ -148,6 +148,9 @@ dmypy.json
 /cache/
 /transformers_cache/
 
+# Test fixtures are small and deterministic; commit them despite the weights rule
+!tests/fixtures/*.onnx
+
 # Data
 /data/
 /datasets/

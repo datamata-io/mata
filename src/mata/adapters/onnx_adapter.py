@@ -14,6 +14,7 @@ from PIL import Image
 from mata.adapters.onnx_base import ONNXBaseAdapter
 from mata.core.exceptions import ModelLoadError
 from mata.core.logging import get_logger
+from mata.core.preprocess import LetterboxTransform, letterbox
 from mata.core.types import Detection, Instance, VisionResult
 
 logger = get_logger(__name__)
@@ -43,22 +44,50 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         device: str = "auto",
         threshold: float = 0.3,
         id2label: dict[int, str] | None = None,
+        preprocess: str = "letterbox",
+        iou_threshold: float = 0.45,
+        max_det: int | None = 300,
+        channel_order: str = "rgb",
+        session_options: dict[str, Any] | None = None,
     ) -> None:
         """Initialize ONNX detection adapter.
 
         Args:
             model_path: Path to ONNX model file (.onnx)
-            device: Device ("cuda", "cpu", or "auto")
+            device: Device ("cuda", "cuda:0", "cpu", or "auto")
             threshold: Detection confidence threshold [0.0, 1.0]
             id2label: Optional custom label mapping
+            preprocess: YOLO preprocessing mode, "letterbox" (default) or "stretch"
+            iou_threshold: NMS IoU threshold for YOLO outputs
+            max_det: Maximum detections per image after NMS (None disables the cap)
+            channel_order: Channel order of numpy inputs ("rgb" or "bgr")
+            session_options: Optional ONNX Runtime SessionOptions overrides
 
         Raises:
             ImportError: If onnxruntime is not installed
+            ValueError: If an argument is invalid
             ModelLoadError: If model loading fails
             FileNotFoundError: If model file not found
         """
-        # Initialize base adapter (handles onnxruntime import, device, threshold, id2label)
-        super().__init__(device=device, threshold=threshold, id2label=id2label)
+        if preprocess not in {"letterbox", "stretch"}:
+            raise ValueError("preprocess must be 'letterbox' or 'stretch'")
+        if not 0.0 < iou_threshold <= 1.0:
+            raise ValueError("iou_threshold must be in (0, 1]")
+        if max_det is not None and max_det <= 0:
+            raise ValueError("max_det must be positive or None")
+
+        # Initialize base adapter (onnxruntime import, device, threshold, labels, channels)
+        super().__init__(
+            device=device,
+            threshold=threshold,
+            id2label=id2label,
+            channel_order=channel_order,
+            session_options=session_options,
+        )
+
+        self.preprocess = preprocess
+        self.iou_threshold = float(iou_threshold)
+        self.max_det = max_det
 
         self.model_path = Path(model_path)
         if not self.model_path.exists():
@@ -72,11 +101,8 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         try:
             logger.info(f"Loading ONNX model: {self.model_path}")
 
-            # Create session with optimizations
-            sess_options = self.ort.SessionOptions()
-            # Reduce optimization level to speed up loading
-            # ORT_ENABLE_ALL can be slow on first load
-            sess_options.graph_optimization_level = self.ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+            # Create session with optimizations (defaults + caller overrides)
+            sess_options = self._make_session_options()
 
             self.session = self.ort.InferenceSession(
                 str(self.model_path), sess_options=sess_options, providers=self.providers
@@ -92,6 +118,20 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             self.input_shape = model_inputs[0].shape
             self.output_names = [output.name for output in self.session.get_outputs()]
 
+            # Report the providers the session actually got, not the ones we asked for.
+            active = getattr(self.session, "get_providers", None)
+            active = active() if callable(active) else None
+            if isinstance(active, (list, tuple)) and active:
+                self.active_providers = [str(p) for p in active]
+            else:  # mocks and exotic runtimes
+                self.active_providers = list(self.providers)
+
+            if "CUDAExecutionProvider" in self.providers and "CUDAExecutionProvider" not in self.active_providers:
+                raise ModelLoadError(
+                    str(self.model_path),
+                    f"CUDAExecutionProvider was requested but the session fell back to {self.active_providers}",
+                )
+
             logger.info(
                 f"ONNX session ready. "
                 f"Inputs: {self.input_names} {self.input_shapes}, "
@@ -105,6 +145,8 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             if self._is_yolo:
                 self._maybe_set_yolo_labels()
 
+        except ModelLoadError:
+            raise
         except Exception as e:
             raise ModelLoadError(str(self.model_path), f"Failed to load ONNX model: {type(e).__name__}: {str(e)}")
 
@@ -182,7 +224,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             "name": "onnx",
             "task": "detect",
             "model_path": str(self.model_path),
-            "providers": self.providers,
+            "providers": getattr(self, "active_providers", self.providers),
             "threshold": self.threshold,
             "input_shape": self.input_shape,
             "backend": "onnxruntime",
@@ -244,6 +286,43 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         img_array = np.array(resized, dtype=np.float32) / 255.0
         return np.expand_dims(np.transpose(img_array, (2, 0, 1)), axis=0)
 
+    def _preprocess_yolo_letterbox(self, image: Image.Image) -> tuple[np.ndarray, LetterboxTransform]:
+        """Letterbox to the model input size; return the tensor and its geometry."""
+        target_h, target_w = self._get_input_size()
+        canvas, transform = letterbox(image, (target_w, target_h))
+        tensor = np.ascontiguousarray(np.transpose(canvas.astype(np.float32) / 255.0, (2, 0, 1)))[None]
+        return tensor, transform
+
+    def _to_original_xyxy(
+        self,
+        cx: np.ndarray,
+        cy: np.ndarray,
+        w: np.ndarray,
+        h: np.ndarray,
+        transform: LetterboxTransform | None,
+        orig_width: int,
+        orig_height: int,
+    ) -> np.ndarray:
+        """Map center/size boxes from model input space to original pixels."""
+        if transform is None:  # legacy stretch path
+            target_h, target_w = self._get_input_size()
+            sx, sy = orig_width / target_w, orig_height / target_h
+        else:
+            sx = sy = 1.0 / transform.ratio
+            cx = cx - transform.pad_left
+            cy = cy - transform.pad_top
+        x1 = np.clip((cx - w / 2) * sx, 0, orig_width)
+        y1 = np.clip((cy - h / 2) * sy, 0, orig_height)
+        x2 = np.clip((cx + w / 2) * sx, 0, orig_width)
+        y2 = np.clip((cy + h / 2) * sy, 0, orig_height)
+        return np.stack([x1, y1, x2, y2], axis=1)
+
+    def _limit_detections(self, detections: list[Detection]) -> list[Detection]:
+        """Apply the max_det cap, keeping the highest-scoring detections."""
+        if self.max_det is None or len(detections) <= self.max_det:
+            return detections
+        return sorted(detections, key=lambda d: d.score, reverse=True)[: self.max_det]
+
     @staticmethod
     def _nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float = 0.45) -> np.ndarray:
         """Vectorised Non-Maximum Suppression.
@@ -286,6 +365,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         orig_height: int,
         threshold: float,
         iou_threshold: float = 0.45,
+        transform: LetterboxTransform | None = None,
     ) -> list[Detection]:
         """Postprocess YOLO ONNX model outputs.
 
@@ -315,6 +395,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             orig_height: Original image height (pixels).
             threshold: Confidence threshold for filtering detections.
             iou_threshold: IoU threshold for NMS (anchor-based layouts only).
+            transform: Letterbox geometry, or None for the legacy stretch path.
 
         Returns:
             List of Detection objects in xyxy absolute-pixel coordinates.
@@ -330,7 +411,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         # End-to-end export: last dim == 6 means [x1,y1,x2,y2,conf,class_id]
         if raw.shape[1] == 6:
             logger.debug("YOLO end-to-end (post-NMS) format detected")
-            return self._postprocess_yolo_e2e(raw, scale_x, scale_y, orig_width, orig_height, threshold)
+            return self._postprocess_yolo_e2e(raw, scale_x, scale_y, orig_width, orig_height, threshold, transform)
 
         # Anchor-based layouts -----------------------------------------------
         # New layout: shape [4+cls, anchors]  (first dim < second dim)
@@ -361,12 +442,8 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         scores = scores[mask]
         labels = labels[mask]
 
-        # cxcywh (normalised to input dims) → xyxy (absolute pixels) --------
-        x1 = np.clip((cx - w / 2) * scale_x, 0, orig_width)
-        y1 = np.clip((cy - h / 2) * scale_y, 0, orig_height)
-        x2 = np.clip((cx + w / 2) * scale_x, 0, orig_width)
-        y2 = np.clip((cy + h / 2) * scale_y, 0, orig_height)
-        boxes_xyxy = np.stack([x1, y1, x2, y2], axis=1)
+        # cxcywh (input space) → xyxy (original image pixels)
+        boxes_xyxy = self._to_original_xyxy(cx, cy, w, h, transform, orig_width, orig_height)
 
         # Class-aware NMS ----------------------------------------------------
         detections: list[Detection] = []
@@ -384,7 +461,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
                         label_name=self.id2label.get(int(cls_id), f"class_{cls_id}"),
                     )
                 )
-        return detections
+        return self._limit_detections(detections)
 
     def _postprocess_yolo_e2e(
         self,
@@ -394,6 +471,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         orig_width: int,
         orig_height: int,
         threshold: float,
+        transform: LetterboxTransform | None = None,
     ) -> list[Detection]:
         """Postprocess end-to-end YOLO ONNX output (NMS baked into the graph).
 
@@ -409,6 +487,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             orig_width: Original image width for coordinate clipping.
             orig_height: Original image height for coordinate clipping.
             threshold: Confidence score threshold.
+            transform: Letterbox geometry, or None for the legacy stretch path.
 
         Returns:
             List of Detection objects.
@@ -419,10 +498,17 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             return []
 
         raw = raw[mask]
-        x1 = np.clip(raw[:, 0] * scale_x, 0, orig_width)
-        y1 = np.clip(raw[:, 1] * scale_y, 0, orig_height)
-        x2 = np.clip(raw[:, 2] * scale_x, 0, orig_width)
-        y2 = np.clip(raw[:, 3] * scale_y, 0, orig_height)
+        if transform is None:
+            x1 = np.clip(raw[:, 0] * scale_x, 0, orig_width)
+            y1 = np.clip(raw[:, 1] * scale_y, 0, orig_height)
+            x2 = np.clip(raw[:, 2] * scale_x, 0, orig_width)
+            y2 = np.clip(raw[:, 3] * scale_y, 0, orig_height)
+        else:
+            ratio = transform.ratio
+            x1 = np.clip((raw[:, 0] - transform.pad_left) / ratio, 0, orig_width)
+            y1 = np.clip((raw[:, 1] - transform.pad_top) / ratio, 0, orig_height)
+            x2 = np.clip((raw[:, 2] - transform.pad_left) / ratio, 0, orig_width)
+            y2 = np.clip((raw[:, 3] - transform.pad_top) / ratio, 0, orig_height)
         scores = raw[:, 4]
         class_ids = raw[:, 5].astype(np.int32)
 
@@ -436,7 +522,7 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
                     label_name=self.id2label.get(int(cls_id), f"class_{cls_id}"),
                 )
             )
-        return detections
+        return self._limit_detections(detections)
 
     def _postprocess_rtdetr(self, outputs: list[np.ndarray], threshold: float) -> list[Detection]:
         """Postprocess RT-DETR ONNX model outputs.
@@ -645,7 +731,14 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
         conf_threshold = threshold if threshold is not None else self.threshold
 
         # Preprocess — YOLO models use /255 only; DETR-family use ImageNet norm
-        input_tensor = self._preprocess_yolo(pil_image) if self._is_yolo else self._preprocess(pil_image)
+        transform: LetterboxTransform | None = None
+        if self._is_yolo:
+            if self.preprocess == "letterbox":
+                input_tensor, transform = self._preprocess_yolo_letterbox(pil_image)
+            else:
+                input_tensor = self._preprocess_yolo(pil_image)
+        else:
+            input_tensor = self._preprocess(pil_image)
 
         # Prepare input feed dict - handle multiple inputs
         input_feed = {self.input_name: input_tensor}
@@ -658,11 +751,11 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             logger.debug(f"Added orig_target_sizes input: {orig_target_sizes.shape}")
 
         # Run inference
-        logger.info(f"Running ONNX inference on {orig_width}x{orig_height} image")
+        logger.debug(f"Running ONNX inference on {orig_width}x{orig_height} image")
         outputs = self.session.run(self.output_names, input_feed)
 
         # Detect model type and postprocess accordingly
-        logger.info(f"Postprocessing {len(outputs)} output tensors")
+        logger.debug(f"Postprocessing {len(outputs)} output tensors")
 
         # RT-DETR ONNX models output 3 tensors: labels, boxes, scores
         # YOLO ONNX models output 1 tensor (auto-detected at load time)
@@ -672,7 +765,14 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
             detections = self._postprocess_rtdetr(outputs, conf_threshold)
         elif self._is_yolo:
             logger.debug("Detected YOLO ONNX model format")
-            detections = self._postprocess_yolo(outputs, orig_width, orig_height, conf_threshold)
+            detections = self._postprocess_yolo(
+                outputs,
+                orig_width,
+                orig_height,
+                conf_threshold,
+                iou_threshold=self.iou_threshold,
+                transform=transform,
+            )
         else:
             logger.debug("Using standard DETR postprocessing")
             detections = self._postprocess_detr(outputs, orig_width, orig_height, conf_threshold)
@@ -695,10 +795,10 @@ class ONNXDetectAdapter(ONNXBaseAdapter):
                 "threshold": conf_threshold,
                 "image_size": [orig_width, orig_height],
                 "backend": "onnxruntime",
-                "providers": self.providers,
+                "providers": getattr(self, "active_providers", self.providers),
                 "input_path": input_path,
             },
         )
 
-        logger.info(f"Found {len(instances)} detections above threshold {conf_threshold}")
+        logger.debug(f"Found {len(instances)} detections above threshold {conf_threshold}")
         return result

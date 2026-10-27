@@ -40,6 +40,24 @@ result  = mata.run("<task>", "image.jpg", model="<HuggingFace ID or file path>")
 | **FCOS**            | `torchvision/fcos_resnet50_fpn`          | —          | ~30 FPS          |
 | **SSD**             | `torchvision/ssd300_vgg16`               | —          | ~60 FPS          |
 
+### YOLO-Family ONNX Exports
+
+MATA auto-detects YOLO output layouts (v5/v7/v8/v10/v11/v12) and applies the
+same preprocessing the exporters train with: aspect-preserving letterbox,
+114 border, `INTER_LINEAR` resize. Defaults:
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `preprocess` | `"letterbox"` | `"stretch"` reproduces the pre-2.0.1 behaviour |
+| `max_det` | `300` | `None` disables the cap |
+| `iou_threshold` | `0.45` | NMS IoU |
+| `channel_order` | `"rgb"` | set `"bgr"` for OpenCV frames |
+| `id2label` | COCO-80 when the class count is 80 | pass a map for custom checkpoints |
+
+`device="cuda"` raises `ConfigurationError` when onnxruntime has no CUDA
+provider; use `device="auto"` to allow a CPU fallback. See
+[YOLO ONNX Parity](benchmarks/YOLO_ONNX_PARITY.md) for the measurement protocol.
+
 ## Image Classification
 
 | Model            | HuggingFace ID                           | Runtime                           | Description              |
