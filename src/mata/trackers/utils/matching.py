@@ -29,12 +29,18 @@ def _get_xyxy(track: object) -> np.ndarray:
     Raises:
         AttributeError: If neither attribute is present.
     """
-    if hasattr(track, "xyxy"):
-        arr = np.asarray(track.xyxy, dtype=np.float32).ravel()
+    cached = getattr(track, "_xyxy_cache", None)
+    if cached is not None:
+        return np.asarray(cached, dtype=np.float32)
+
+    xyxy = getattr(track, "xyxy", None)
+    if xyxy is not None:
+        arr = np.asarray(xyxy, dtype=np.float32).ravel()
         if arr.shape == (4,):
             return arr
-    if hasattr(track, "tlwh"):
-        t = np.asarray(track.tlwh, dtype=np.float32).ravel()
+    tlwh = getattr(track, "tlwh", None)
+    if tlwh is not None:
+        t = np.asarray(tlwh, dtype=np.float32).ravel()
         return np.array([t[0], t[1], t[0] + t[2], t[1] + t[3]], dtype=np.float32)
     raise AttributeError(
         f"Object {track!r} has neither 'xyxy' nor 'tlwh' attribute. "
@@ -60,8 +66,8 @@ def iou_batch(bboxes1: np.ndarray, bboxes2: np.ndarray) -> np.ndarray:
         ``(N, M)`` float32 IoU matrix.  Non-overlapping or zero-area pairs
         yield 0.0.
     """
-    bboxes1 = np.asarray(bboxes1, dtype=np.float64)
-    bboxes2 = np.asarray(bboxes2, dtype=np.float64)
+    bboxes1 = np.asarray(bboxes1, dtype=np.float32)
+    bboxes2 = np.asarray(bboxes2, dtype=np.float32)
 
     if bboxes1.ndim == 1:
         bboxes1 = bboxes1[np.newaxis, :]
