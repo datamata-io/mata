@@ -146,6 +146,7 @@ class BOTrack(STrack):
             mean_state[6] = 0.0  # zero vw
             mean_state[7] = 0.0  # zero vh
         self.mean, self.covariance = self.kalman_filter.predict(mean_state, self.covariance)
+        self._invalidate_bbox_cache()
 
     # ------------------------------------------------------------------
     # Batch operations
@@ -165,15 +166,54 @@ class BOTrack(STrack):
             return
 
         shared_kf = BOTrack._get_shared_kalman()
+        active = [st for st in stracks if st.mean is not None]
+        if not active:
+            return
 
-        for st in stracks:
-            if st.mean is None:
-                continue
-            mean_state = st.mean.copy()
+        means_list: list[np.ndarray] = []
+        covariances_list: list[np.ndarray] = []
+        for st in active:
+            assert st.mean is not None and st.covariance is not None
+            means_list.append(st.mean)
+            covariances_list.append(st.covariance)
+        means = np.stack(means_list)
+        covariances = np.stack(covariances_list)
+        for index, st in enumerate(active):
             if st.state != TrackState.Tracked:
-                mean_state[6] = 0.0  # zero vw
-                mean_state[7] = 0.0  # zero vh
-            st.mean, st.covariance = shared_kf.predict(mean_state, st.covariance)
+                means[index, 6] = 0.0  # zero vw
+                means[index, 7] = 0.0  # zero vh
+
+        w = means[:, 2]
+        h = means[:, 3]
+        pos_h = shared_kf._std_weight_position * h
+        pos_w = shared_kf._std_weight_position * w
+        vel_h = shared_kf._std_weight_velocity * h
+        vel_w = shared_kf._std_weight_velocity * w
+        std = np.stack(
+            [
+                pos_h,
+                pos_h,
+                pos_w,
+                pos_h,
+                vel_h,
+                vel_h,
+                vel_w,
+                vel_h,
+            ],
+            axis=1,
+        )
+        motion_cov = np.zeros((len(active), 8, 8), dtype=means.dtype)
+        diagonal = np.arange(8)
+        motion_cov[:, diagonal, diagonal] = std**2
+
+        motion_mat = shared_kf._motion_mat
+        predicted_means = means @ motion_mat.T
+        predicted_covariances = motion_mat @ covariances @ motion_mat.T + motion_cov
+
+        for index, st in enumerate(active):
+            st.mean = predicted_means[index]
+            st.covariance = predicted_covariances[index]
+            st._invalidate_bbox_cache()
 
     # ------------------------------------------------------------------
     # Lifecycle — extend parent to propagate appearance features
@@ -250,11 +290,14 @@ class BOTrack(STrack):
         mean ``[cx, cy, w, h, ...]``:
             - ``x1 = cx - w/2``,  ``y1 = cy - h/2``
         """
-        if self.mean is None:
-            return self._tlwh.copy()
-        ret = self.mean[:4].copy()  # [cx, cy, w, h]
-        ret[:2] -= ret[2:] / 2.0  # top-left: x1 = cx - w/2, y1 = cy - h/2
-        return ret
+        if self._tlwh_cache is None:
+            if self.mean is None:
+                self._tlwh_cache = self._tlwh.copy()
+            else:
+                ret = self.mean[:4].copy()  # [cx, cy, w, h]
+                ret[:2] -= ret[2:] / 2.0  # top-left: x1 = cx - w/2, y1 = cy - h/2
+                self._tlwh_cache = ret
+        return self._tlwh_cache.copy()
 
     # ------------------------------------------------------------------
     # Misc

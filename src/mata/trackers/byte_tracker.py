@@ -78,6 +78,9 @@ class STrack(BaseTrack):
         # Convert center-format to top-left format and store frozen copy.
         cx, cy, w, h = float(xywh[0]), float(xywh[1]), float(xywh[2]), float(xywh[3])
         self._tlwh: np.ndarray = np.array([cx - w / 2.0, cy - h / 2.0, w, h], dtype=np.float64)
+        self._tlwh_cache: np.ndarray | None = None
+        self._xyxy_cache: np.ndarray | None = None
+        self._xywh_cache: np.ndarray | None = None
 
         # Optional extended fields.
         self.angle: float | None = float(xywh[4]) if len(xywh) > 4 else None
@@ -107,6 +110,12 @@ class STrack(BaseTrack):
             cls.shared_kalman = KalmanFilterXYAH()
         return cls.shared_kalman
 
+    def _invalidate_bbox_cache(self) -> None:
+        """Drop cached box views after the Kalman state changes."""
+        self._tlwh_cache = None
+        self._xyxy_cache = None
+        self._xywh_cache = None
+
     # ------------------------------------------------------------------
     # Single-track prediction
     # ------------------------------------------------------------------
@@ -121,6 +130,7 @@ class STrack(BaseTrack):
         if self.state != TrackState.Tracked:
             mean_state[7] = 0  # zero height velocity for lost tracks
         self.mean, self.covariance = self.kalman_filter.predict(mean_state, self.covariance)
+        self._invalidate_bbox_cache()
 
     # ------------------------------------------------------------------
     # Batch operations
@@ -145,15 +155,50 @@ class STrack(BaseTrack):
             return
 
         shared_kf = STrack._get_shared_kalman()
+        active = [st for st in stracks if st.mean is not None]
+        if not active:
+            return
 
-        for st in stracks:
-            if st.mean is None:
-                continue
-            mean_state = st.mean.copy()
-            # Zero height velocity for lost/non-tracked states to suppress drift.
+        means_list: list[np.ndarray] = []
+        covariances_list: list[np.ndarray] = []
+        for st in active:
+            assert st.mean is not None and st.covariance is not None
+            means_list.append(st.mean)
+            covariances_list.append(st.covariance)
+        means = np.stack(means_list)
+        covariances = np.stack(covariances_list)
+        for index, st in enumerate(active):
             if st.state != TrackState.Tracked:
-                mean_state[7] = 0
-            st.mean, st.covariance = shared_kf.predict(mean_state, st.covariance)
+                means[index, 7] = 0  # zero height velocity for lost tracks
+
+        h = means[:, 3]
+        pos_std = shared_kf._std_weight_position * h
+        vel_std = shared_kf._std_weight_velocity * h
+        std = np.stack(
+            [
+                pos_std,
+                pos_std,
+                np.full_like(h, 1e-2),
+                pos_std,
+                vel_std,
+                vel_std,
+                np.full_like(h, 1e-5),
+                vel_std,
+            ],
+            axis=1,
+        )
+        motion_cov = np.zeros((len(active), 8, 8), dtype=means.dtype)
+        diagonal = np.arange(8)
+        motion_cov[:, diagonal, diagonal] = std**2
+
+        motion_mat = shared_kf._motion_mat
+        predicted_means = means @ motion_mat.T
+        predicted_covariances = motion_mat @ covariances @ motion_mat.T + motion_cov
+
+        for index, st in enumerate(active):
+            st.mean = predicted_means[index]
+            st.covariance = predicted_covariances[index]
+            st._invalidate_bbox_cache()
 
     @staticmethod
     def multi_gmc(stracks: list[STrack], H: np.ndarray = np.eye(2, 3)) -> None:  # noqa: N803
@@ -183,6 +228,7 @@ class STrack(BaseTrack):
             st.mean[:2] = R @ st.mean[:2] + t
             # Transform velocity (vcx, vcy) — no translation component.
             st.mean[4:6] = R @ st.mean[4:6]
+            st._invalidate_bbox_cache()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -202,6 +248,7 @@ class STrack(BaseTrack):
         self.kalman_filter = kalman_filter
         self.track_id = self.next_id()
         self.mean, self.covariance = self.kalman_filter.initiate(self.convert_coords(self._tlwh))
+        self._invalidate_bbox_cache()
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         # On frame 1 every track is immediately confirmed; on later frames
@@ -225,6 +272,7 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.convert_coords(new_track.tlwh)
         )
+        self._invalidate_bbox_cache()
         self.tracklet_len = 0
         self.state = TrackState.Tracked
         self.is_activated = True
@@ -251,6 +299,7 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.convert_coords(new_track.tlwh)
         )
+        self._invalidate_bbox_cache()
         self.state = TrackState.Tracked
         self.is_activated = True
         self.score = new_track.score
@@ -307,12 +356,15 @@ class STrack(BaseTrack):
             - ``w = a * h``
             - ``x1 = cx - w/2``,  ``y1 = cy - h/2``
         """
-        if self.mean is None:
-            return self._tlwh.copy()
-        ret = self.mean[:4].copy()  # [cx, cy, a, h]
-        ret[2] *= ret[3]  # w = a * h
-        ret[:2] -= ret[2:] / 2.0  # top-left: x1 = cx - w/2, y1 = cy - h/2
-        return ret
+        if self._tlwh_cache is None:
+            if self.mean is None:
+                self._tlwh_cache = self._tlwh.copy()
+            else:
+                ret = self.mean[:4].copy()  # [cx, cy, a, h]
+                ret[2] *= ret[3]  # w = a * h
+                ret[:2] -= ret[2:] / 2.0  # top-left: x1 = cx - w/2, y1 = cy - h/2
+                self._tlwh_cache = ret
+        return self._tlwh_cache.copy()
 
     @property
     def xyxy(self) -> np.ndarray:
@@ -320,9 +372,11 @@ class STrack(BaseTrack):
 
         Derived from :attr:`tlwh` as ``[x1, y1, x1+w, y1+h]``.
         """
-        ret = self.tlwh.copy()
-        ret[2:] += ret[:2]  # x2 = x1 + w,  y2 = y1 + h
-        return ret
+        if self._xyxy_cache is None:
+            ret = self.tlwh
+            ret[2:] += ret[:2]  # x2 = x1 + w,  y2 = y1 + h
+            self._xyxy_cache = ret
+        return self._xyxy_cache.copy()
 
     @property
     def xywh(self) -> np.ndarray:
@@ -330,9 +384,11 @@ class STrack(BaseTrack):
 
         Derived from :attr:`tlwh` as ``[x1+w/2, y1+h/2, w, h]``.
         """
-        ret = self.tlwh.copy()
-        ret[:2] += ret[2:] / 2.0  # shift to center
-        return ret
+        if self._xywh_cache is None:
+            ret = self.tlwh
+            ret[:2] += ret[2:] / 2.0  # shift to center
+            self._xywh_cache = ret
+        return self._xywh_cache.copy()
 
     @property
     def result(self) -> list[float]:
