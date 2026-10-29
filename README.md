@@ -319,7 +319,8 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-- **v2.2.0** (current) — MiniCPM-OCR and LFM3-VL support with per-model `transformers` floors, reasoning traces via `include_reasoning=True`, transparent images composited on white.
+- **v2.2.1** (current) — Documentation and version single-sourcing; `google/gemma-4-E2B-it` gated at `transformers>=5.5.0`. No API changes.
+- **v2.2.0** — MiniCPM-OCR and LFM3-VL support with per-model `transformers` floors, reasoning traces via `include_reasoning=True`, transparent images composited on white.
 - **v2.1.0** — Native tiled inference (`TiledDetect`), 7.4× faster 4K letterbox preprocessing, ~2× faster ByteTrack updates.
 - **v2.0.1** — YOLO-family ONNX correctness patch: letterbox preprocessing, detection cap, configurable NMS IoU, channel order, provider truthfulness.
 - **v2.0.0** — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()` — beta), breaking API cleanup.

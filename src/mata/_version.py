@@ -4,4 +4,4 @@
 stay import-free: no dependencies, no side effects, one literal assignment.
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
