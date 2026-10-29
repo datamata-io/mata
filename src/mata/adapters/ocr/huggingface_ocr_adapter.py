@@ -18,6 +18,7 @@ from mata.core.logging import get_logger
 from mata.core.types import OCRResult, TextRegion
 
 from ..pytorch_base import PyTorchBaseAdapter
+from ..transformers_compat import check_min_transformers
 
 logger = get_logger(__name__)
 
@@ -136,6 +137,8 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
         mid = model_id.lower()
         if "glm-ocr" in mid or "glm_ocr" in mid or "glmocr" in mid:
             return "glm_ocr"
+        if "minicpm" in mid and "ocr" in mid:
+            return "minicpm_ocr"
         if "trocr" in mid:
             return "trocr"
         if "got-ocr" in mid or "gotocr" in mid or "got_ocr" in mid:
@@ -157,6 +160,11 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
         import time
 
         tf = _ensure_transformers()
+        installed = getattr(tf, "__version__", None)
+        if isinstance(installed, str):
+            floor_msg = check_min_transformers(self.model_id, installed)
+            if floor_msg:
+                raise ModelLoadError(self.model_id, floor_msg)
         try:
             from mata.core.logging import is_model_cached, suppress_third_party_logs
 
@@ -165,8 +173,8 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
             if not _cached:
                 logger.info(f"Downloading {self.model_id} (first run — this may take a minute)...")
 
-            if self._arch == "glm_ocr":
-                logger.info(f"Loading GLM-OCR model: {self.model_id}")
+            if self._arch in ("glm_ocr", "minicpm_ocr"):
+                logger.info(f"Loading {self._arch} model: {self.model_id}")
                 load_kwargs = dict(self._extra_kwargs)
                 load_kwargs.setdefault("torch_dtype", "auto")
                 use_device_map = str(self.device) != "cpu" and load_kwargs.pop("device_map", None) != "disabled"
@@ -234,14 +242,17 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
         if input_path:
             meta_base["input_path"] = input_path
 
-        if self._arch == "glm_ocr":
-            return self._predict_glm_ocr(pil_image, meta=meta_base, **kwargs)
+        if self._arch in ("glm_ocr", "minicpm_ocr"):
+            label = "minicpm-ocr" if self._arch == "minicpm_ocr" else "glm-ocr"
+            return self._predict_glm_ocr(pil_image, meta=meta_base, label=label, **kwargs)
         elif self._arch == "trocr":
             return self._predict_trocr(pil_image, meta=meta_base, **kwargs)
         else:  # got_ocr
             return self._predict_got_ocr(pil_image, meta=meta_base, **kwargs)
 
-    def _predict_glm_ocr(self, pil_image: Any, meta: dict[str, Any], **kwargs: Any) -> OCRResult:
+    def _predict_glm_ocr(
+        self, pil_image: Any, meta: dict[str, Any], label: str = "glm-ocr", **kwargs: Any
+    ) -> OCRResult:
         """Run GLM-OCR inference using the chat-template API.
 
         GLM-OCR follows the VLM chat pattern: it builds a user message containing
@@ -300,7 +311,7 @@ class HuggingFaceOCRAdapter(PyTorchBaseAdapter):
             generated_ids[0][input_len:],
             skip_special_tokens=skip_special_tokens,
         )
-        region = TextRegion(text=text, score=1.0, bbox=None, label="glm-ocr")
+        region = TextRegion(text=text, score=1.0, bbox=None, label=label)
         return OCRResult(regions=[region], meta={**meta})
 
     def _predict_trocr(self, pil_image: Any, meta: dict[str, Any], **kwargs: Any) -> OCRResult:

@@ -24,7 +24,7 @@ Example usage:
     >>> print(mata.list_models("detect"))
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 from .api import (
     annotate,

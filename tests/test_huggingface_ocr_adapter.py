@@ -12,6 +12,7 @@ import pytest
 from PIL import Image
 
 from mata.core.types import OCRResult
+from mata.core.exceptions import ModelLoadError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -128,6 +129,13 @@ class TestArchitectureDetection:
         # GLM-OCR check is first, so it should not fall to trocr
         assert self.detect("zai-org/GLM-OCR") != "trocr"
 
+    def test_minicpm_ocr(self):
+        assert self.detect("openbmb/MiniCPM-OCR-1.0") == "minicpm_ocr"
+
+    def test_minicpm_vlm_is_not_minicpm_ocr(self):
+        # MiniCPM-V checkpoints are general VLMs; only -OCR belongs to the OCR path
+        assert self.detect("openbmb/MiniCPM-V-4.6") != "minicpm_ocr"
+
 
 # ---------------------------------------------------------------------------
 # Initialization
@@ -158,6 +166,25 @@ class TestHuggingFaceOCRAdapterInit:
 
         assert adapter.model_id == "stepfun-ai/GOT-OCR-2.0-hf"
         assert adapter._arch == "got_ocr"
+
+    def test_minicpm_ocr_init_uses_chat_path(self):
+        patcher, mock_proc, mock_model = _patch_transformers("glm_ocr")
+        with patcher:
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            adapter = HuggingFaceOCRAdapter("openbmb/MiniCPM-OCR-1.0", device="cpu")
+
+        assert adapter._arch == "minicpm_ocr"
+        assert adapter.task == "ocr"
+
+    def test_minicpm_ocr_rejects_older_transformers(self):
+        patcher, mock_proc, mock_model = _patch_transformers("glm_ocr")
+        with patcher as mock_ensure:
+            mock_ensure.return_value.__version__ = "5.20.2"
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            with pytest.raises(ModelLoadError, match="transformers>=5.21.0"):
+                HuggingFaceOCRAdapter("openbmb/MiniCPM-OCR-1.0", device="cpu")
 
     def test_missing_transformers_raises_import_error(self):
         with patch(
@@ -610,3 +637,31 @@ class TestPublicExports:
 
     def test_import_from_adapters(self):
         from mata.adapters import HuggingFaceOCRAdapter  # noqa: F401
+
+
+class TestMiniCPMOCRPredict:
+    """MiniCPM-OCR shares the GLM-OCR chat-template path."""
+
+    def test_predict_uses_chat_path_and_labels_region(self):
+        patcher, mock_proc, mock_model = _patch_transformers("glm_ocr")
+        with patcher:
+            from mata.adapters.ocr.huggingface_ocr_adapter import HuggingFaceOCRAdapter
+
+            adapter = HuggingFaceOCRAdapter("openbmb/MiniCPM-OCR-1.0", device="cpu")
+        adapter._processor = mock_proc
+        adapter._model = mock_model
+
+        mock_id_tensor = MagicMock()
+        mock_id_tensor.shape = (1, 5)
+        mock_inputs = MagicMock()
+        mock_inputs.__getitem__ = lambda self, k: mock_id_tensor if k == "input_ids" else MagicMock()
+        mock_inputs.pop = MagicMock(return_value=None)
+        mock_inputs.to.return_value = mock_inputs
+        mock_proc.apply_chat_template.return_value = mock_inputs
+        mock_proc.decode.return_value = "INVOICE 2026-0042"
+        mock_model.generate.return_value = [MagicMock()]
+
+        result = adapter.predict(_make_pil_image())
+
+        assert result.regions[0].text == "INVOICE 2026-0042"
+        assert result.regions[0].label == "minicpm-ocr"

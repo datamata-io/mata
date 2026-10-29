@@ -43,6 +43,7 @@ from mata.core.parsers import extract_json_from_text, get_json_schema, parse_ent
 from mata.core.types import BBox, Instance, VisionResult
 
 from .pytorch_base import PyTorchBaseAdapter
+from .transformers_compat import check_min_transformers
 
 logger = get_logger(__name__)
 
@@ -166,46 +167,11 @@ def _split_reasoning(text: str) -> tuple[str, str | None]:
     return answer.strip(), reasoning.strip()
 
 
-# Minimum transformers version per model id.  Upstream has no native support
-# for these checkpoints, so the floor comes from the model's own custom code.
-_MIN_TRANSFORMERS: dict[str, str] = {
-    "LiquidAI/LFM3-VL-2B": "5.21.0",
-}
-
 # Models that cannot load without trust_remote_code=True.  The value explains
 # why, so the failure is actionable instead of a raw transformers traceback.
 _TRUST_REMOTE_CODE_REQUIRED: dict[str, str] = {
     "LiquidAI/LFM3-VL-2B": "LFM3-VL ships its own modeling_lfm3_vl.py — upstream transformers has no lfm3_vl model yet",
 }
-
-
-def _parse_version(value: str) -> tuple[int, ...]:
-    """'5.21.0' -> (5, 21, 0); tolerates suffixes like '5.21.0.dev0'."""
-    parts = []
-    for chunk in value.split("."):
-        digits = "".join(ch for ch in chunk if ch.isdigit())
-        parts.append(int(digits) if digits else 0)
-    return tuple(parts)
-
-
-def _check_min_transformers(model_id: str, transformers_lib: dict | None) -> None:
-    """Raise ModelLoadError when the installed transformers is below a model's floor."""
-    floor = _MIN_TRANSFORMERS.get(model_id)
-    if floor is None:
-        for known, value in _MIN_TRANSFORMERS.items():
-            if model_id.startswith(known):
-                floor = value
-                break
-    if floor is None:
-        return
-
-    installed = (transformers_lib or {}).get("__version__", "0.0.0")
-    if _parse_version(installed) < _parse_version(floor):
-        raise ModelLoadError(
-            model_id,
-            f"requires transformers>={floor} (installed: {installed}). "
-            f"Upgrade with: pip install -U 'transformers>={floor}'",
-        )
 
 
 # Mapping of model IDs whose custom code (trust_remote_code) is incompatible
@@ -320,7 +286,9 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
                     f"Pass trust_remote_code=True to mata.load(...) only if you trust the checkpoint's code.",
                 )
 
-        _check_min_transformers(model_id, transformers_lib)
+        floor_msg = check_min_transformers(model_id, (transformers_lib or {}).get("__version__", "0.0.0"))
+        if floor_msg:
+            raise ModelLoadError(model_id, floor_msg)
 
         # Initialize parent class (sets up device, torch lazy loading)
         super().__init__(device=device, **kwargs)
