@@ -43,6 +43,7 @@ print(result.text)
 | **Gemma 4**        | `google/gemma-4-E2B-it`               | 2B      | General multimodal VQA    | `"auto"`         | No                  | ✅ Tested — requires `transformers>=5.5.0`             |
 | **MedGemma**       | `google/medgemma-1.5-4b-it`           | 4B      | Medical imaging           | `"bfloat16"`     | No                  | ✅ Tested                                              |
 | **LFM2.5-VL**      | `LiquidAI/LFM2.5-VL-1.6B`             | 1.6B    | Lightweight general       | `"bfloat16"`     | No                  | ✅ Tested                                              |
+| **LFM3-VL**        | `LiquidAI/LFM3-VL-2B`                 | 1.92B   | Edge VQA + reasoning      | `"bfloat16"`     | Yes                 | ✅ Tested — requires `transformers>=5.21.0`            |
 | **SmolVLM**        | `HuggingFaceTB/SmolVLM-256M-Instruct` | 256M    | Ultra-light edge / mobile | `"auto"`         | No                  | ✅ Tested                                              |
 | **Florence-2**     | `florence-community/Florence-2-large` | 0.77B   | Grounding, captioning     | `"auto"`         | No                  | ✅ Tested (community model)                            |
 | **PaliGemma 2**    | `google/paligemma2-3b-pt-224`         | 3B      | Document understanding    | `"bfloat16"`     | No                  | ✅ Tested (gated — HF login required)                  |
@@ -171,6 +172,33 @@ result = vlm.predict("scene.jpg", prompt="What is in this image?")
 **Size:** 1.6B parameters  
 **Required kwargs:** `dtype="bfloat16"`  
 **Use cases:** Resource-constrained servers, batch processing pipelines
+
+---
+
+### LFM3-VL (Vision + Reasoning)
+
+LiquidAI's edge vision-language model. Reasons in a `<think>` block before answering,
+which MATA strips from `result.text` (the trace is available in `result.meta["reasoning"]`
+when you pass `include_reasoning=True`).
+
+```python
+vlm = mata.load(
+    "vlm", "LiquidAI/LFM3-VL-2B",
+    dtype="bfloat16", trust_remote_code=True,
+)
+result = vlm.predict("scene.jpg", prompt="What is in this image?", max_new_tokens=1024)
+print(result.text)                   # answer only
+print(result.meta.get("reasoning"))  # None unless include_reasoning=True
+```
+
+**Model ID:** `LiquidAI/LFM3-VL-2B`  
+**Size:** 1.92B parameters (BF16 ≈ 3.7 GB VRAM, measured peak)  
+**Required kwargs:** `dtype="bfloat16"`, `trust_remote_code=True`  
+**Requires:** `transformers>=5.21.0` (checkpoint ships custom code; upstream has no `lfm3_vl` yet)  
+**Measured:** 12.2 s load and 3,701.9 MiB peak on an RTX 3060 12 GB (2026-10-29)  
+**Budget tokens:** thinking mode needs `max_new_tokens>=1024`; the 512 default truncates mid-trace  
+**Not supported yet:** video input (MATA's VLM path is image-only)  
+**License:** LFM Open License v1.0 (not Apache-2.0)
 
 ---
 

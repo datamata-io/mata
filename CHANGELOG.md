@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **LFM3-VL support** (`LiquidAI/LFM3-VL-2B`): BF16, 3.7 GB VRAM peak, requires `transformers>=5.21.0` and `trust_remote_code=True`. Verified via MATA on an RTX 3060.
+- `predict(include_reasoning=True)` exposes a model's inline reasoning trace in `VisionResult.meta["reasoning"]`.
+- Per-model transformers floor (`_MIN_TRANSFORMERS`) and actionable `trust_remote_code` errors for checkpoints that ship custom code.
+
+### Changed
+
+- **Behaviour:** `VisionResult.text` no longer contains an inline `<think>…</think>` trace; only the answer is returned. Pass `include_reasoning=True` to keep the trace in `meta`.
+
 ---
 
 ## [2.1.0] — 2026-10-27
