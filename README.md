@@ -81,6 +81,26 @@ pip install datamata
 
 See [INSTALLATION.md](INSTALLATION.md) for CUDA version table, optional dependencies (ONNX, barcode, notebook, Valkey), and troubleshooting.
 
+### Transformers version
+
+MATA installs with `transformers>=4.35.0`, which covers the default model
+families. Newer checkpoints need a newer Transformers, and MATA enforces those
+floors per model at `mata.load()` — you get a `ModelLoadError` naming the
+upgrade command instead of a failure deep inside the model:
+
+| Scope | Minimum transformers |
+| --- | --- |
+| Base install | `transformers>=4.35.0` |
+| All VLM tasks | `transformers>=4.51.0` (older versions fall back to `AutoModel`) |
+| `google/gemma-4-E2B-it` | `transformers>=5.5.0` (enforced) |
+| `LiquidAI/LFM3-VL-2B` | `transformers>=5.21.0` (enforced) |
+| `openbmb/MiniCPM-OCR-1.0` | `transformers>=5.21.0` (enforced) |
+| `HuggingFaceTB/SmolVLM-256M-Instruct` | `transformers>=5.21.0` (recommended) |
+
+A successful `pip install datamata` therefore does not guarantee that every
+model listed above runs in that environment. Install the floor first if you
+plan to use one of them, e.g. `pip install -U "transformers>=5.21.0"`.
+
 ## Core Tasks
 
 ### Detection

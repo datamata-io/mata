@@ -14,6 +14,14 @@ This guide covers installing MATA with GPU or CPU support.
 - pip package manager
 - (Optional) NVIDIA GPU with CUDA support for GPU acceleration
 
+## Transformers version
+
+MATA installs with a wide `transformers` pin (`>=4.35.0`). Some models need a
+newer release; MATA enforces those floors at `mata.load()` and raises an
+actionable `ModelLoadError`. See
+[Transformers version](README.md#transformers-version) for the current table.
+Installing `datamata` successfully does not mean every listed model can run.
+
 ## Quick Install
 
 ### Option 1: PyPI — CPU-Only (Recommended for most users)
