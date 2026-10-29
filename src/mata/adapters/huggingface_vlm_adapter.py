@@ -134,6 +134,33 @@ def _load_processor_patched(auto_processor_cls, model_id: str, trust_remote_code
         TokenizersBackend.__getattr__ = _orig_getattr
 
 
+_THINK_CLOSE = "</think>"
+_THINK_OPEN_RE = re.compile(r"<think[^>]*>", re.IGNORECASE)
+
+
+def _split_reasoning(text: str) -> tuple[str, str | None]:
+    """Split an inline reasoning trace from the user-visible answer.
+
+    Handles both fully tagged output (``<think>…</think>answer``) and the
+    closing-tag-only form emitted by models whose generation prompt already
+    ends with ``<think>`` (LFM3-VL, Qwen3 thinking modes).
+
+    Returns:
+        (answer, reasoning) — ``reasoning`` is None when no trace is present.
+    """
+    if not text:
+        return text, None
+    close = text.lower().find(_THINK_CLOSE)
+    if close == -1:
+        return text, None
+    reasoning = text[:close]
+    answer = text[close + len(_THINK_CLOSE) :]
+    opening = _THINK_OPEN_RE.search(reasoning)
+    if opening:
+        reasoning = reasoning[opening.end() :]
+    return answer.strip(), reasoning.strip()
+
+
 # Mapping of model IDs whose custom code (trust_remote_code) is incompatible
 # with the installed transformers version → community-converted versions that
 # use native transformers classes.  Only applied when the original repo fails.
@@ -395,6 +422,7 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
         output_mode: str | None = None,
         images: list[ImageInput] | None = None,
         auto_promote: bool = False,
+        include_reasoning: bool = False,
         **kwargs,
     ) -> VisionResult:
         """Generate text response for single or multiple images with a prompt.
@@ -430,6 +458,9 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
                 comparison with spatial detection models when using VLMs that
                 output bounding boxes (e.g., Qwen3-VL grounding mode).
                 Default: False (entities remain as Entity objects).
+            include_reasoning: When True, keep the model's inline reasoning
+                trace in ``result.meta["reasoning"]``. ``result.text`` always
+                contains the answer only. Default False.
             **kwargs: Additional arguments (reserved for future use)
 
         Returns:
@@ -589,11 +620,21 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )[0]
 
+        # Separate an inline reasoning trace from the user-visible answer.
+        # LFM3-VL and Qwen3 thinking modes emit only "</think>" because the
+        # generation prompt already opened the block.
+        answer_text, reasoning_text = _split_reasoning(output_text)
+        if reasoning_text is not None:
+            logger.debug(
+                f"Split inline reasoning from {self.model_id} output "
+                f"({len(reasoning_text)} chars, include_reasoning={include_reasoning})"
+            )
+
         # Parse structured output if output_mode is set
         instances = []
         entities = []
         if output_mode:
-            json_data = extract_json_from_text(output_text)
+            json_data = extract_json_from_text(answer_text)
             if json_data is not None:
                 parsed = parse_entities(json_data, auto_promote=auto_promote)
                 # Separate instances from entities based on type
@@ -629,27 +670,31 @@ class HuggingFaceVLMAdapter(PyTorchBaseAdapter):
             else:
                 logger.warning(
                     f"Failed to parse JSON from VLM output (mode={output_mode}). "
-                    f"Returning raw text. Output preview: {output_text[:100]}..."
+                    f"Returning raw text. Output preview: {answer_text[:100]}..."
                 )
 
         # Return VisionResult with text output and parsed entities/instances
+        meta = {
+            "model_id": self.model_id,
+            "device": str(self.device),
+            "backend": "huggingface",
+            "max_new_tokens": gen_max_tokens,
+            "tokens_generated": len(trimmed[0]),
+            "image_path": all_image_paths[0] if all_image_paths else None,  # Backward compat
+            "image_paths": all_image_paths,  # All image paths
+            "image_count": len(all_images),  # Total number of images
+            "image_width": original_width,  # Original image dimensions
+            "image_height": original_height,
+            "output_mode": output_mode,
+        }
+        if include_reasoning and reasoning_text is not None:
+            meta["reasoning"] = reasoning_text
+
         return VisionResult(
             instances=instances,  # Populated when auto_promote=True and spatial data found
             entities=entities,  # Populated when output_mode is set (unless promoted)
-            meta={
-                "model_id": self.model_id,
-                "device": str(self.device),
-                "backend": "huggingface",
-                "max_new_tokens": gen_max_tokens,
-                "tokens_generated": len(trimmed[0]),
-                "image_path": all_image_paths[0] if all_image_paths else None,  # Backward compat
-                "image_paths": all_image_paths,  # All image paths
-                "image_count": len(all_images),  # Total number of images
-                "image_width": original_width,  # Original image dimensions
-                "image_height": original_height,
-                "output_mode": output_mode,
-            },
-            text=output_text.strip(),
+            meta=meta,
+            text=answer_text.strip(),
             prompt=prompt,
         )
 
