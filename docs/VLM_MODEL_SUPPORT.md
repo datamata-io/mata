@@ -44,7 +44,7 @@ print(result.text)
 | **MedGemma**       | `google/medgemma-1.5-4b-it`           | 4B      | Medical imaging           | `"bfloat16"`     | No                  | ✅ Tested                                              |
 | **LFM2.5-VL**      | `LiquidAI/LFM2.5-VL-1.6B`             | 1.6B    | Lightweight general       | `"bfloat16"`     | No                  | ✅ Tested                                              |
 | **LFM3-VL**        | `LiquidAI/LFM3-VL-2B`                 | 1.92B   | Edge VQA + reasoning      | `"bfloat16"`     | Yes                 | ✅ Tested — requires `transformers>=5.21.0`            |
-| **SmolVLM**        | `HuggingFaceTB/SmolVLM-256M-Instruct` | 256M    | Ultra-light edge / mobile | `"auto"`         | No                  | ✅ Tested                                              |
+| **SmolVLM**        | `HuggingFaceTB/SmolVLM-256M-Instruct` | 256M    | Ultra-light edge / mobile | `"auto"`         | No                  | ✅ Tested — use `transformers>=5.21.0` (`inputs_merger` fix) |
 | **Florence-2**     | `florence-community/Florence-2-large` | 0.77B   | Grounding, captioning     | `"auto"`         | No                  | ✅ Tested (community model)                            |
 | **PaliGemma 2**    | `google/paligemma2-3b-pt-224`         | 3B      | Document understanding    | `"bfloat16"`     | No                  | ✅ Tested (gated — HF login required)                  |
 | **Phi-3.5 Vision** | `microsoft/Phi-3.5-vision-instruct`   | 4.2B    | Code, diagrams, charts    | `"bfloat16"`     | Yes                 | ❌ Deferred (requires FlashAttention2 — Linux only)    |

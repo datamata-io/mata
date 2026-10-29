@@ -9,15 +9,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [2.2.0] — 2026-10-29
+
 ### Added
 
+- **MiniCPM-OCR support** (`openbmb/MiniCPM-OCR-1.0`): full-page document OCR through `task="ocr"`; requires `transformers>=5.21.0`. Verified end-to-end on an RTX 3060 (2.9 GB VRAM peak, exact invoice transcription).
 - **LFM3-VL support** (`LiquidAI/LFM3-VL-2B`): BF16, 3.7 GB VRAM peak, requires `transformers>=5.21.0` and `trust_remote_code=True`. Verified via MATA on an RTX 3060.
 - `predict(include_reasoning=True)` exposes a model's inline reasoning trace in `VisionResult.meta["reasoning"]`.
-- Per-model transformers floor (`_MIN_TRANSFORMERS`) and actionable `trust_remote_code` errors for checkpoints that ship custom code.
+- Per-model transformers floor (`transformers_compat.MIN_TRANSFORMERS`) and actionable `trust_remote_code` errors for checkpoints that ship custom code.
 
 ### Changed
 
 - **Behaviour:** `VisionResult.text` no longer contains an inline `<think>…</think>` trace; only the answer is returned. Pass `include_reasoning=True` to keep the trace in `meta`.
+- **Behaviour:** transparent images (RGBA / palette with transparency) are now composited onto white before inference, matching `transformers>=5.21` behaviour instead of passing the RGB values hidden under the alpha channel.
+- SmolVLM: documented `transformers>=5.21.0` for the `inputs_merger` fix.
 
 ---
 

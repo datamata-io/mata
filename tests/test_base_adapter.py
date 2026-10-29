@@ -455,3 +455,22 @@ class TestEdgeCases:
             url_called = first_arg.full_url if hasattr(first_arg, "full_url") else first_arg
             assert url_called == url
             assert call_args.kwargs.get("timeout") == 30
+
+
+class TestTransparencyFlattening:
+    """transformers>=5.21 composites PNG transparency onto white; MATA must match."""
+
+    def test_transparent_pixels_become_white(self, adapter):
+        img = Image.new("RGBA", (8, 8), (255, 0, 0, 0))
+
+        out, _ = adapter._load_image(img)
+
+        assert out.mode == "RGB"
+        assert out.getpixel((4, 4)) == (255, 255, 255)
+
+    def test_opaque_pixels_survive(self, adapter):
+        img = Image.new("RGBA", (8, 8), (0, 0, 255, 255))
+
+        out, _ = adapter._load_image(img)
+
+        assert out.getpixel((4, 4)) == (0, 0, 255)

@@ -133,6 +133,7 @@ See [VLM Model Support](./VLM_MODEL_SUPPORT.md) for the full compatibility table
 | **Tesseract**    | `tesseract`                        | Classic open-source engine — ❌ unstable on Windows      |
 | **GOT-OCR2**     | `stepfun-ai/GOT-OCR-2.0-hf`        | ⚠️ Known hallucinations — avoid until further notice     |
 | **TrOCR**        | `microsoft/trocr-base-handwritten` | Single text-line crops                                   |
+| **MiniCPM-OCR**  | `openbmb/MiniCPM-OCR-1.0`          | Full-page document OCR — requires `transformers>=5.21.0`  |
 | **DeepSeek OCR** | `deepseek-ai/DeepSeek-OCR-2`       | ❌ Deferred — requires FlashAttention2 (Linux only)      |
 
 ## Embedding / ReID

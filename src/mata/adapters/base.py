@@ -36,6 +36,24 @@ from mata.core.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _flatten_to_rgb(image: Image.Image) -> Image.Image:
+    """Composite transparency onto white and return an RGB image.
+
+    transformers>=5.21 composites transparent pixels onto white inside its own
+    image processors. Doing the same here keeps every MATA adapter consistent
+    and stops the model from receiving the raw RGB values hidden under the
+    alpha channel (usually black in exported PNGs).
+    """
+    if image.mode == "P" and "transparency" in image.info:
+        image = image.convert("RGBA")
+    if image.mode in ("RGBA", "LA"):
+        rgba = image.convert("RGBA")
+        background = Image.new("RGB", rgba.size, (255, 255, 255))
+        background.paste(rgba, mask=rgba.split()[-1])
+        return background
+    return image.convert("RGB")
+
+
 class BaseAdapter(ABC):
     """Base class for all MATA adapters.
 
@@ -122,7 +140,7 @@ class BaseAdapter(ABC):
         try:
             # Handle MATA Image artifact (check by class name to avoid circular imports)
             if type(image).__name__ == "Image" and hasattr(image, "to_pil"):
-                pil_image = image.to_pil().convert("RGB")
+                pil_image = _flatten_to_rgb(image.to_pil())
                 input_path = getattr(image, "source_path", None)
                 logger.debug("Extracted PIL Image from MATA Image artifact")
                 return pil_image, input_path
@@ -138,7 +156,7 @@ class BaseAdapter(ABC):
                     )
                     with urllib.request.urlopen(req, timeout=30) as response:
                         image_data = response.read()
-                    pil_image = Image.open(BytesIO(image_data)).convert("RGB")
+                    pil_image = _flatten_to_rgb(Image.open(BytesIO(image_data)))
                     input_path = image  # Store URL as path
                     logger.debug(f"Loaded image from URL: {image}")
                 except Exception as e:
@@ -146,16 +164,16 @@ class BaseAdapter(ABC):
                 return pil_image, input_path
             elif isinstance(image, (str, Path)):
                 input_path = str(image)
-                pil_image = Image.open(image).convert("RGB")
+                pil_image = _flatten_to_rgb(Image.open(image))
                 logger.debug(f"Loaded image from path: {image}")
             elif isinstance(image, Image.Image):
-                pil_image = image.convert("RGB")
+                pil_image = _flatten_to_rgb(image)
                 logger.debug(f"Converted PIL Image to RGB (mode was {image.mode})")
             elif isinstance(image, np.ndarray):
                 array = image
                 if array.ndim == 3 and array.shape[2] == 3 and self.channel_order == "bgr":
                     array = np.ascontiguousarray(array[..., ::-1])
-                pil_image = Image.fromarray(array).convert("RGB")
+                pil_image = _flatten_to_rgb(Image.fromarray(array))
                 logger.debug(
                     f"Converted numpy array to PIL Image (shape: {image.shape}, channel_order: {self.channel_order})"
                 )
