@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamata"
-version = "2.2.0"
-description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 readme = "README.md"
+dynamic = ["version"]
+description = "Model-Agnostic Task Architecture - A task-centric, model-agnostic framework for computer vision"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
@@ -160,6 +160,9 @@ mata = "mata.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mata._version.__version__"}
 
 [tool.setuptools.package-data]
 mata = ["py.typed", "annotate/static/**"]
