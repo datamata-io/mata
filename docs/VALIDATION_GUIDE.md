@@ -6,9 +6,6 @@ sidebar_position: 1
 
 # MATA Validation & Evaluation Guide
 
-**Version:** 1.9.0  
-**Updated:** March 2026
-
 `mata.val()` evaluates any supported model against a labeled dataset and returns structured metrics. It follows the YOLO-style validation pattern — one function call, per-class breakdowns, PR/F1 curves, confusion matrices, and formatted console tables.
 
 **Supported tasks:** detection, segmentation, classification, depth estimation, OCR / text recognition.

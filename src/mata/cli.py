@@ -8,7 +8,7 @@ Usage examples:
     mata run embed image.jpg --model openai/clip-vit-base-patch32
     mata track video.mp4 --model facebook/detr-resnet-50 --tracker botsort --save
     mata val detect --model facebook/detr-resnet-50 --data coco.yaml
-    mata export detect ./model.pt --format onnx          # stub: coming in v2.0
+    mata export detect ./model.pt --format onnx          # stub: not yet implemented
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ Examples:
   mata recognize image.jpg --gallery gallery.npz --model openai/clip-vit-base-patch32
   mata track video.mp4 --model facebook/detr-resnet-50 --tracker botsort --save
   mata val detect --model facebook/detr-resnet-50 --data coco.yaml
-  mata export detect ./model.pt --format onnx   # coming in v2.0
+  mata export detect ./model.pt --format onnx   # not yet implemented
 """,
     )
     parser.add_argument("--version", action="version", version=_get_version())
@@ -161,7 +161,7 @@ def _add_annotate_parser(subparsers: argparse._SubParsersAction) -> None:
 def _add_export_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "export",
-        help="Export a model to a portable format [coming in v2.0]",
+        help="Export a model to a portable format [not yet implemented]",
         description="Export a model to ONNX, TorchScript, etc. Stub — full support in v2.0.",
     )
     p.add_argument("task", help="Task type: detect, segment, classify")

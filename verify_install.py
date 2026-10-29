@@ -1,7 +1,7 @@
 """Verify MATA installation and setup.
 
 Run this script after installation to verify that MATA is correctly installed
-and all v1.8.0 features are available.
+and the documented features are available.
 """
 
 import sys

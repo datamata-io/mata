@@ -33,6 +33,8 @@ from PIL import Image
 from mata.core.exceptions import InvalidInputError
 from mata.core.logging import get_logger
 
+from .._version import __version__
+
 logger = get_logger(__name__)
 
 
@@ -152,7 +154,7 @@ class BaseAdapter(ABC):
                 try:
                     req = urllib.request.Request(
                         image,
-                        headers={"User-Agent": "mata-vision/1.9.3 (https://github.com/datamata-io/mata)"},
+                        headers={"User-Agent": f"mata-vision/{__version__} (https://github.com/datamata-io/mata)"},
                     )
                     with urllib.request.urlopen(req, timeout=30) as response:
                         image_data = response.read()

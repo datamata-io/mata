@@ -6,8 +6,6 @@ sidebar_position: 2
 
 # MATA Graph Cookbook
 
-> **Version**: 1.9.7 | **Last Updated**: April 3, 2026
-
 Practical recipes and patterns for common computer vision workflows using the MATA graph system.
 
 ---

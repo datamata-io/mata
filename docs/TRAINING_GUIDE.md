@@ -1,12 +1,11 @@
 # MATA Training Guide
 
-> **Version**: v2.0  
 > **Module**: `mata.training`  
 > **API**: `mata.train()`, `mata.finetune()`
 
 > [!WARNING]
-> **Beta Feature** — `mata.train()` and `mata.finetune()` are beta in v2.0.0.
-> The API surface is stable but internal behavior may change in v2.1.0.
+> **Beta Feature** — `mata.train()` and `mata.finetune()` are beta.
+> The API surface is stable but internal behavior may change in a minor release.
 > Report issues at [github.com/datamata-io/mata/issues](https://github.com/datamata-io/mata/issues).
 
 Train and fine-tune computer vision models directly within the MATA framework — no third-party training loops required.
@@ -79,7 +78,7 @@ detections = mata.run("detect", "test.jpg", model=detector)
 | Image Classification  | `"classify"`            | HuggingFace              |
 | Instance Segmentation | `"segment"`             | HuggingFace              |
 
-> Depth estimation, VLM, OCR, object tracking (`track`), and pose estimation (`pose`) training are out of scope for v2.0 (inference-only tasks).
+> Depth estimation, VLM, OCR, object tracking (`track`), and pose estimation (`pose`) training are out of scope (inference-only tasks).
 
 ### HuggingFace Detection Models
 
@@ -853,7 +852,7 @@ prediction.save("output/detections.jpg")
 | **Backbone freezing**    | ✅ via `model.backbone`                    | ✅ via `model.backbone`          |
 | **AMP**                  | ✅ via `TrainingArguments.fp16`            | ✅ via `torch.amp.autocast`      |
 | **Checkpointing**        | HF Trainer native + MATA wrapper           | MATA `CheckpointManager`         |
-| **Distributed training** | Future (v2.1)                              | Future (v2.1)                    |
+| **Distributed training** | Future                                     | Future                           |
 
 ### Engine Detection
 

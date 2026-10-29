@@ -5,8 +5,6 @@ sidebar_position: 1
 ---
 # CLIP Zero-Shot Image Classification - Quick Start Guide
 
-**Version:** 1.9.7  
-**Date:** April 2, 2026  
 **Status:** ✅ Production Ready
 
 ## Overview
@@ -656,6 +654,4 @@ Found a CLIP model that works well? Have template recommendations? Open an issue
 
 ---
 
-**Last Updated:** April 2, 2026  
-**MATA Version:** 1.5.0+  
 **License:** MIT

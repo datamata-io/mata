@@ -53,3 +53,38 @@ def test_pyproject_version_is_dynamic():
     assert 'dynamic = ["version"]' in text, (
         "pyproject.toml must read the version from mata._version, not hardcode it"
     )
+
+
+# --- stale version banners ------------------------------------------------
+
+_STAMP = re.compile(
+    r"(?m)^(?:> \*\*(?:Version|MATA)\*\*.*\d+\.\d+\.\d+"
+    r"|\*\*Version:\*\*.*\d+\.\d+\.\d+"
+    r"|_Last updated:.*\d+\.\d+\.\d+"
+    r"|\*\*(?:Last Updated|MATA Version):\*\*.*\d+\.\d+)"
+)
+
+
+def _markdown_files():
+    yield README
+    for path in sorted((REPO_ROOT / "docs").rglob("*.md")):
+        if "plans" in path.parts:  # dated research notes keep their own stamps
+            continue
+        yield path
+    for name in ("QUICK_REFERENCE.md", "QUICKSTART.md", "INSTALLATION.md"):
+        candidate = REPO_ROOT / name
+        if candidate.exists():
+            yield candidate
+
+
+def test_docs_do_not_pin_a_version_stamp():
+    offenders = [
+        str(path.relative_to(REPO_ROOT))
+        for path in _markdown_files()
+        if _STAMP.search(path.read_text(encoding="utf-8"))
+    ]
+    assert not offenders, (
+        "These docs pin a version/date banner that goes stale at every release. "
+        "Delete the banner — CHANGELOG.md is the only version-stamped document: "
+        + ", ".join(offenders)
+    )
