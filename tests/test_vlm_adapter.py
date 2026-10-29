@@ -1156,3 +1156,81 @@ class TestVLMLoaderKwargsPassthrough:
         wrapper = loader.load("vlm", "test/model", prompt="test", dtype="bfloat16")
         assert not hasattr(wrapper.adapter, "prompt_attr_that_shouldnt_exist")
         assert wrapper.adapter.dtype == "bfloat16"
+
+
+class TestVLMReasoningHandling:
+    """Inline reasoning traces (LFM3-VL, Qwen3 thinking modes) are not answers."""
+
+    def test_split_reasoning_paired_tags(self):
+        from mata.adapters.huggingface_vlm_adapter import _split_reasoning
+
+        answer, reasoning = _split_reasoning("<think>look closely</think>A red circle.")
+        assert answer == "A red circle."
+        assert reasoning == "look closely"
+
+    def test_split_reasoning_closing_tag_only(self):
+        """LFM3-VL: the generation prompt ends with '<think>', so only '</think>' is emitted."""
+        from mata.adapters.huggingface_vlm_adapter import _split_reasoning
+
+        answer, reasoning = _split_reasoning("scanning the pixels</think>A red circle and a blue square.")
+        assert answer == "A red circle and a blue square."
+        assert reasoning == "scanning the pixels"
+
+    def test_split_reasoning_absent(self):
+        from mata.adapters.huggingface_vlm_adapter import _split_reasoning
+
+        answer, reasoning = _split_reasoning("A red circle.")
+        assert answer == "A red circle."
+        assert reasoning is None
+
+    def test_predict_strips_reasoning_by_default(self, mock_transformers_vlm, mock_pytorch_base, sample_image):
+        mock_transformers_vlm["processor"].batch_decode = lambda *a, **k: ["thinking hard</think>A cat."]
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+
+        result = adapter.predict(sample_image, prompt="Describe.")
+
+        assert result.text == "A cat."
+        assert "reasoning" not in result.meta
+
+    def test_predict_include_reasoning_exposes_meta(self, mock_transformers_vlm, mock_pytorch_base, sample_image):
+        mock_transformers_vlm["processor"].batch_decode = lambda *a, **k: ["thinking hard</think>A cat."]
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+
+        result = adapter.predict(sample_image, prompt="Describe.", include_reasoning=True)
+
+        assert result.text == "A cat."
+        assert result.meta["reasoning"] == "thinking hard"
+
+
+class TestVLMVersionGate:
+    """LFM3-VL needs transformers>=5.21.0; the global pin stays at 4.35.0."""
+
+    def test_lfm3_rejects_older_transformers(self, mock_transformers_vlm, mock_pytorch_base):
+        mock_transformers_vlm["ensure"].return_value["__version__"] = "5.20.2"
+
+        with pytest.raises(ModelLoadError, match="transformers>=5.21.0"):
+            HuggingFaceVLMAdapter("LiquidAI/LFM3-VL-2B", trust_remote_code=True)
+
+    def test_lfm3_accepts_5_21(self, mock_transformers_vlm, mock_pytorch_base):
+        mock_transformers_vlm["ensure"].return_value["__version__"] = "5.21.0"
+
+        adapter = HuggingFaceVLMAdapter("LiquidAI/LFM3-VL-2B", trust_remote_code=True)
+
+        assert adapter.model_id == "LiquidAI/LFM3-VL-2B"
+
+    def test_ungated_model_ignores_version(self, mock_transformers_vlm, mock_pytorch_base):
+        mock_transformers_vlm["ensure"].return_value["__version__"] = "4.40.0"
+
+        adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
+
+        assert adapter.model_id == "Qwen/Qwen3-VL-2B-Instruct"
+
+
+class TestVLMTrustRemoteCodeGuard:
+    """LFM3-VL ships custom modeling code; a raw transformers traceback is not an answer."""
+
+    def test_lfm3_requires_trust_remote_code(self, mock_transformers_vlm, mock_pytorch_base):
+        mock_transformers_vlm["ensure"].return_value["__version__"] = "5.21.0"
+
+        with pytest.raises(ModelLoadError, match="trust_remote_code=True"):
+            HuggingFaceVLMAdapter("LiquidAI/LFM3-VL-2B")

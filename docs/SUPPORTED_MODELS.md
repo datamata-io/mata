@@ -113,6 +113,7 @@ provider; use `device="auto"` to allow a CPU fallback. See
 | **Gemma 4**        | `google/gemma-4-E2B-it`               | — (`dtype="bfloat16"` for 13B/27B)           | General multimodal VQA — requires `transformers>=5.5.0`      |
 | **MedGemma**       | `google/medgemma-1.5-4b-it`           | `dtype="bfloat16"`                           | Medical imaging                                              |
 | **LFM2.5-VL**      | `LiquidAI/LFM2.5-VL-1.6B`             | `dtype="bfloat16"`                           | Lightweight general                                          |
+| **LFM3-VL**        | `LiquidAI/LFM3-VL-2B`                 | `dtype="bfloat16"`, `trust_remote_code=True` | Edge VQA + reasoning — requires `transformers>=5.21.0`       |
 | **SmolVLM**        | `HuggingFaceTB/SmolVLM-256M-Instruct` | —                                            | Edge / mobile                                                |
 | **Florence-2**     | `florence-community/Florence-2-large` | `trust_remote_code=True` _(optional)_        | Grounding/captioning                                         |
 | **PaliGemma 2**    | `google/paligemma2-3b-pt-224`         | `dtype="bfloat16"` (gated)                   | Document understanding                                       |
