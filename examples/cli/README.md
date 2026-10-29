@@ -145,7 +145,7 @@ mata export detect facebook/detr-resnet-50 --format onnx
 mata export detect ./model.pt --format onnx --quantize int8
 ```
 
-Full export support is planned for v2.0. In v1.9.5 this prints the pending export summary without writing any files.
+Full export support is not implemented. This command prints the pending export summary without writing any files.
 
 ## Test Assets
 

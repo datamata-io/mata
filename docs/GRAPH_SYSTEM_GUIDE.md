@@ -6,8 +6,6 @@ sidebar_position: 2
 
 # MATA Graph System Architecture Guide
 
-> **Version**: 1.9.5 | **Last Updated**: April 2, 2026
-
 ## Overview
 
 The MATA Graph System is a **strongly-typed, task-centric** framework for building multi-task computer vision workflows. It enables composing detection, segmentation, classification, depth estimation, tracking, and VLM tasks into validated, executable directed acyclic graphs (DAGs).

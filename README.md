@@ -11,8 +11,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
-  <img src="https://img.shields.io/badge/version-1.9.7-green?style=flat-square" alt="v1.9.7" />
-  <img src="https://img.shields.io/badge/tests-5%2C505%2B%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/pypi/v/datamata?style=flat-square&label=version" alt="PyPI version" />
+  <img src="https://img.shields.io/github/actions/workflow/status/datamata-io/mata/test.yml?branch=main&style=flat-square&label=tests" alt="Tests" />
 </p>
 
 ---
@@ -80,6 +80,26 @@ pip install datamata
 ```
 
 See [INSTALLATION.md](INSTALLATION.md) for CUDA version table, optional dependencies (ONNX, barcode, notebook, Valkey), and troubleshooting.
+
+### Transformers version
+
+MATA installs with `transformers>=4.35.0`, which covers the default model
+families. Newer checkpoints need a newer Transformers, and MATA enforces those
+floors per model at `mata.load()` — you get a `ModelLoadError` naming the
+upgrade command instead of a failure deep inside the model:
+
+| Scope | Minimum transformers |
+| --- | --- |
+| Base install | `transformers>=4.35.0` |
+| All VLM tasks | `transformers>=4.51.0` (older versions fall back to `AutoModel`) |
+| `google/gemma-4-E2B-it` | `transformers>=5.5.0` (enforced) |
+| `LiquidAI/LFM3-VL-2B` | `transformers>=5.21.0` (enforced) |
+| `openbmb/MiniCPM-OCR-1.0` | `transformers>=5.21.0` (enforced) |
+| `HuggingFaceTB/SmolVLM-256M-Instruct` | `transformers>=5.21.0` (recommended) |
+
+A successful `pip install datamata` therefore does not guarantee that every
+model listed above runs in that environment. Install the floor first if you
+plan to use one of them, e.g. `pip install -U "transformers>=5.21.0"`.
 
 ## Core Tasks
 
@@ -273,7 +293,7 @@ See [Supported Models](docs/SUPPORTED_MODELS.md) for model IDs, benchmarks, and 
 
 ## When NOT to Use MATA
 
-- **Training-first workflows** — `mata.train()` and `mata.finetune()` are beta in v2.1.0. If training is your primary need today, HuggingFace Trainer or PyTorch Lightning remain the safe default until the module reaches GA.
+- **Training-first workflows** — `mata.train()` and `mata.finetune()` are beta. If training is your primary need today, HuggingFace Trainer or PyTorch Lightning remain the safe default until the module reaches GA.
 - **Edge / mobile deployment** — TensorRT and TFLite export are planned but not yet available.
 - **Single-model, maximum-throughput** — MATA's adapter layer adds dispatch overhead; for bare-metal speed on one model, use the runtime directly.
 
@@ -299,10 +319,11 @@ For a deep-dive into design decisions and layer contracts, see [docs/MATA_DESIGN
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-- **v2.1.0** (current) — Native tiled inference (`TiledDetect`), 7.4× faster 4K letterbox preprocessing, ~2× faster ByteTrack updates.
+- **v2.2.0** (current) — MiniCPM-OCR and LFM3-VL support with per-model `transformers` floors, reasoning traces via `include_reasoning=True`, transparent images composited on white.
+- **v2.1.0** — Native tiled inference (`TiledDetect`), 7.4× faster 4K letterbox preprocessing, ~2× faster ByteTrack updates.
 - **v2.0.1** — YOLO-family ONNX correctness patch: letterbox preprocessing, detection cap, configurable NMS IoU, channel order, provider truthfulness.
 - **v2.0.0** — Annotation tooling (`mata.annotate()` / `mata annotate`), training module (`mata.train()` — beta), breaking API cleanup.
-- **v2.2** — Training module GA, quantized ONNX export, further accelerator work.
+- **v2.3** (next) — Training module GA, quantized ONNX export, further accelerator work.
 - **v2.x** — HuggingFace Hub model recommendations, KACA CNN integration, V2L HyperLoRA research
 - **v2.5+** — 3D vision, edge deployment, Auto-ML
 <p align="center">

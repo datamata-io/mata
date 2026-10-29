@@ -2416,6 +2416,4 @@ result = mata.infer(
 
 ---
 
-**Version:** 1.9.7
-**Date:** April 3, 2026
 **Status:** ✅ Production Ready

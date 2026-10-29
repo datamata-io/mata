@@ -477,9 +477,9 @@ class TestConfigSystemCompat:
             # Expected if huggingface_hub not installed
             assert True
         except Exception as e:
-            # Network errors, model not found, etc. are OK for this test
+            # Network errors, model not found, offline mode, etc. are OK for this test
             assert "huggingface_hub" in str(e) or any(
-                word in str(e).lower() for word in ["network", "not found", "request"]
+                word in str(e).lower() for word in ["network", "not found", "request", "offline"]
             )
 
 

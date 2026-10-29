@@ -6,8 +6,6 @@ sidebar_position: 1
 
 # MATA CLI Reference
 
-> **Version**: 1.9.7 | **Last Updated**: April 4, 2026
-
 MATA ships a `mata` command installed alongside the Python package. It exposes the six most common workflows directly in a terminal without writing any Python.
 
 ```
@@ -327,7 +325,7 @@ Use `Ctrl+C` to stop the server when running in the foreground. For the full bro
 
 ## mata export
 
-Export a model to a portable format. **Stub — full support arrives in v2.0.**
+Export a model to a portable format. **Stub — not yet implemented.**
 
 ```
 mata export <task> <model> [options]
@@ -354,7 +352,7 @@ mata export <task> <model> [options]
 mata export detect ./model.pt --format onnx --quantize int8
 ```
 
-> Full export functionality is planned for v2.0. This command currently prints a stub notice.
+> Full export functionality is not implemented. This command prints a stub notice.
 
 ---
 
@@ -475,6 +473,4 @@ mata val detect \
 
 ---
 
-**Version:** 1.9.5
-**Date:** April 3, 2026
 **Status:** ✅ Production Ready

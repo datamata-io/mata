@@ -9,6 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Documentation
+
+- Version claims now have one source: `src/mata/_version.py` holds the literal, `pyproject.toml` reads it dynamically, and `src/mata/__init__.py` re-exports it. `tests/test_docs_consistency.py` fails CI when the CHANGELOG head, the README roadmap, or a documented `transformers` floor drifts from the code.
+- README badges are live (PyPI version, GitHub Actions tests) instead of hand-maintained strings; the roadmap marks v2.2.0 as current and the training module is no longer described as "beta in v2.1.0".
+- Removed stale per-document version banners (1.5.0–2.0) from `QUICK_REFERENCE.md` and ten guides; CHANGELOG is now the only version-stamped document.
+- `google/gemma-4-E2B-it` is gated at `transformers>=5.5.0` with a `ModelLoadError`, and the README/INSTALLATION document the two-tier contract: base `>=4.35.0` plus enforced per-model floors.
+
 ---
 
 ## [2.2.0] — 2026-10-29

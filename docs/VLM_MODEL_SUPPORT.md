@@ -4,9 +4,9 @@ description: "Choose and run supported vision-language models in MATA, including
 sidebar_position: 5
 ---
 
-# VLM Model Support (v1.9.8)
+# VLM Model Support
 
-> **MATA** — Vision-Language Model compatibility reference for v1.9.7.  
+> **MATA** — Vision-Language Model compatibility reference.  
 > All models are loaded via `AutoModelForImageTextToText` (HuggingFace Transformers ≥ 4.51.0; ≥ 5.0.0 recommended for full multi-model support).
 
 ---
@@ -255,7 +255,7 @@ for encoder-decoder models so decoded output is complete.
 ### PaliGemma 2 (Document Understanding) | Gated Repository
 
 Google's PaLI-Gemma 2 model family, strong at document understanding, fine-grained recognition,
-and chart/table parsing. Tested and working in MATA v1.9.7.
+and chart/table parsing. Tested and working in MATA.
 
 ```python
 vlm = mata.load("vlm", "google/paligemma2-3b-pt-224", dtype="bfloat16")
@@ -277,7 +277,7 @@ Run `huggingface-cli login` and accept the licence before first use.
 
 ### Phi-3.5 Vision (Code / Diagrams) — Deferred
 
-> ❌ **Phi-3.5 Vision is deferred from MATA v1.9.7 on Windows.**  
+> ❌ **Phi-3.5 Vision is deferred on Windows.**  
 > Loading `microsoft/Phi-3.5-vision-instruct` requires **FlashAttention2** (`flash-attn ≥ 1.0.3`)
 > for meta-device support under Accelerate. Pre-built wheels for FlashAttention2 are not
 > available on Windows. The model will be validated and enabled in a future release after
@@ -306,7 +306,7 @@ FlashAttention2 build.
 
 ### InternVL2 (Not Supported)
 
-> ❌ **InternVL2 is not supported in MATA v1.9.7.**  
+> ❌ **InternVL2 is not supported.**  
 > The model's custom `__init__` calls `Tensor.item()` during construction, which is
 > incompatible with Accelerate's meta-device dispatch (`device_map`). Loading without
 > `device_map` also fails because neither `AutoModel` nor `AutoModelForCausalLM` can
@@ -361,7 +361,7 @@ result = vlm.predict("image.jpg", prompt="Describe this image.")
 
 ### DeepSeek OCR (Deferred)
 
-`deepseek-ai/DeepSeek-OCR-2` is deferred from v1.9.7. The model depends on **FlashAttention2**
+`deepseek-ai/DeepSeek-OCR-2` is deferred. The model depends on **FlashAttention2**
 (`flash-attn`), which has no stable pre-built wheel for Windows. Attempting to load it on Windows
 raises an `ImportError`.
 
@@ -567,7 +567,7 @@ model will fall back to standard attention automatically.
 
 ### Q: Does MATA support API-based VLMs (GPT-4o, Gemini, Claude)?
 
-Not in v1.9.7. The current VLM adapter is designed for locally-loaded HuggingFace models that use
+Not supported yet. The current VLM adapter is designed for locally-loaded HuggingFace models that use
 `AutoModelForImageTextToText`. API-based VLMs are planned for a future release (v2.0 target).
 
 ---
@@ -613,6 +613,3 @@ Note: Bounding-box output quality depends heavily on the model. Qwen3-VL has the
 support. Other models may return rough or non-standard coordinate formats — MATA's coordinate
 scaling heuristic handles [0,1] normalized, ~1000-unit, and raw pixel coords automatically.
 
----
-
-_Last updated: 2026-04-02 — MATA v1.9.7_

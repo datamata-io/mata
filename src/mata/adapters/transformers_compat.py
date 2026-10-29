@@ -3,13 +3,16 @@
 Some checkpoints are only supported from a specific transformers release
 (e.g. a model merged upstream in 5.21, or a checkpoint that ships custom code
 requiring a newer API). MATA keeps the global pin in ``pyproject.toml`` wide
-and gates individual models here instead.
+and gates individual models here instead. A missing floor means the model is
+expected to work on the base pin; an entry here is enforced with a
+``ModelLoadError`` before any weights are fetched.
 """
 
 from __future__ import annotations
 
-# model id -> minimum transformers version
+# model id -> minimum transformers version, enforced before the model is loaded
 MIN_TRANSFORMERS: dict[str, str] = {
+    "google/gemma-4-E2B-it": "5.5.0",
     "LiquidAI/LFM3-VL-2B": "5.21.0",
     "openbmb/MiniCPM-OCR-1.0": "5.21.0",
 }

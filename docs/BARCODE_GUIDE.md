@@ -6,8 +6,6 @@ sidebar_position: 8
 
 # MATA Barcode & QR Code Guide
 
-> **Version**: 1.9.3 | **Last Updated**: April 3, 2026
-
 MATA's `barcode` task decodes QR codes, linear barcodes, and 2D symbologies from images. Two backends are supported — **pyzbar** (based on libzbar) and **zxing** (based on zxing-cpp) — through a unified adapter interface.
 
 ---
@@ -343,6 +341,4 @@ for region in result.barcodes:
 
 ---
 
-**Version:** 1.9.3
-**Date:** April 3, 2026
 **Status:** ✅ Production Ready

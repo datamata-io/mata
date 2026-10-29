@@ -1005,6 +1005,4 @@ python examples/segment/grounding_sam_pipeline.py
 
 ---
 
-**Version:** 1.5.0  
-**Last Updated:** February 4, 2026  
 **Status:** Complete
