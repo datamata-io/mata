@@ -1183,9 +1183,7 @@ class TestVLMReasoningHandling:
         assert answer == "A red circle."
         assert reasoning is None
 
-    def test_predict_strips_reasoning_by_default(
-        self, mock_transformers_vlm, mock_pytorch_base, sample_image
-    ):
+    def test_predict_strips_reasoning_by_default(self, mock_transformers_vlm, mock_pytorch_base, sample_image):
         mock_transformers_vlm["processor"].batch_decode = lambda *a, **k: ["thinking hard</think>A cat."]
         adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
 
@@ -1194,9 +1192,7 @@ class TestVLMReasoningHandling:
         assert result.text == "A cat."
         assert "reasoning" not in result.meta
 
-    def test_predict_include_reasoning_exposes_meta(
-        self, mock_transformers_vlm, mock_pytorch_base, sample_image
-    ):
+    def test_predict_include_reasoning_exposes_meta(self, mock_transformers_vlm, mock_pytorch_base, sample_image):
         mock_transformers_vlm["processor"].batch_decode = lambda *a, **k: ["thinking hard</think>A cat."]
         adapter = HuggingFaceVLMAdapter("Qwen/Qwen3-VL-2B-Instruct")
 

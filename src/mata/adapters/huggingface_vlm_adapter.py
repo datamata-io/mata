@@ -69,8 +69,8 @@ def _ensure_transformers():
     global _transformers, TRANSFORMERS_AVAILABLE
     if _transformers is None:
         try:
-            from transformers import AutoProcessor
             import transformers as _transformers_pkg
+            from transformers import AutoProcessor
 
             _version = getattr(_transformers_pkg, "__version__", "0.0.0")
 
