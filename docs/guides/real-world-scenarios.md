@@ -1400,7 +1400,7 @@ defect_detect_classify(
 ### Documentation
 
 - **Main README**: [README.md](https://github.com/datamata-io/mata/blob/main/README.md)
-- **Graph System Guide**: [docs/GRAPH_SYSTEM_GUIDE.md](./GRAPH_SYSTEM_GUIDE.md)
+- **Graph System Guide**: [docs/GRAPH_SYSTEM_GUIDE.md](/graph/system-guide)
 - **Example Scripts**: [examples/graph/scenarios/](https://github.com/datamata-io/mata/blob/main/examples/graph/scenarios/)
 - **Preset API Reference**: [src/mata/presets/](https://github.com/datamata-io/mata/blob/main/src/mata/presets/)
 

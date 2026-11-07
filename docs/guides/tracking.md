@@ -207,7 +207,7 @@ bridge2 = ReIDBridge("valkey://localhost:6379", camera_id="cam-2")
 # Embeddings from cam-1 are queryable cross-camera with cosine similarity
 ```
 
-See [Valkey Guide](./VALKEY_GUIDE.md) for Valkey/Redis setup and configuration.
+See [Valkey Guide](/guides/valkey) for Valkey/Redis setup and configuration.
 
 ## CLI
 

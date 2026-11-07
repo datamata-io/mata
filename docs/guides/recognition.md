@@ -582,8 +582,8 @@ mata recognize query.jpg --gallery persons.npz --json
 
 ## See Also
 
-- [CLIP Quick Start](./CLIP_QUICK_START.md) — zero-shot classification with CLIP
-- [Tracking Guide](./TRACKING_GUIDE.md) — multi-object tracking with ReID
-- [Graph Cookbook](./GRAPH_COOKBOOK.md) — pipeline composition recipes
-- [Valkey Guide](./VALKEY_GUIDE.md) — cross-camera embedding sharing
-- [Graph API Reference](./GRAPH_API_REFERENCE.md) — full node reference
+- [CLIP Quick Start](/guides/clip) — zero-shot classification with CLIP
+- [Tracking Guide](/guides/tracking) — multi-object tracking with ReID
+- [Graph Cookbook](/graph/cookbook) — pipeline composition recipes
+- [Valkey Guide](/guides/valkey) — cross-camera embedding sharing
+- [Graph API Reference](/graph/api-reference) — full node reference

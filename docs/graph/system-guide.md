@@ -708,5 +708,5 @@ from mata.core.exceptions import (
 
 ## Further Reading
 
-- [API Reference](./GRAPH_API_REFERENCE.md) — Complete reference for all nodes, artifacts, and APIs
-- [Cookbook](./GRAPH_COOKBOOK.md) — Recipes and patterns for common workflows
+- [API Reference](/graph/api-reference) — Complete reference for all nodes, artifacts, and APIs
+- [Cookbook](/graph/cookbook) — Recipes and patterns for common workflows

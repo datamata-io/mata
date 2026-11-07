@@ -7,10 +7,11 @@ description: "MATA Training Guide — MATA documentation."
 > **Module**: `mata.training`  
 > **API**: `mata.train()`, `mata.finetune()`
 
-> [!WARNING]
-> **Beta Feature** — `mata.train()` and `mata.finetune()` are beta.
-> The API surface is stable but internal behavior may change in a minor release.
-> Report issues at [github.com/datamata-io/mata/issues](https://github.com/datamata-io/mata/issues).
+:::warning
+**Beta Feature** — `mata.train()` and `mata.finetune()` are beta.
+The API surface is stable but internal behavior may change in a minor release.
+Report issues at [github.com/datamata-io/mata/issues](https://github.com/datamata-io/mata/issues).
+:::
 
 Train and fine-tune computer vision models directly within the MATA framework — no third-party training loops required.
 
@@ -1006,6 +1007,6 @@ See the `examples/train/` directory for complete, runnable scripts:
 
 ## Related Documentation
 
-- [VALIDATION_GUIDE.md](VALIDATION_GUIDE.md) — full `mata.val()` reference
+- [VALIDATION_GUIDE.md](/validation) — full `mata.val()` reference
 - [examples/configs/training_detect.yaml](https://github.com/datamata-io/mata/blob/main/examples/configs/training_detect.yaml) — detection config reference
 - [examples/configs/training_classify.yaml](https://github.com/datamata-io/mata/blob/main/examples/configs/training_classify.yaml) — classification config reference

@@ -62,7 +62,7 @@ Before diving into code, it helps to understand three concepts:
 
 **Model packs** — A model pack is a versioned bundle containing weights, config, class labels, and metadata. The `datamata pull` command downloads a pack from the registry; any MATA node or MATAVISION runtime can load it directly.
 
-**MATA Graph** — A directed acyclic graph where each node is a model, transform, or I/O operation. The graph engine handles execution order, parallelism, and error handling. See [MATA Graph concepts](/docs/concepts/mata-graph).
+**MATA Graph** — A directed acyclic graph where each node is a model, transform, or I/O operation. The graph engine handles execution order, parallelism, and error handling. See [MATA Graph concepts](/concepts/mata-graph).
 
 **Outputs and schemas** — All node outputs are typed. A detection node always returns a `DetectionResult` with bounding boxes, confidence scores, and class labels. This makes chaining nodes safe and avoids runtime surprises.
 
@@ -83,11 +83,11 @@ results = model.predict("image.jpg")
 results.annotate().save("output.jpg")
 ```
 
-See the full [Quickstart guide](/docs/getting-started/quickstart) for multi-model pipelines and streaming examples.
+See the full [Quickstart guide](/getting-started/quickstart) for multi-model pipelines and streaming examples.
 
 ## Next steps
 
-- [Install datamata](/docs/getting-started/install)
-- [Quickstart guide](/docs/getting-started/quickstart)
-- [MATA Graph concepts](/docs/concepts/mata-graph)
-- [Model Zoo](/models) — browse KACA model packs
+- [Install datamata](/getting-started/install)
+- [Quickstart guide](/getting-started/quickstart)
+- [MATA Graph concepts](/concepts/mata-graph)
+- [Model Zoo](/reference/supported-models) — browse KACA model packs

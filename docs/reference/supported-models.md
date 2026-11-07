@@ -67,7 +67,7 @@ same preprocessing the exporters train with: aspect-preserving letterbox,
 
 `device="cuda"` raises `ConfigurationError` when onnxruntime has no CUDA
 provider; use `device="auto"` to allow a CPU fallback. See
-[YOLO ONNX Parity](benchmarks/YOLO_ONNX_PARITY.md) for the measurement protocol.
+[YOLO ONNX Parity](https://github.com/datamata-io/mata/blob/main/benchmarks/YOLO_ONNX_PARITY.md) for the measurement protocol.
 
 ## Image Classification
 
@@ -123,7 +123,7 @@ provider; use `device="auto"` to allow a CPU fallback. See
 | **Phi-3.5 Vision** | `microsoft/Phi-3.5-vision-instruct`   | `dtype="bfloat16"`, `trust_remote_code=True` | Code / diagrams — ❌ Deferred (FlashAttention2 — Linux only) |
 | **InternVL2**      | `OpenGVLab/InternVL2-1B`              | `trust_remote_code=True`                     | ❌ Not supported (Accelerate meta-device incompatible)       |
 
-See [VLM Model Support](./VLM_MODEL_SUPPORT.md) for the full compatibility table.
+See [VLM Model Support](/guides/vlm) for the full compatibility table.
 
 ## OCR / Text Extraction
 

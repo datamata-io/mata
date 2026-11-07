@@ -15,12 +15,15 @@ jobs:
         working-directory: docsite
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.30.0"
       - uses: actions/setup-node@v4
         with:
           node-version: "22.19"
-          cache: npm
-          cache-dependency-path: docsite/package-lock.json
-      - run: npm ci
-      - run: npm run audit:content
-      - run: npm run build
-      - run: npm run validate
+          cache: pnpm
+          cache-dependency-path: docsite/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run audit:content
+      - run: pnpm build
+      - run: pnpm validate

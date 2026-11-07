@@ -24,4 +24,4 @@ Writing rules:
 - Links to repository files (examples, scripts) must be full GitHub URLs.
 - `plans/` and `benchmarks/` are excluded from the site: they are internal research, not documentation.
 - Known content gaps (pages whose examples do not match the shipped API) are tracked in
-  [`../docsite/CONTENT-GAPS.md`](../docsite/CONTENT-GAPS.md).
+  [`../docsite/CONTENT-GAPS.md`](https://github.com/datamata-io/mata/blob/main/docsite/CONTENT-GAPS.md).

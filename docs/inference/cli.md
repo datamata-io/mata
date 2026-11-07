@@ -328,7 +328,7 @@ mata annotate \
     --embed-model openai/clip-vit-base-patch32
 ```
 
-Use `Ctrl+C` to stop the server when running in the foreground. For the full browser workflow, dataset layouts, export steps, and training notes, see [ANNOTATION_GUIDE.md](ANNOTATION_GUIDE.md).
+Use `Ctrl+C` to stop the server when running in the foreground. For the full browser workflow, dataset layouts, export steps, and training notes, see [ANNOTATION_GUIDE.md](/guides/annotation).
 
 ---
 

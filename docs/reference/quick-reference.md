@@ -18,16 +18,11 @@ description: "Load from HuggingFace (recommended) — MATA documentation."
 | [VLM Agent Mode](#-vlm-agent-mode-quick-reference-v17)                         | v1.7    |
 | [Object Tracking](#-object-tracking-quick-reference-v18)                       | v1.8    |
 | [OCR / Text Extraction](#-ocr--text-extraction-quick-reference-v19)            | v1.9    |
-| [Feature Embedding](#-feature-embedding-quick-reference-v192b2)                | v1.9.2  |
 | [Barcode & QR Code](#-barcode--qr-code-quick-reference-v193)                   | v1.9.3  |
 | [Notebook Display](#-jupyter-notebook-display-quick-reference-v194)            | v1.9.4  |
 | [CLI Reference](#-cli-quick-reference-v195)                                    | v1.9.5  |
-| [Recognition / Gallery](#-recognition--gallery-quick-reference-v195)           | v1.9.5  |
-| [Graph Control Flow](#️-graph-control-flow-quick-reference-v195)                | v1.9.5  |
-| [Video Semantic Search (X-CLIP)](#-video-semantic-search-quick-reference-v196) | v1.9.6  |
 | [Video Search Nodes](#-video-search-graph-nodes-quick-reference-v197)          | v1.9.7  |
 | [Evaluation](#-evaluation-quick-reference-v18)                                 | v1.8    |
-| [Valkey/Redis Storage](#-valkeyredis-storage-quick-reference-v19)              | v1.9    |
 
 ---
 
@@ -197,11 +192,11 @@ detector = mata.load("detect", "production-model")
 
 ## 📚 Documentation
 
-- **Examples:** [examples/](examples/)
-- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-- **Graph System:** [GRAPH_API_REFERENCE.md](docs/GRAPH_API_REFERENCE.md)
-- **VLM Agent:** [VLM_TOOL_CALLING_SUMMARY.md](docs/VLM_TOOL_CALLING_SUMMARY.md)
-- **Tracking:** [TRACKING_GUIDE.md](docs/TRACKING_GUIDE.md)
+- **Examples:** [examples/](https://github.com/datamata-io/mata/blob/main/examples/)
+- **Changelog:** [CHANGELOG.md](https://github.com/datamata-io/mata/blob/main/CHANGELOG.md)
+- **Graph System:** [GRAPH_API_REFERENCE.md](/graph/api-reference)
+- **VLM Agent:** [VLM_TOOL_CALLING_SUMMARY.md](https://github.com/datamata-io/mata/blob/main/docs/VLM_TOOL_CALLING_SUMMARY.md)
+- **Tracking:** [TRACKING_GUIDE.md](/guides/tracking)
 
 ---
 
@@ -342,7 +337,7 @@ result = mata.infer(
 )
 ```
 
-**Documentation:** [GRAPH_API_REFERENCE.md](docs/GRAPH_API_REFERENCE.md) · [GRAPH_COOKBOOK.md](docs/GRAPH_COOKBOOK.md) · [examples/graph/](examples/graph/)
+**Documentation:** [GRAPH_API_REFERENCE.md](/graph/api-reference) · [GRAPH_COOKBOOK.md](/graph/cookbook) · [examples/graph/](https://github.com/datamata-io/mata/blob/main/examples/graph/)
 
 ---
 
@@ -760,7 +755,7 @@ models:
       use_softmax: true
 ```
 
-**Documentation:** [CLIP_QUICK_START.md](docs/CLIP_QUICK_START.md)
+**Documentation:** [CLIP_QUICK_START.md](/guides/clip)
 
 ### Segmentation Overlays
 
@@ -802,7 +797,7 @@ result.save("objects.png", crop_dir="objects")  # For dataset creation
 print(f"Processed: {result.get_input_path()}")
 ```
 
-**Documentation:** See [GRAPH_API_REFERENCE.md](docs/GRAPH_API_REFERENCE.md) for complete save/export API reference
+**Documentation:** See [GRAPH_API_REFERENCE.md](/graph/api-reference) for complete save/export API reference
 
 ---
 
@@ -1095,7 +1090,7 @@ models:
       system_prompt: "You are a quality control inspector. Be precise and technical."
 ```
 
-**Documentation:** [VLM_TOOL_CALLING_SUMMARY.md](docs/VLM_TOOL_CALLING_SUMMARY.md), [basic_vlm.py](examples/vlm/basic_vlm.py)
+**Documentation:** [VLM_TOOL_CALLING_SUMMARY.md](https://github.com/datamata-io/mata/blob/main/docs/VLM_TOOL_CALLING_SUMMARY.md), [basic_vlm.py](https://github.com/datamata-io/mata/blob/main/examples/vlm/basic_vlm.py)
 
 ---
 
@@ -1195,7 +1190,7 @@ AgentResult → Detections artifact (accumulated across all tool calls)
 | `max_iterations` | `int`       | `5`       | Safety cap on agent loop iterations                         |
 | `on_error`       | `str`       | `"retry"` | Error recovery: `"retry"`, `"skip"`, `"fail"`               |
 
-**Documentation:** [VLM_TOOL_CALLING_SUMMARY.md](docs/VLM_TOOL_CALLING_SUMMARY.md) · [examples/](examples/)
+**Documentation:** [VLM_TOOL_CALLING_SUMMARY.md](https://github.com/datamata-io/mata/blob/main/docs/VLM_TOOL_CALLING_SUMMARY.md) · [examples/](https://github.com/datamata-io/mata/blob/main/examples/)
 
 ---
 
@@ -1468,7 +1463,7 @@ embs.embedding_dim  # 512
 
 **Test suite:** `tests/test_embeddings_artifact.py` (25) · `tests/test_embed_adapter.py` (22) · `tests/test_embed_api.py` (25) · `tests/test_embed_node.py` (24) — **96 tests total**
 
-**Example:** [examples/inference/embedding.py](examples/inference/embedding.py)
+**Example:** [examples/inference/embedding.py](https://github.com/datamata-io/mata/blob/main/examples/inference/embedding.py)
 
 ### Graph Node Integration
 
@@ -1510,7 +1505,7 @@ result = mata.infer("video.mp4", crowd_monitoring_botsort(), providers={...})
 
 **Test suites:** `tests/test_trackers/` (354) · `tests/test_tracking_adapter.py` (73) · `tests/test_track_api.py` (62) · `tests/test_tracking_visualization.py` (103) · `tests/test_video_io.py` (56) — **687 tracking tests total**
 
-**Documentation:** [TRACKING_GUIDE.md](docs/TRACKING_GUIDE.md) · [examples/track/](examples/track/)
+**Documentation:** [TRACKING_GUIDE.md](/guides/tracking) · [examples/track/](https://github.com/datamata-io/mata/blob/main/examples/track/)
 
 ---
 
@@ -1530,7 +1525,7 @@ result = mata.train("detect", model="facebook/detr-resnet-50", data="data/coco/"
 result = mata.finetune("detect", model="facebook/detr-resnet-50", data="data/coco/")
 ```
 
-See [TRAINING_GUIDE.md](docs/TRAINING_GUIDE.md) for details. The training API is stable but internal behavior may change in v2.1.0.
+See [TRAINING_GUIDE.md](/training/guide) for details. The training API is stable but internal behavior may change in v2.1.0.
 
 ### Load backends
 
@@ -1665,7 +1660,7 @@ result = mata.infer(graph, image="form.jpg", providers={
 })
 ```
 
-**Documentation:** [OCR Architecture Summary](docs/OCR_IMPLEMENTATION_SUMMARY.md)
+**Documentation:** [OCR Architecture Summary](https://github.com/datamata-io/mata/blob/main/docs/OCR_IMPLEMENTATION_SUMMARY.md)
 
 ---
 
@@ -1796,7 +1791,7 @@ result = mata.infer(graph, image="shelf.jpg", providers={
 
 **Test suites:** `tests/test_barcode_adapter.py` (60+) · `tests/test_barcode_node.py` (40+) · `tests/test_barcode_integration.py` (25+) — **~125 barcode tests total**
 
-**Example:** [examples/barcode/basic_scan.py](examples/barcode/basic_scan.py)
+**Example:** [examples/barcode/basic_scan.py](https://github.com/datamata-io/mata/blob/main/examples/barcode/basic_scan.py)
 
 ---
 
@@ -1878,7 +1873,7 @@ pip install matplotlib
 pip install pillow
 ```
 
-**Notebook:** [examples/notebooks/](examples/notebooks/)
+**Notebook:** [examples/notebooks/](https://github.com/datamata-io/mata/blob/main/examples/notebooks/)
 
 ---
 
@@ -1948,7 +1943,7 @@ metrics = mata.val(
 | `save_dir`     | `str`            | `""`       | Output directory for plots                       |
 | `split`        | `str`            | `"val"`    | Dataset split: `"val"`, `"test"`, `"train"`      |
 
-**Documentation:** [Validation Guide](docs/VALIDATION_GUIDE.md)
+**Documentation:** [Validation Guide](/validation)
 
 ---
 
@@ -2058,7 +2053,7 @@ conn = registry.get_valkey_connection("production")
 # → {"url": "valkey://...", "password": "<from env>", "tls": True}
 ```
 
-**Documentation:** [Graph API Reference — Storage Nodes](docs/GRAPH_API_REFERENCE.md#storage-nodes)
+**Documentation:** [Graph API Reference — Storage Nodes](/graph/api-reference#storage-nodes)
 
 ---
 
@@ -2117,7 +2112,7 @@ mata val segment --data coco.yaml --model facebook/mask2former-swin-tiny-coco-in
 | `--top-k INT`        | Top-K matches                               | recognize      |
 | `--threshold FLOAT`  | Min cosine similarity                       | recognize      |
 
-**Examples:** [examples/cli/](examples/cli/)
+**Examples:** [examples/cli/](https://github.com/datamata-io/mata/blob/main/examples/cli/)
 
 ---
 
@@ -2243,7 +2238,7 @@ from mata.core.graph import EarlyExit, EarlyExitException, While  # core
 ```
 
 **Tests:** `tests/test_graph_control_flow.py`
-**Notebook:** [examples/notebooks/12_graph_control_flow.ipynb](examples/notebooks/12_graph_control_flow.ipynb)
+**Notebook:** [examples/notebooks/12_graph_control_flow.ipynb](https://github.com/datamata-io/mata/blob/main/examples/notebooks/12_graph_control_flow.ipynb)
 
 ---
 

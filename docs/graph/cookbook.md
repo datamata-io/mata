@@ -1395,9 +1395,9 @@ masks = ctx.retrieve("masks")
 
 ## Further Reading
 
-- [Architecture Guide](./GRAPH_SYSTEM_GUIDE.md) — System design and concepts
-- [API Reference](./GRAPH_API_REFERENCE.md) — Complete API documentation
-- [Migration Guide](./MIGRATION_GUIDE.md) — Upgrading from v1.5
+- [Architecture Guide](/graph/system-guide) — System design and concepts
+- [API Reference](/graph/api-reference) — Complete API documentation
+- [Migration Guide](/migration) — Upgrading from v1.5
 
 ---
 
@@ -1554,7 +1554,7 @@ for match_entry in result.matches:
 - `top_k=1` returns the single best identity per embedding; increase for top-N ranked results.
 - `threshold` filters out low-confidence matches; unmatched instances have `match_entry.label == "unknown"`.
 - Use `mata.run("recognize", image, gallery=gallery, model="openai/clip-vit-base-patch32")` for the one-liner equivalent.
-- See [Recognition API Reference](./GRAPH_API_REFERENCE.md#recognition-nodes-v195) for full `GalleryMatchNode` docs.
+- See [Recognition API Reference](/graph/api-reference#recognition-nodes-v195) for full `GalleryMatchNode` docs.
 
 ---
 
@@ -1699,4 +1699,4 @@ print("Search matches:", result["search_results"][0].matches)
 
 - `IndexVideo` and `EmbeddingSearch` consume `VideoPath` / `VideoIndexData` artifacts; `Detect` consumes image artifacts — they can share a graph without conflict.
 - Use `mata.infer(video=..., image=..., ...)` when supplying both video and image inputs.
-- See [Video Search Nodes API Reference](./GRAPH_API_REFERENCE.md#video-search-nodes-v197) for full parameter tables.
+- See [Video Search Nodes API Reference](/graph/api-reference#video-search-nodes-v197) for full parameter tables.

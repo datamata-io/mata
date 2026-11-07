@@ -203,7 +203,7 @@ if scene_result.top1.label_name == "outdoor":
 
 **Documentation:**
 
-- Classification: [CLIP_QUICK_START.md](./CLIP_QUICK_START.md)
+- Classification: [CLIP_QUICK_START.md](/guides/clip)
 - Detection: This guide (ZEROSHOT_DETECTION_GUIDE.md)
 
 ---
@@ -995,7 +995,7 @@ python examples/segment/grounding_sam_pipeline.py
 
 ## Further Reading
 
-- [MATA Quick Reference](/docs/reference/quick-reference)
+- [MATA Quick Reference](/reference/quick-reference)
 - [API Documentation](https://github.com/datamata-io/mata/blob/main/README.md)
 
 **Research Papers:**

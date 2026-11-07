@@ -7,7 +7,7 @@
     "build": "blume build",
     "validate": "blume validate --strict",
     "audit:content": "node scripts/audit.mjs",
-    "check": "npm run audit:content && npm run build && npm run validate"
+    "check": "pnpm run audit:content && pnpm build && pnpm validate"
   },
   "devDependencies": {
     "blume": "2.2.4"

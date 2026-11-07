@@ -813,7 +813,7 @@ result.save("valkey://localhost:6379/track:latest", ttl=30)
 
 ## See Also
 
-- [Graph API Reference — Storage Nodes](./GRAPH_API_REFERENCE.md#storage-nodes) — full parameter reference for `ValkeyStore` and `ValkeyLoad`
-- [QUICK_REFERENCE.md — Valkey section](/docs/reference/quick-reference#️-valkeyredis-storage-quick-reference-v19) — cheatsheet
+- [Graph API Reference — Storage Nodes](/graph/api-reference#storage-nodes) — full parameter reference for `ValkeyStore` and `ValkeyLoad`
+- [QUICK_REFERENCE.md — Valkey section](/reference/quick-reference) — cheatsheet
 - [Valkey official documentation](https://valkey.io/documentation/)
-- [MATA Validation Guide](./VALIDATION_GUIDE.md)
+- [MATA Validation Guide](/validation)
