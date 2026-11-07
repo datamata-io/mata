@@ -1,0 +1,93 @@
+---
+title: "Overview"
+description: "An introduction to datamata — what it is, who it's for, and how the products fit together."
+sidebar:
+  order: 1
+---
+
+# Overview
+
+datamata is an open-source suite of tools for building, running, and scaling computer vision systems in production. It provides a modular stack — from compact detection models through graph-based orchestration to a full pipeline runtime — so teams can pick the parts they need without being locked into a monolithic framework.
+
+## Why datamata?
+
+Most computer vision projects start with a research model and end up with a tangle of inference scripts, format converters, and hardware-specific hacks. datamata gives you:
+
+- **A common model format** (model packs) that works across runtimes — PyTorch, ONNX, TFLite — without rewrites.
+- **A graph abstraction** (MATA) that decouples pipeline logic from individual model implementations, so swapping a model in or out is a one-line change.
+- **Production-tuned models** (KACA) that are fast enough for real-time edge deployments and accurate enough for enterprise-grade detection.
+- **A complete runtime** (MATAVISION) with hardware acceleration and streaming support, so you are not stitching together OpenCV threads and asyncio queues by hand.
+
+## Products
+
+| Product | Role | When to use it |
+|---------|------|----------------|
+| **MATA** | Orchestration layer | You need to chain multiple models (detect → crop → classify) or run branching pipelines |
+| **KACA** | Detection model family | You need fast, accurate object detection or instance segmentation out of the box |
+| **MATAVISION** | End-to-end runtime | You want a production-ready server with streaming input, hardware acceleration, and output hooks |
+
+The three products are designed to compose: MATAVISION uses MATA graphs internally, and MATA nodes can load any KACA model pack directly.
+
+## Architecture overview
+
+```
+┌─────────────┐
+│  Your app   │
+└──────┬──────┘
+       │  MATAVISION client SDK  /  REST API
+┌──────▼──────────────────────────────────┐
+│            MATAVISION runtime            │
+│  ┌──────────────────────────────────┐   │
+│  │          MATA Graph engine        │   │
+│  │  SourceNode → ModelNode(KACA) →  │   │
+│  │  PostprocessNode → OutputNode    │   │
+│  └──────────────────────────────────┘   │
+│  Hardware backends: CUDA / CoreML / CPU  │
+└──────────────────────────────────────────┘
+```
+
+## Who is datamata for?
+
+**ML engineers deploying to production** — You have a trained model and need it running reliably at scale. datamata handles the inference server, batching, streaming, and output routing so you can focus on model quality.
+
+**Research teams running multi-model experiments** — MATA's graph API lets you define complex pipelines declaratively and swap components without changing surrounding code. Experiment faster without infrastructure tax.
+
+**Platform teams building vision-as-a-service** — MATAVISION exposes a REST API and webhook output hooks. Mount it behind a load balancer and you have a scalable vision microservice in minutes.
+
+**Edge and embedded deployments** — KACA Nano runs at >60 FPS on a Jetson Nano. ONNX and TFLite pack formats let you deploy to devices without PyTorch.
+
+## Core concepts
+
+Before diving into code, it helps to understand three concepts:
+
+**Model packs** — A model pack is a versioned bundle containing weights, config, class labels, and metadata. The `datamata pull` command downloads a pack from the registry; any MATA node or MATAVISION runtime can load it directly.
+
+**MATA Graph** — A directed acyclic graph where each node is a model, transform, or I/O operation. The graph engine handles execution order, parallelism, and error handling. See [MATA Graph concepts](/concepts/mata-graph).
+
+**Outputs and schemas** — All node outputs are typed. A detection node always returns a `DetectionResult` with bounding boxes, confidence scores, and class labels. This makes chaining nodes safe and avoids runtime surprises.
+
+## Quickstart
+
+The fastest path to running inference:
+
+```bash
+pip install datamata-kaca
+datamata pull kaca-nano
+```
+
+```python
+from datamata.kaca import KACA
+
+model = KACA.from_pack("kaca-nano")
+results = model.predict("image.jpg")
+results.annotate().save("output.jpg")
+```
+
+See the full [Quickstart guide](/getting-started/quickstart) for multi-model pipelines and streaming examples.
+
+## Next steps
+
+- [Install datamata](/getting-started/install)
+- [Quickstart guide](/getting-started/quickstart)
+- [MATA Graph concepts](/concepts/mata-graph)
+- [Model Zoo](/reference/supported-models) — browse KACA model packs

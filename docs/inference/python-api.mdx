@@ -1,0 +1,78 @@
+---
+title: "Python API"
+description: "Full reference for the datamata Python inference API — model loading, prediction, result handling."
+sidebar:
+  order: 2
+---
+
+# Python API
+
+## Loading a model
+
+```python
+from datamata.kaca import KACA
+
+# From a downloaded pack
+model = KACA.from_pack("kaca-nano")
+
+# With explicit runtime
+model = KACA.from_pack("kaca-nano", runtime="onnx")
+
+# With device selection
+model = KACA.from_pack("kaca-nano", device="cuda:0")
+```
+
+## Single-image prediction
+
+```python
+result = model.predict("image.jpg")
+# or with a PIL image / numpy array
+from PIL import Image
+result = model.predict(Image.open("image.jpg"))
+```
+
+## Batch prediction
+
+```python
+results = model.predict_batch(["a.jpg", "b.jpg"], batch_size=8)
+```
+
+## Confidence threshold
+
+```python
+result = model.predict("image.jpg", conf=0.5, iou=0.45)
+```
+
+## Result inspection
+
+```python
+for det in result.detections:
+    print(f"{det.label}: {det.confidence:.2f} @ {det.bbox}")
+
+# Convert to dict / JSON
+data = result.to_dict()
+
+# Annotate and save
+annotated = result.annotate()
+annotated.save("output.jpg")
+```
+
+## Model info
+
+```python
+print(model.info())
+# { slug, version, tasks, runtime, input_size, params }
+```
+
+## Context manager
+
+```python
+with KACA.from_pack("kaca-nano") as model:
+    result = model.predict("image.jpg")
+# model resources released automatically
+```
+
+## Next steps
+
+- [CLI](/inference/cli)
+- [Outputs and schemas](/concepts/outputs-and-schemas)

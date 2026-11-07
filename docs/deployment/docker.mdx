@@ -1,0 +1,100 @@
+---
+title: "Docker Deployment"
+description: "Package and deploy datamata models using Docker and Docker Compose."
+sidebar:
+  order: 2
+---
+
+# Docker Deployment
+
+## Official images
+
+```bash
+# CPU runtime
+docker pull ghcr.io/datamata/datamata:latest
+
+# CUDA GPU runtime
+docker pull ghcr.io/datamata/datamata:latest-cuda
+```
+
+## Quick start
+
+```bash
+docker run --rm -p 8080:8080 \
+  ghcr.io/datamata/datamata:latest \
+  serve kaca-nano
+```
+
+## Custom Dockerfile
+
+```dockerfile
+FROM ghcr.io/datamata/datamata:latest
+
+# Copy your model packs
+COPY models/ /root/.datamata/packs/
+
+# Set entrypoint to serve
+ENTRYPOINT ["datamata", "serve", "kaca-nano", "--port", "8080"]
+```
+
+## Docker Compose
+
+```yaml
+# docker-compose.yml
+version: "3.9"
+services:
+  vision-api:
+    image: ghcr.io/datamata/datamata:latest-cuda
+    command: serve kaca-nano --port 8080
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 3
+```
+
+## Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datamata-vision
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: datamata-vision
+  template:
+    metadata:
+      labels:
+        app: datamata-vision
+    spec:
+      containers:
+        - name: vision
+          image: ghcr.io/datamata/datamata:latest
+          command: ["datamata", "serve", "kaca-nano"]
+          ports:
+            - containerPort: 8080
+```
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `DATAMATA_PACK_DIR` | Override pack storage directory |
+| `DATAMATA_LOG_LEVEL` | `debug`, `info`, `warning`, `error` |
+| `DATAMATA_DEVICE` | `cpu`, `cuda`, `mps` |
+
+## Next steps
+
+- [Integrations](/integrations)

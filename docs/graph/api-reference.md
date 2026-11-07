@@ -1,0 +1,2607 @@
+---
+title: "Graph API"
+description: "Reference for graph builders, nodes, artifacts, execution options, and pipeline composition APIs."
+sidebar:
+  order: 1
+---
+
+# MATA Graph System — API Reference
+
+---
+
+## Table of Contents
+
+1. [Public API](#public-api)
+2. [Artifacts](#artifacts)
+3. [Built-in Nodes](#built-in-nodes)
+4. [Storage Nodes](#storage-nodes)
+5. [Recognition Nodes (v1.9.5)](#recognition-nodes-v195)
+6. [Video Search Nodes (v1.9.7)](#video-search-nodes-v197)
+7. [Graph Builder](#graph-builder)
+8. [Schedulers](#schedulers)
+9. [Execution Context](#execution-context)
+10. [Providers & Protocols](#providers--protocols)
+11. [Conditional Execution](#conditional-execution)
+12. [Temporal / Video](#temporal--video)
+13. [Observability](#observability)
+14. [DSL Helpers](#dsl-helpers)
+15. [Presets](#presets)
+16. [Converters & Utilities](#converters--utilities)
+
+---
+
+## Public API
+
+### `mata.infer()`
+
+Execute a multi-task graph on an image.
+
+```python
+def infer(
+    image: Union[str, Path, PIL.Image.Image, np.ndarray],
+    graph: Union[Graph, List[Node]],
+    providers: Dict[str, Any],
+    scheduler: SyncScheduler | ParallelScheduler | OptimizedParallelScheduler | None = None,
+    device: str = "auto",
+    **kwargs,
+) -> MultiResult
+```
+
+**Parameters:**
+
+| Parameter   | Type                                                                       | Default           | Description                                                                                              |
+| ----------- | -------------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `image`     | `str \| Path \| PIL.Image \| np.ndarray`                                   | _required_        | Input image (file path, PIL image, or numpy array)                                                       |
+| `graph`     | `Graph \| list[Node]`                                                      | _required_        | Graph object or list of nodes (auto-wrapped into Graph)                                                  |
+| `providers` | `dict[str, Any]`                                                           | _required_        | Provider instances keyed by name. Flat `{"name": adapter}` or nested `{"capability": {"name": adapter}}` |
+| `scheduler` | `SyncScheduler \| ParallelScheduler \| OptimizedParallelScheduler \| None` | `SyncScheduler()` | Execution strategy. Use `ParallelScheduler()` or `OptimizedParallelScheduler()` for concurrent stages    |
+| `device`    | `str`                                                                      | `"auto"`          | Device placement: `"auto"`, `"cuda"`, `"cpu"`                                                            |
+
+**Returns:** `MultiResult` with all task outputs accessible as attributes.
+
+**Raises:** `ValueError` (bad input), `ValidationError` (compilation failure), `RuntimeError` (execution failure).
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import Detect, Filter, Fuse
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+result = mata.infer(
+    image="test.jpg",
+    graph=[
+        Detect(using="detector", out="dets"),
+        Filter(src="dets", score_gt=0.3, out="filtered"),
+        Fuse(dets="filtered", out="final"),
+    ],
+    providers={"detector": detector},
+)
+print(result.final)
+```
+
+---
+
+## Artifacts
+
+All artifacts inherit from `Artifact` (frozen dataclass, immutable). Every artifact implements `to_dict()`, `from_dict()`, and optionally `validate()`.
+
+### `Image`
+
+Multi-format image container with lazy conversion.
+
+```python
+from mata.core.artifacts import Image
+```
+
+| Attribute      | Type                                      | Description                                 |
+| -------------- | ----------------------------------------- | ------------------------------------------- |
+| `data`         | `PIL.Image \| np.ndarray \| torch.Tensor` | Raw image data                              |
+| `width`        | `int`                                     | Image width in pixels                       |
+| `height`       | `int`                                     | Image height in pixels                      |
+| `color_space`  | `str`                                     | `"RGB"`, `"BGR"`, `"GRAY"`, `"L"`, `"RGBA"` |
+| `timestamp_ms` | `int \| None`                             | Unix timestamp (for video frames)           |
+| `frame_id`     | `str \| None`                             | Frame identifier (for video)                |
+| `source_path`  | `str \| None`                             | Original file path                          |
+
+**Factory methods:**
+
+| Method                                         | Description         |
+| ---------------------------------------------- | ------------------- |
+| `Image.from_path(path, color_space="RGB")`     | Load from disk      |
+| `Image.from_pil(pil_image)`                    | Wrap PIL image      |
+| `Image.from_numpy(array, color_space="RGB")`   | Wrap numpy array    |
+| `Image.from_tensor(tensor, color_space="RGB")` | Wrap PyTorch tensor |
+
+**Conversion methods:**
+
+| Method        | Returns        | Description                 |
+| ------------- | -------------- | --------------------------- |
+| `to_pil()`    | `PIL.Image`    | Convert to PIL (lazy)       |
+| `to_numpy()`  | `np.ndarray`   | Convert to numpy HWC uint8  |
+| `to_tensor()` | `torch.Tensor` | Convert to CHW float tensor |
+
+---
+
+### `Detections`
+
+Detection results with instance IDs and entity support.
+
+```python
+from mata.core.artifacts import Detections
+```
+
+| Attribute      | Type             | Description                                  |
+| -------------- | ---------------- | -------------------------------------------- |
+| `instances`    | `list[Instance]` | Spatial detections (bbox + label + score)    |
+| `instance_ids` | `list[str]`      | Stable IDs (auto-generated if empty)         |
+| `entities`     | `list[Entity]`   | Semantic detections from VLM (label + score) |
+| `entity_ids`   | `list[str]`      | Entity IDs (auto-generated if empty)         |
+| `meta`         | `dict`           | Optional metadata                            |
+
+**Properties:**
+
+| Property | Type                | Description                   |
+| -------- | ------------------- | ----------------------------- |
+| `boxes`  | `np.ndarray (N, 4)` | Bounding boxes in xyxy format |
+| `scores` | `np.ndarray (N,)`   | Confidence scores             |
+| `labels` | `list[str]`         | Label names                   |
+
+**Methods:**
+
+| Method                                | Returns        | Description                     |
+| ------------------------------------- | -------------- | ------------------------------- |
+| `from_vision_result(result)`          | `Detections`   | Convert from VisionResult       |
+| `to_vision_result()`                  | `VisionResult` | Convert back to VisionResult    |
+| `filter_by_score(threshold)`          | `Detections`   | Keep detections above threshold |
+| `filter_by_label(labels)`             | `Detections`   | Keep specified labels           |
+| `top_k(k)`                            | `Detections`   | Keep top K by score             |
+| `promote_entities(spatial, strategy)` | `Detections`   | Promote entities to instances   |
+
+---
+
+### `Masks`
+
+Per-instance segmentation masks with format conversion.
+
+```python
+from mata.core.artifacts import Masks
+```
+
+| Attribute      | Type             | Description                      |
+| -------------- | ---------------- | -------------------------------- |
+| `instances`    | `list[Instance]` | Instances with mask data         |
+| `instance_ids` | `list[str]`      | Stable IDs for cross-referencing |
+| `meta`         | `dict`           | Optional metadata                |
+
+**Methods:**
+
+| Method                       | Returns        | Description                     |
+| ---------------------------- | -------------- | ------------------------------- |
+| `from_vision_result(result)` | `Masks`        | Convert from VisionResult       |
+| `to_vision_result()`         | `VisionResult` | Convert back                    |
+| `to_rle()`                   | `Masks`        | Convert masks to RLE encoding   |
+| `to_polygons()`              | `Masks`        | Convert masks to polygon format |
+| `to_binary()`                | `Masks`        | Convert masks to binary arrays  |
+
+---
+
+### `Classifications`
+
+Sorted classification predictions.
+
+```python
+from mata.core.artifacts import Classifications
+```
+
+| Attribute     | Type                    | Description                        |
+| ------------- | ----------------------- | ---------------------------------- |
+| `predictions` | `tuple[Classification]` | Sorted predictions (label + score) |
+| `meta`        | `dict`                  | Optional metadata                  |
+
+**Properties:**
+
+| Property | Type                   | Description                   |
+| -------- | ---------------------- | ----------------------------- |
+| `top1`   | `Classification`       | Highest confidence prediction |
+| `top5`   | `list[Classification]` | Top 5 predictions             |
+| `labels` | `list[str]`            | All label names               |
+| `scores` | `list[float]`          | All scores                    |
+
+**Methods:**
+
+| Method                         | Returns           | Description                 |
+| ------------------------------ | ----------------- | --------------------------- |
+| `from_classify_result(result)` | `Classifications` | Convert from ClassifyResult |
+| `to_classify_result()`         | `ClassifyResult`  | Convert back                |
+| `to_json()`                    | `str`             | JSON serialization          |
+
+---
+
+### `DepthMap`
+
+Per-pixel depth estimation result.
+
+```python
+from mata.core.artifacts import DepthMap
+```
+
+| Attribute    | Type                 | Description                        |
+| ------------ | -------------------- | ---------------------------------- |
+| `depth`      | `np.ndarray (H, W)`  | Raw depth values                   |
+| `normalized` | `np.ndarray \| None` | Normalized [0, 1] depth (optional) |
+| `meta`       | `dict`               | Optional metadata                  |
+
+**Properties:**
+
+| Property | Type    | Description  |
+| -------- | ------- | ------------ |
+| `height` | `int`   | Map height   |
+| `width`  | `int`   | Map width    |
+| `shape`  | `tuple` | (H, W) shape |
+
+**Methods:**
+
+| Method                      | Returns       | Description              |
+| --------------------------- | ------------- | ------------------------ |
+| `from_depth_result(result)` | `DepthMap`    | Convert from DepthResult |
+| `to_depth_result()`         | `DepthResult` | Convert back             |
+
+---
+
+### `Keypoints`
+
+Per-instance keypoint arrays.
+
+```python
+from mata.core.artifacts import Keypoints
+```
+
+| Attribute      | Type                            | Description                         |
+| -------------- | ------------------------------- | ----------------------------------- |
+| `keypoints`    | `list[np.ndarray]`              | Each shape `(N, 3)` for x, y, score |
+| `instance_ids` | `list[str]`                     | Instance IDs                        |
+| `skeleton`     | `list[tuple[int, int]] \| None` | Skeleton connections                |
+| `meta`         | `dict`                          | Optional metadata                   |
+
+**Methods:**
+
+| Method                                  | Returns      | Description                     |
+| --------------------------------------- | ------------ | ------------------------------- |
+| `filter_by_visibility(threshold)`       | `Keypoints`  | Keep visible keypoints          |
+| `get_visible_keypoints(idx, threshold)` | `np.ndarray` | Get visible points for instance |
+| `count_visible(threshold)`              | `list[int]`  | Count visible per instance      |
+
+---
+
+### `Tracks`
+
+Temporal tracking results.
+
+```python
+from mata.core.artifacts import Tracks, Track
+```
+
+| `Track` Attribute | Type                  | Description                          |
+| ----------------- | --------------------- | ------------------------------------ |
+| `track_id`        | `int`                 | Unique track identifier              |
+| `bbox`            | `tuple[float, ...]`   | Bounding box (xyxy)                  |
+| `score`           | `float`               | Confidence score                     |
+| `label`           | `str`                 | Object label                         |
+| `age`             | `int`                 | Frames since creation                |
+| `state`           | `str`                 | `"active"`, `"lost"`, `"terminated"` |
+| `history`         | `list[tuple] \| None` | Historical positions                 |
+
+| `Tracks` Attribute | Type          | Description          |
+| ------------------ | ------------- | -------------------- |
+| `tracks`           | `list[Track]` | Current frame tracks |
+| `frame_id`         | `str`         | Frame identifier     |
+| `meta`             | `dict`        | Optional metadata    |
+
+**Methods:**
+
+| Method                      | Returns         | Description        |
+| --------------------------- | --------------- | ------------------ |
+| `get_active_tracks()`       | `Tracks`        | Active tracks only |
+| `get_lost_tracks()`         | `Tracks`        | Lost tracks        |
+| `get_terminated_tracks()`   | `Tracks`        | Terminated tracks  |
+| `get_track_by_id(track_id)` | `Track \| None` | Find by ID         |
+
+---
+
+### `CrossMatches`
+
+Cross-camera re-identification results produced by the `ReID` node.
+
+```python
+from mata.core.artifacts import CrossMatches, CrossMatch
+```
+
+#### `CrossMatch`
+
+Frozen dataclass representing a single cross-camera match.
+
+| Attribute          | Type                                        | Description                                                 |
+| ------------------ | ------------------------------------------- | ----------------------------------------------------------- |
+| `local_track_id`   | `int`                                       | Track ID in the current camera                              |
+| `remote_camera_id` | `str`                                       | Camera ID where the match was found                         |
+| `remote_track_id`  | `int`                                       | Track ID in the remote camera                               |
+| `similarity`       | `float`                                     | Cosine similarity score — must be in [0.0, 1.0]             |
+| `remote_bbox`      | `tuple[float, float, float, float] \| None` | Bounding box location in the remote camera (xyxy), optional |
+
+**Methods:**
+
+| Method            | Returns      | Description               |
+| ----------------- | ------------ | ------------------------- |
+| `to_dict()`       | `dict`       | Serialize to dictionary   |
+| `from_dict(data)` | `CrossMatch` | Construct from dictionary |
+
+#### `VideoPath`
+
+Frozen artifact wrapping a video file path. Enables auto-wiring of `input.video` in graph execution when using `mata.infer(video=...)` or `Graph.run(video=...)`.
+
+```python
+from mata.core.artifacts import VideoPath
+```
+
+| Attribute | Type   | Description                          |
+| --------- | ------ | ------------------------------------ |
+| `path`    | `str`  | Absolute or relative video file path |
+| `meta`    | `dict` | Optional provenance metadata         |
+
+**Methods:**
+
+| Method            | Returns     | Description                       |
+| ----------------- | ----------- | --------------------------------- |
+| `to_dict()`       | `dict`      | Serialize to JSON-compatible dict |
+| `from_dict(data)` | `VideoPath` | Reconstruct from dict             |
+
+**Example:**
+
+```python
+vp = VideoPath(path="dashcam.mp4")
+print(vp.path)  # "dashcam.mp4"
+```
+
+---
+
+### `VideoIndexData`
+
+Frozen artifact wrapping a `VideoIndex` instance. Produced by the `IndexVideo` node; consumed by `EmbeddingSearch` and any node doing similarity search over video frames.
+
+```python
+from mata.core.artifacts import VideoIndexData
+```
+
+| Attribute | Type         | Description                                      |
+| --------- | ------------ | ------------------------------------------------ |
+| `index`   | `VideoIndex` | Gallery + frame timing data from `index_video()` |
+| `meta`    | `dict`       | Optional provenance metadata                     |
+
+**Methods:**
+
+| Method            | Returns          | Description                                     |
+| ----------------- | ---------------- | ----------------------------------------------- |
+| `validate()`      | `None`           | Raises `ValueError` if `index` is `None`        |
+| `to_dict()`       | `dict`           | Serialize (delegates to `VideoIndex.to_dict()`) |
+| `from_dict(data)` | `VideoIndexData` | Reconstruct from dict                           |
+
+---
+
+### `SearchResults`
+
+Frozen artifact holding per-query video search results. Produced by the `EmbeddingSearch` node; one `QueryResult` entry per text query.
+
+```python
+from mata.core.artifacts import SearchResults, QueryResult
+```
+
+#### `QueryResult`
+
+Frozen dataclass for a single text query's matches.
+
+| Attribute | Type                | Description                                                 |
+| --------- | ------------------- | ----------------------------------------------------------- |
+| `query`   | `str`               | The natural-language text query string                      |
+| `matches` | `tuple[VideoMatch]` | Top-K `VideoMatch` results ordered by descending similarity |
+
+**`VideoMatch` attributes:**
+
+| Attribute    | Type    | Description                    |
+| ------------ | ------- | ------------------------------ |
+| `label`      | `str`   | Frame label / identifier       |
+| `similarity` | `float` | Cosine similarity score [0, 1] |
+| `index`      | `int`   | Frame index in the gallery     |
+| `start_s`    | `float` | Start timestamp in seconds     |
+| `end_s`      | `float` | End timestamp in seconds       |
+
+#### `SearchResults`
+
+| Attribute | Type                 | Description                                    |
+| --------- | -------------------- | ---------------------------------------------- |
+| `results` | `tuple[QueryResult]` | One `QueryResult` per query                    |
+| `meta`    | `dict`               | Optional provenance metadata (model, top_k, …) |
+
+**Methods & operators:**
+
+| Method / Op       | Returns         | Description                       |
+| ----------------- | --------------- | --------------------------------- |
+| `len(sr)`         | `int`           | Number of queries                 |
+| `for qr in sr`    | `QueryResult`   | Iterate over per-query results    |
+| `sr[i]`           | `QueryResult`   | Access by index                   |
+| `to_dict()`       | `dict`          | Serialize to JSON-compatible dict |
+| `from_dict(data)` | `SearchResults` | Reconstruct from dict             |
+
+**Example:**
+
+```python
+for qr in result["search_results"].results:
+    print(f'"{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+---
+
+### `CrossMatches`
+
+Artifact container for all cross-camera matches in a single frame.
+
+| Attribute   | Type               | Description                     |
+| ----------- | ------------------ | ------------------------------- |
+| `matches`   | `list[CrossMatch]` | All matches found in this frame |
+| `camera_id` | `str`              | ID of the originating camera    |
+| `meta`      | `dict`             | Optional metadata               |
+
+**Properties:**
+
+| Property            | Type       | Description                                           |
+| ------------------- | ---------- | ----------------------------------------------------- |
+| `matched_track_ids` | `set[int]` | Set of local track IDs that have a cross-camera match |
+
+**Methods:**
+
+| Method                             | Returns              | Description                                       |
+| ---------------------------------- | -------------------- | ------------------------------------------------- |
+| `__len__()`                        | `int`                | Number of matches in this artifact                |
+| `get_match(local_track_id)`        | `CrossMatch \| None` | First match for the given local track ID, or None |
+| `has_cross_camera(local_track_id)` | `bool`               | True if any match exists for the given track ID   |
+| `to_dict()`                        | `dict`               | Serialize to dictionary                           |
+| `from_dict(data)`                  | `CrossMatches`       | Construct from dictionary                         |
+
+**Validation:** `CrossMatch` raises `ValueError` if `similarity` is outside `[0.0, 1.0]` or if `remote_bbox` does not have exactly 4 values.
+
+**Example:**
+
+```python
+from mata.core.artifacts import CrossMatches, CrossMatch
+
+cm = CrossMatches(
+    matches=[
+        CrossMatch(
+            local_track_id=3,
+            remote_camera_id="cam-2",
+            remote_track_id=7,
+            similarity=0.92,
+            remote_bbox=(120.0, 80.0, 160.0, 200.0),
+        )
+    ],
+    camera_id="cam-1",
+)
+
+print(len(cm))                  # 1
+print(cm.has_cross_camera(3))   # True
+print(cm.matched_track_ids)     # {3}
+match = cm.get_match(3)
+print(match.remote_camera_id)   # "cam-2"
+print(cm.to_dict())             # {"matches": [...], "camera_id": "cam-1", ...}
+```
+
+---
+
+### `ROIs`
+
+Cropped image regions.
+
+```python
+from mata.core.artifacts import ROIs
+```
+
+| Attribute      | Type                              | Description           |
+| -------------- | --------------------------------- | --------------------- |
+| `roi_images`   | `list[PIL.Image \| np.ndarray]`   | Cropped image regions |
+| `instance_ids` | `list[str]`                       | Source instance IDs   |
+| `source_boxes` | `list[tuple[int, int, int, int]]` | Source bounding boxes |
+| `meta`         | `dict`                            | Optional metadata     |
+
+**Methods:**
+
+| Method                         | Returns            | Description             |
+| ------------------------------ | ------------------ | ----------------------- |
+| `get_roi_sizes()`              | `list[tuple]`      | (width, height) per ROI |
+| `get_roi_areas()`              | `list[int]`        | Area per ROI            |
+| `filter_by_size(min_w, min_h)` | `ROIs`             | Filter small ROIs       |
+| `to_numpy_list()`              | `list[np.ndarray]` | All as numpy            |
+| `to_pil_list()`                | `list[PIL.Image]`  | All as PIL              |
+
+---
+
+### `MultiResult`
+
+Channel-based result bundle from graph execution.
+
+```python
+from mata.core.artifacts import MultiResult
+```
+
+| Attribute    | Type                  | Description                            |
+| ------------ | --------------------- | -------------------------------------- |
+| `channels`   | `dict[str, Artifact]` | Named artifact channels                |
+| `provenance` | `dict`                | Model versions, graph hash, timestamps |
+| `metrics`    | `dict`                | Per-node timing and resource metrics   |
+| `meta`       | `dict`                | Additional metadata                    |
+
+**Dynamic attribute access:** `result.detections` → `result.channels["detections"]`
+
+**Methods:**
+
+| Method                       | Returns            | Description                 |
+| ---------------------------- | ------------------ | --------------------------- |
+| `has_channel(name)`          | `bool`             | Check channel existence     |
+| `get_channel(name, default)` | `Artifact \| None` | Get with default            |
+| `get_instance_artifacts(id)` | `dict`             | Cross-channel instance data |
+| `to_json()`                  | `str`              | Full JSON serialization     |
+| `to_dict()`                  | `dict`             | Dictionary representation   |
+
+---
+
+## Built-in Nodes
+
+All nodes are importable from `mata.nodes`.
+
+### Task Nodes
+
+#### `Detect`
+
+Run object detection via a provider.
+
+```python
+Detect(using: str, out: str = "dets", name: str = None, **kwargs)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Output | `detections` | `Detections` |
+
+Provider capability: `Detector.predict()`. Extra kwargs forwarded to predict (e.g., `threshold`, `nms_iou`, `text_prompts`).
+
+---
+
+#### `TiledDetect`
+
+Run detection over overlapping tiles and merge the results back into source-image coordinates.
+
+```python
+TiledDetect(
+    using: str,
+    out: str = "dets",
+    slice_size: tuple[int, int] | int = (640, 640),
+    overlap: float = 0.2,
+    include_full_image: bool = True,
+    iou_threshold: float = 0.5,
+    max_det: int | None = None,
+    merge: str = "nms",
+    name: str = None,
+    **kwargs,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Output | `detections` | `Detections` |
+
+Provider capability: `Detector.predict()`. Extra kwargs forwarded to every tile inference.
+
+Notes:
+
+- Edge tiles are shifted inward so they stay inside the image; no padding is added.
+- `include_full_image=True` adds one full-frame inference (useful for objects larger than a tile) and is skipped when the image already fits in one tile.
+- Detections are offset by the tile origin, then class-aware duplicate handling removes seam duplicates. `merge="nms"` (default) suppresses the lower-scoring box; `merge="nmm"` merges duplicates into a union box with the higher score. `max_det` caps the merged result.
+- Detection-only: tile-local masks and keypoints are dropped rather than returned in the wrong coordinate frame. Use `Detect` for single-pass inference.
+
+```python
+from mata.nodes import TiledDetect
+
+graph = Graph("tiled").then(
+    TiledDetect(using="detector", slice_size=(640, 640), overlap=0.2, out="dets")
+)
+```
+
+---
+
+#### `Classify`
+
+Run image classification via a provider.
+
+```python
+Classify(using: str, out: str = "classifications", name: str = None, **kwargs)
+```
+
+| I/O    | Name              | Type              |
+| ------ | ----------------- | ----------------- |
+| Input  | `image`           | `Image`           |
+| Output | `classifications` | `Classifications` |
+
+Provider capability: `Classifier.classify()`.
+
+---
+
+#### `SegmentImage`
+
+Run image segmentation via a provider.
+
+```python
+SegmentImage(using: str, out: str = "masks", name: str = None, **kwargs)
+```
+
+| I/O    | Name    | Type    |
+| ------ | ------- | ------- |
+| Input  | `image` | `Image` |
+| Output | `masks` | `Masks` |
+
+Provider capability: `Segmenter.segment()`.
+
+---
+
+#### `EstimateDepth`
+
+Run monocular depth estimation via a provider.
+
+```python
+EstimateDepth(using: str, out: str = "depth", name: str = None, **kwargs)
+```
+
+| I/O    | Name    | Type       |
+| ------ | ------- | ---------- |
+| Input  | `image` | `Image`    |
+| Output | `depth` | `DepthMap` |
+
+Provider capability: `DepthEstimator.estimate()`.
+
+---
+
+### Data Transform Nodes
+
+#### `Filter`
+
+Filter detections by score threshold and/or labels.
+
+```python
+Filter(
+    src: str = "dets",
+    out: str = "filtered",
+    score_gt: float = None,
+    label_in: list[str] = None,
+    label_not_in: list[str] = None,
+    fuzzy: bool = False,
+    name: str = None,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `detections` | `Detections` |
+| Output | `detections` | `Detections` |
+
+Filtering order: score → label_in → label_not_in. Instance IDs are preserved.
+
+---
+
+#### `TopK`
+
+Keep top K detections by confidence score.
+
+```python
+TopK(k: int, src: str = "dets", out: str = "topk", name: str = None)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `detections` | `Detections` |
+| Output | `detections` | `Detections` |
+
+---
+
+#### `ExtractROIs`
+
+Crop image regions from detection bounding boxes.
+
+```python
+ExtractROIs(
+    src_image: str = "image",
+    src_dets: str = "dets",
+    out: str = "rois",
+    padding: int = 0,
+    name: str = None,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Input  | `detections` | `Detections` |
+| Output | `rois`       | `ROIs`       |
+
+---
+
+#### `ExpandBoxes`
+
+Recompute bounding boxes from segmentation masks.
+
+```python
+ExpandBoxes(
+    src_dets: str = "dets",
+    src_masks: str = "masks",
+    out: str = "expanded",
+    name: str = None,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `detections` | `Detections` |
+| Input  | `masks`      | `Masks`      |
+| Output | `detections` | `Detections` |
+
+---
+
+### Prompt Nodes
+
+#### `PromptBoxes`
+
+Segment regions using detection bounding boxes as SAM prompts.
+
+```python
+PromptBoxes(
+    using: str,
+    image_src: str = "image",
+    dets_src: str = "dets",
+    out: str = "masks",
+    keep_best: bool = True,
+    group_size: int | None = 3,
+    name: str | None = None,
+    **kwargs,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Input  | `detections` | `Detections` |
+| Output | `masks`      | `Masks`      |
+
+Provider capability: `Segmenter.segment(mode="boxes")`. Preserves instance IDs from input detections.
+
+---
+
+#### `PromptPoints`
+
+Segment regions using explicit point prompts.
+
+```python
+PromptPoints(
+    using: str,
+    points: list[tuple[int, int, int]] = None,  # (x, y, label)
+    image_src: str = "image",
+    out: str = "masks",
+    name: str = None,
+    **kwargs,
+)
+```
+
+| I/O    | Name    | Type    |
+| ------ | ------- | ------- |
+| Input  | `image` | `Image` |
+| Output | `masks` | `Masks` |
+
+---
+
+#### `SegmentEverything`
+
+Automatic segmentation without prompts (SAM everything mode).
+
+```python
+SegmentEverything(
+    using: str,
+    image_src: str = "image",
+    out: str = "masks",
+    name: str = None,
+    **kwargs,
+)
+```
+
+| I/O    | Name    | Type    |
+| ------ | ------- | ------- |
+| Input  | `image` | `Image` |
+| Output | `masks` | `Masks` |
+
+---
+
+### Mask Refinement Nodes
+
+#### `RefineMask`
+
+Apply morphological operations to segmentation masks.
+
+```python
+RefineMask(
+    src: str = "masks",
+    out: str = "masks_ref",
+    method: str = "morph_close",
+    radius: int = 3,
+    name: str = None,
+)
+```
+
+| I/O    | Name    | Type    |
+| ------ | ------- | ------- |
+| Input  | `masks` | `Masks` |
+| Output | `masks` | `Masks` |
+
+**Methods:** `"morph_close"`, `"morph_open"`, `"dilate"`, `"erode"`
+
+---
+
+#### `MaskToBox`
+
+Extract bounding boxes from masks.
+
+```python
+MaskToBox(
+    src: str = "masks",
+    out: str = "detections",
+    filter_empty: bool = True,
+    expand_px: int = 0,
+    name: str = None,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `masks`      | `Masks`      |
+| Output | `detections` | `Detections` |
+
+---
+
+### Tracking Node
+
+#### `Track`
+
+Temporal object tracking across frames.
+
+```python
+Track(
+    using: str,
+    dets: str = "dets",
+    out: str = "tracks",
+    frame_id: str = None,
+    track_thresh: float = 0.5,
+    track_buffer: int = 30,
+    match_thresh: float = 0.8,
+    name: str = None,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `detections` | `Detections` |
+| Output | `tracks`     | `Tracks`     |
+
+Provider capability: `Tracker.update()`. Supports BYTETrack or built-in IoU-based tracker.
+
+---
+
+### ReID Node
+
+#### `ReID`
+
+Cross-camera re-identification node. For each active track with a corresponding embedding, publishes the feature vector to Valkey via a `ReIDBridge` provider, then queries for matches from other cameras.
+
+```python
+ReID(
+    using: str,
+    tracks_src: str = "tracks",
+    embeddings_src: str = "embeddings",
+    out: str = "cross_matches",
+    top_k: int = 1,
+    name: str = None,
+)
+```
+
+| Parameter        | Type          | Default           | Description                                                  |
+| ---------------- | ------------- | ----------------- | ------------------------------------------------------------ |
+| `using`          | `str`         | _required_        | Provider name resolved to a `ReIDBridge` instance at runtime |
+| `tracks_src`     | `str`         | `"tracks"`        | Input artifact key for the `Tracks` artifact                 |
+| `embeddings_src` | `str`         | `"embeddings"`    | Input artifact key for the `Embeddings` artifact             |
+| `out`            | `str`         | `"cross_matches"` | Output artifact key for the `CrossMatches` artifact          |
+| `top_k`          | `int`         | `1`               | Maximum cross-camera matches to return per track             |
+| `name`           | `str \| None` | `None`            | Optional human-readable node name                            |
+
+**I/O:**
+
+| I/O    | Name            | Type           | Notes                                 |
+| ------ | --------------- | -------------- | ------------------------------------- |
+| Input  | `tracks`        | `Tracks`       | Key configurable via `tracks_src`     |
+| Input  | `embeddings`    | `Embeddings`   | Key configurable via `embeddings_src` |
+| Output | `cross_matches` | `CrossMatches` | Key configurable via `out`            |
+
+**Provider capability:** `reid` — expects a `ReIDBridge` instance (from `mata.trackers`). Pass it in the flat providers dict; `_normalize_providers()` maps it to the `"reid"` capability automatically.
+
+**Behaviour:**
+
+- Only processes **active** tracks (state `"active"`).
+- Iterates up to `min(num_active_tracks, num_embeddings)` — handles mismatched counts gracefully.
+- Empty tracks or empty embeddings → returns an empty `CrossMatches` artifact.
+- Records `num_tracks_published` and `num_cross_matches` metrics.
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import Detect, Filter, Track, ExtractROIs, Embed, ReID, Fuse
+from mata.trackers import ReIDBridge
+from mata.core.graph import Graph
+
+detector  = mata.load("detect", "facebook/detr-resnet-50")
+tracker   = mata.load("track",  "facebook/detr-resnet-50", tracker="botsort")
+encoder   = mata.load("embed",  "openai/clip-vit-base-patch32")
+bridge    = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+
+graph = (
+    Graph("reid_pipeline")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.3, out="filtered"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
+    .then(ExtractROIs(src_dets="filtered", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(ReID(using="bridge", out="cross_matches"))
+    .then(Fuse(tracks="tracks", cross_matches="cross_matches"))
+)
+
+result = mata.infer(
+    "frame.jpg", graph=graph,
+    providers={"detector": detector, "tracker": tracker,
+               "encoder": encoder, "bridge": bridge},
+)
+print(result.cross_matches)  # CrossMatches artifact
+```
+
+---
+
+### Fusion Nodes
+
+#### `Fuse`
+
+Bundle artifacts into a `MultiResult` with provenance and metrics.
+
+```python
+Fuse(out: str = "final", **channel_sources)
+```
+
+| I/O    | Name        | Type             |
+| ------ | ----------- | ---------------- |
+| Input  | _(dynamic)_ | _(any artifact)_ |
+| Output | `result`    | `MultiResult`    |
+
+The `**channel_sources` maps channel names to artifact names in context:
+
+```python
+Fuse(detections="dets", masks="refined_masks", out="final")
+```
+
+---
+
+#### `Merge`
+
+Merge multiple artifacts by `instance_id` alignment.
+
+```python
+Merge(
+    dets: str = "dets",
+    masks: str = "masks",
+    keypoints: str = "keypoints",
+    out: str = "merged",
+)
+```
+
+| I/O    | Name            | Type                     |
+| ------ | --------------- | ------------------------ |
+| Input  | `detections`    | `Detections`             |
+| Input  | `masks`         | `Masks` _(optional)_     |
+| Input  | `keypoints`     | `Keypoints` _(optional)_ |
+| Output | `vision_result` | `VisionResult`           |
+
+Aligns instances across modalities using stable `instance_id` values.
+
+---
+
+### VLM Nodes
+
+#### `VLMDescribe`
+
+Generate natural language image description.
+
+```python
+VLMDescribe(
+    using: str,
+    prompt: str = "Describe this image in detail.",
+    out: str = "description",
+    name: str = None,
+    **vlm_kwargs,
+)
+```
+
+| I/O    | Name          | Type         |
+| ------ | ------------- | ------------ |
+| Input  | `image`       | `Image`      |
+| Output | `description` | `Detections` |
+
+Provider capability: `VisionLanguageModel.query(output_mode="describe")`.
+
+---
+
+#### `VLMDetect`
+
+Detect objects using a VLM with structured output.
+
+```python
+VLMDetect(
+    using: str,
+    prompt: str = "List all objects you can identify.",
+    out: str = "vlm_dets",
+    auto_promote: bool = True,
+    name: str = None,
+    **vlm_kwargs,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Output | `detections` | `Detections` |
+
+When `auto_promote=True`, entities with spatial data are automatically promoted to instances.
+
+---
+
+#### `VLMQuery`
+
+Generic VLM query with multi-image support.
+
+```python
+VLMQuery(
+    using: str,
+    prompt: str,
+    output_mode: str = None,
+    out: str = "vlm_result",
+    name: str = None,
+    **vlm_kwargs,
+)
+```
+
+| I/O    | Name     | Type         |
+| ------ | -------- | ------------ |
+| Input  | `image`  | `Image`      |
+| Output | `result` | `Detections` |
+
+Supports `output_mode`: `None`, `"json"`, `"detect"`, `"classify"`, `"describe"`.
+
+---
+
+#### `PromoteEntities`
+
+Promote VLM entities to spatial instances via label matching.
+
+```python
+PromoteEntities(
+    entities_src: str = "vlm_dets",
+    spatial_src: str = "dino_dets",
+    match_strategy: str = "label_fuzzy",
+    out: str = "promoted",
+    name: str = None,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `entities`   | `Detections` |
+| Input  | `spatial`    | `Detections` |
+| Output | `detections` | `Detections` |
+
+**Match strategies:**
+
+- `"label_exact"` — Case-sensitive exact match
+- `"label_fuzzy"` — Case-insensitive, handles plurals and articles (recommended)
+
+---
+
+### Visualization & Analysis Nodes
+
+#### `Annotate`
+
+Render detections/masks onto images.
+
+```python
+Annotate(
+    using: str = "pil",
+    show_boxes: bool = True,
+    show_labels: bool = True,
+    show_masks: bool = True,
+    show_scores: bool = True,
+    alpha: float = 0.5,
+    line_width: int = 2,
+    out: str = "annotated",
+    image_src: str = "image",
+    detections_src: str = "detections",
+    **kwargs,
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `image`      | `Image`      |
+| Input  | `detections` | `Detections` |
+| Output | `annotated`  | `Image`      |
+
+**Backends:** `"pil"` (fast, default), `"matplotlib"` (publication-quality).
+
+---
+
+#### `NMS`
+
+Non-maximum suppression to remove redundant overlapping detections.
+
+```python
+NMS(
+    iou_threshold: float = 0.5,
+    out: str = "nms_dets",
+    detections_src: str = "detections",
+)
+```
+
+| I/O    | Name         | Type         |
+| ------ | ------------ | ------------ |
+| Input  | `detections` | `Detections` |
+| Output | `detections` | `Detections` |
+
+Uses `torchvision.ops.nms` internally.
+
+---
+
+#### `AnnotateRT`
+
+Real-time OpenCV annotation node. Stateful — accumulates per-track centre-point history across `run()` calls to render smooth trajectory trails. No provider is required.
+
+```python
+AnnotateRT(
+    show_boxes: bool = True,
+    show_labels: bool = True,
+    show_scores: bool = True,
+    show_track_ids: bool = True,
+    show_trails: bool = False,
+    trail_length: int = 30,
+    camera_label: str = None,
+    camera_color: tuple[int, int, int] = None,
+    line_width: int = 2,
+    out: str = "annotated",
+    image_src: str = "image",
+    detections_src: str = "detections",
+    tracks_src: str = None,
+    cross_matches_src: str = None,
+    name: str = None,
+)
+```
+
+**Constructor parameters:**
+
+| Parameter           | Type                         | Default        | Description                                                                               |
+| ------------------- | ---------------------------- | -------------- | ----------------------------------------------------------------------------------------- |
+| `show_boxes`        | `bool`                       | `True`         | Draw bounding box rectangles                                                              |
+| `show_labels`       | `bool`                       | `True`         | Include class label in overlay text                                                       |
+| `show_scores`       | `bool`                       | `True`         | Include confidence score in overlay text                                                  |
+| `show_track_ids`    | `bool`                       | `True`         | Prepend `#<id>` to the overlay text                                                       |
+| `show_trails`       | `bool`                       | `False`        | Draw trajectory polylines from accumulated trail history                                  |
+| `trail_length`      | `int`                        | `30`           | Maximum centre-points retained per track                                                  |
+| `camera_label`      | `str \| None`                | `None`         | Text for the coloured label bar in the top-left corner. `None` disables the bar.          |
+| `camera_color`      | `tuple[int,int,int] \| None` | `None`         | BGR colour for the camera label bar. Falls back to orange `(255, 100, 60)` when `None`.   |
+| `line_width`        | `int`                        | `2`            | Bounding box border thickness in pixels                                                   |
+| `out`               | `str`                        | `"annotated"`  | Output artifact key                                                                       |
+| `image_src`         | `str`                        | `"image"`      | Input image artifact key                                                                  |
+| `detections_src`    | `str`                        | `"detections"` | Input detections (or tracks) artifact key — duck-typed; accepts `Detections` and `Tracks` |
+| `tracks_src`        | `str \| None`                | `None`         | Optional key for an additional `Tracks` artifact used for trail accumulation              |
+| `cross_matches_src` | `str \| None`                | `None`         | Optional key for `CrossMatches` artifact — matched tracks receive a yellow double-border  |
+| `name`              | `str \| None`                | `None`         | Optional human-readable node name                                                         |
+
+**I/O:**
+
+| I/O    | Name            | Type           | Optional | Notes                                                         |
+| ------ | --------------- | -------------- | -------- | ------------------------------------------------------------- |
+| Input  | `image`         | `Image`        | No       | Key configurable via `image_src`                              |
+| Input  | `detections`    | `Detections`   | No       | Key configurable via `detections_src`; also accepts `Tracks`  |
+| Input  | `tracks`        | `Tracks`       | Yes      | Added to `inputs` only when `tracks_src` is not `None`        |
+| Input  | `cross_matches` | `CrossMatches` | Yes      | Added to `inputs` only when `cross_matches_src` is not `None` |
+| Output | `annotated`     | `Image`        | —        | BGR colour space; preserves `frame_id` and `timestamp_ms`     |
+
+The `inputs` dict is built dynamically in `__init__` — optional keys are only present when their corresponding `*_src` parameter is set.
+
+**State management:**
+
+| Method    | Description                                                                      |
+| --------- | -------------------------------------------------------------------------------- |
+| `reset()` | Clear accumulated trail history. Call between video clips or when IDs are reset. |
+
+**Behaviour notes:**
+
+- Input image is converted from RGB → BGR automatically when `color_space == "RGB"`.
+- Output `Image` always has `color_space="BGR"` and inherits `frame_id`/`timestamp_ms` from the input.
+- Missing optional inputs are handled gracefully — no trails when `tracks_src` is unset, no highlights when `cross_matches_src` is unset.
+- Records `num_instances` metric per frame.
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import Detect, Filter, Track, Embed, ReID, AnnotateRT, Fuse
+from mata.trackers import ReIDBridge
+from mata.core.graph import Graph
+from mata.core.graph.temporal import FramePolicyEveryN
+import cv2
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+tracker  = mata.load("track",  "facebook/detr-resnet-50", tracker="botsort")
+encoder  = mata.load("embed",  "openai/clip-vit-base-patch32")
+bridge   = ReIDBridge("valkey://localhost:6379", camera_id="cam-1")
+
+graph = (
+    Graph("live_pipeline")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.3, out="filtered"))
+    .then(Track(using="tracker", dets="filtered", out="tracks"))
+    .add(ExtractROIs(src_dets="filtered", out="rois"), inputs={"image": "image", "detections": "filtered"})
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(ReID(using="bridge", out="cross_matches"))
+    .then(AnnotateRT(
+        show_track_ids=True,
+        show_trails=True,
+        trail_length=40,
+        camera_label="CAM-1",
+        tracks_src="tracks",
+        cross_matches_src="cross_matches",
+        out="annotated",
+    ))
+)
+
+def on_frame(result, frame_num, frame_bgr):
+    annotated = result.channels.get("annotated")
+    if annotated is not None:
+        cv2.imshow("MATA", annotated.to_numpy())
+    cv2.waitKey(1)
+
+graph.run(
+    "video.mp4",
+    providers={"detector": detector, "tracker": tracker,
+               "encoder": encoder, "bridge": bridge},
+    frame_policy=FramePolicyEveryN(n=2),
+    callback=on_frame,
+)
+```
+
+---
+
+## Storage Nodes
+
+Storage nodes connect graph pipelines to [Valkey](https://valkey.io/) (or wire-compatible Redis) for distributed result sharing, cross-pipeline caching, and event-driven architectures.
+
+```python
+from mata.nodes import ValkeyStore, ValkeyLoad
+```
+
+**Installation:**
+
+```bash
+pip install datamata[valkey]   # valkey-py client
+pip install datamata[redis]    # redis-py client (fallback)
+```
+
+Both nodes lazy-import the client library — `import mata` succeeds without either installed. An `ImportError` with an actionable message is raised only when a storage node actually executes.
+
+---
+
+### URI Scheme Format
+
+Storage nodes and `result.save()` accept Valkey/Redis URIs in the following formats:
+
+| Format         | Example                                 |
+| -------------- | --------------------------------------- |
+| Basic          | `valkey://localhost:6379/my_key`        |
+| With DB number | `valkey://localhost:6379/0/my_key`      |
+| With password  | `valkey://user:pass@host:6379/0/my_key` |
+| Redis fallback | `redis://localhost:6379/my_key`         |
+| TLS (Redis)    | `rediss://host:6379/my_key`             |
+
+The **key** is the last path segment (or everything after `db/` when a numeric DB is present). Passwords in URIs are passed through to the client and are **never logged**.
+
+**Direct save from result objects:**
+
+```python
+# Any MATA result type supports valkey:// URIs in save()
+result.save("valkey://localhost:6379/pipeline:detections:latest")
+result.save("valkey://localhost:6379/0/detections:frame_042")  # DB 0
+result.save("redis://localhost:6379/detections")               # redis-py
+```
+
+---
+
+### Key Template Syntax
+
+`ValkeyStore` accepts a `key` parameter that supports safe placeholder substitution:
+
+| Placeholder   | Resolved value               | Example output |
+| ------------- | ---------------------------- | -------------- |
+| `{node}`      | Node's `name` attribute      | `ValkeyStore`  |
+| `{timestamp}` | Unix epoch (integer seconds) | `1741478400`   |
+
+Placeholders are resolved with `str.format()` using only these two predefined variables — user-controlled input is **never** interpolated directly.
+
+```python
+ValkeyStore(
+    src="filtered",
+    url="valkey://localhost:6379",
+    key="pipeline:{node}:{timestamp}",  # → "pipeline:ValkeyStore:1741478400"
+    ttl=3600,
+)
+```
+
+---
+
+### `ValkeyStore`
+
+Sink node that writes an artifact to Valkey during graph execution. The artifact passes through unchanged, so downstream nodes can still consume it.
+
+```python
+ValkeyStore(
+    src: str,
+    url: str,
+    key: str,
+    ttl: int | None = None,
+    serializer: str = "json",
+    out: str | None = None,
+)
+```
+
+**Parameters:**
+
+| Parameter    | Type          | Default       | Description                                                    |
+| ------------ | ------------- | ------------- | -------------------------------------------------------------- |
+| `src`        | `str`         | _required_    | Name of the input artifact in the graph context                |
+| `url`        | `str`         | _required_    | Valkey/Redis connection URL (see URI formats above)            |
+| `key`        | `str`         | _required_    | Key name or template (`{node}`, `{timestamp}` supported)       |
+| `ttl`        | `int \| None` | `None`        | Key expiration in seconds; `None` = no expiry                  |
+| `serializer` | `str`         | `"json"`      | `"json"` (default) or `"msgpack"` (requires `msgpack` package) |
+| `out`        | `str \| None` | same as `src` | Output artifact name (pass-through)                            |
+
+**I/O:**
+
+| I/O    | Name       | Type                   |
+| ------ | ---------- | ---------------------- |
+| Input  | `artifact` | `Artifact` (any)       |
+| Output | `artifact` | `Artifact` (unchanged) |
+
+**Supported artifact types:** `Detections`, `Masks`, `Classifications`, `DepthMap`. Other `Artifact` subclasses are stored as-is (best-effort).
+
+**Example:**
+
+```python
+from mata.nodes import Detect, Filter, ValkeyStore
+from mata.core.graph import Graph
+
+graph = (
+    Graph()
+    .then(Detect(using="detr", out="dets"))
+    .then(Filter(src="dets", score_gt=0.5, out="filtered"))
+    .then(ValkeyStore(
+        src="filtered",
+        url="valkey://localhost:6379",
+        key="pipeline:detections:{timestamp}",
+        ttl=3600,
+    ))
+)
+
+result = mata.infer("frame.jpg", graph=graph, providers={"detr": detector})
+# result.filtered is still available — ValkeyStore is a pass-through sink
+```
+
+---
+
+### `ValkeyLoad`
+
+Source node that loads a previously stored result from Valkey and injects it into the graph as a typed artifact. Use this as an **entry node** to consume results produced by another pipeline.
+
+```python
+ValkeyLoad(
+    url: str,
+    key: str,
+    result_type: str = "auto",
+    out: str = "loaded",
+)
+```
+
+**Parameters:**
+
+| Parameter     | Type  | Default    | Description                                               |
+| ------------- | ----- | ---------- | --------------------------------------------------------- |
+| `url`         | `str` | _required_ | Valkey/Redis connection URL                               |
+| `key`         | `str` | _required_ | Key name to load from                                     |
+| `result_type` | `str` | `"auto"`   | `"auto"`, `"vision"`, `"classify"`, `"depth"`, or `"ocr"` |
+| `out`         | `str` | `"loaded"` | Output artifact name in the graph context                 |
+
+**I/O:**
+
+| I/O    | Name                   | Type       |
+| ------ | ---------------------- | ---------- |
+| Input  | _(none — source node)_ | —          |
+| Output | `artifact`             | `Artifact` |
+
+**Auto-detection logic** (`result_type="auto"`):
+
+| Key present in stored data | Detected type | Output artifact   |
+| -------------------------- | ------------- | ----------------- |
+| `instances`                | `vision`      | `Detections`      |
+| `predictions`              | `classify`    | `Classifications` |
+| `depth`                    | `depth`       | `DepthMap`        |
+| `regions`                  | `ocr`         | `OCRText`         |
+
+**Raises:**
+
+- `KeyError` — key does not exist in Valkey
+- `ValueError` — stored data cannot be auto-detected or `result_type` is unrecognized
+- `ImportError` — valkey/redis client not installed
+
+**Example:**
+
+```python
+from mata.nodes import ValkeyLoad, Filter, Fuse
+from mata.core.graph import Graph
+
+graph = (
+    Graph()
+    .then(ValkeyLoad(
+        url="valkey://localhost:6379",
+        key="upstream:detections:latest",
+        result_type="vision",
+        out="dets",
+    ))
+    .then(Filter(src="dets", score_gt=0.7, out="filtered"))
+    .then(Fuse(detections="filtered"))
+)
+
+result = mata.infer("frame.jpg", graph=graph, providers={})
+```
+
+---
+
+### Complete Store → Load Pipeline Example
+
+This pattern enables two independent pipelines to share detection results through Valkey:
+
+```python
+import mata
+from mata.nodes import Detect, Filter, ValkeyStore, ValkeyLoad, Fuse
+from mata.core.graph import Graph
+
+detector = mata.load("detect", "facebook/detr-resnet-50")
+
+# --- Pipeline A: run detection and persist to Valkey ---
+store_graph = (
+    Graph()
+    .then(Detect(using="detr", out="dets"))
+    .then(Filter(src="dets", score_gt=0.4, out="filtered"))
+    .then(ValkeyStore(
+        src="filtered",
+        url="valkey://localhost:6379",
+        key="shared:detections:latest",
+        ttl=60,  # expires after 60 seconds
+    ))
+)
+
+mata.infer("frame_001.jpg", graph=store_graph, providers={"detr": detector})
+
+# --- Pipeline B: load persisted results and annotate ---
+load_graph = (
+    Graph()
+    .then(ValkeyLoad(
+        url="valkey://localhost:6379",
+        key="shared:detections:latest",
+        out="dets",
+    ))
+    .then(Fuse(detections="dets", out="annotated"))
+)
+
+annotated = mata.infer("frame_001.jpg", graph=load_graph, providers={})
+```
+
+**Named connections via YAML config:**
+
+```yaml
+# .mata/models.yaml
+storage:
+  valkey:
+    default:
+      url: "valkey://localhost:6379"
+      db: 0
+      ttl: 3600
+    production:
+      url: "valkey://prod-cluster:6379"
+      password_env: "VALKEY_PASSWORD" # read from env var, never stored in plaintext
+      db: 1
+      tls: true
+```
+
+```python
+from mata.core.model_registry import ModelRegistry
+
+registry = ModelRegistry()
+conn = registry.get_valkey_connection("production")  # resolves password from env
+```
+
+---
+
+## Recognition Nodes (v1.9.5)
+
+Recognition nodes connect embedding pipelines to a pre-populated `Gallery` for cosine-similarity nearest-neighbour search. They are the graph-layer counterpart of the `mata.recognition` module.
+
+```python
+from mata.nodes import GalleryMatchNode
+```
+
+---
+
+### `GalleryMatchNode`
+
+Wraps a `Gallery` as a composable graph node. Accepts an `Embeddings` artifact and returns a `Matches` artifact, preserving per-instance ID linkage.
+
+```python
+GalleryMatchNode(
+    gallery: Gallery,
+    top_k: int = 1,
+    threshold: float | None = None,
+    src: str = "embeddings",
+    out: str = "matches",
+    name: str | None = None,
+)
+```
+
+**Parameters:**
+
+| Parameter   | Type            | Default        | Description                                                        |
+| ----------- | --------------- | -------------- | ------------------------------------------------------------------ |
+| `gallery`   | `Gallery`       | _required_     | Pre-populated `Gallery` instance                                   |
+| `top_k`     | `int`           | `1`            | Maximum gallery matches to return per embedding                    |
+| `threshold` | `float \| None` | `None`         | Minimum cosine similarity; overrides gallery default when set      |
+| `src`       | `str`           | `"embeddings"` | Input artifact key for the `Embeddings` artifact                   |
+| `out`       | `str`           | `"matches"`    | Output artifact key for the `Matches` artifact                     |
+| `name`      | `str \| None`   | `None`         | Optional human-readable node name (defaults to `GalleryMatchNode`) |
+
+**I/O:**
+
+| I/O    | Name         | Type         | Notes                      |
+| ------ | ------------ | ------------ | -------------------------- |
+| Input  | `embeddings` | `Embeddings` | Key configurable via `src` |
+| Output | `matches`    | `Matches`    | Key configurable via `out` |
+
+**Note:** `GalleryMatchNode` does _not_ require a provider entry in the `providers` dict — the gallery is injected at construction time.
+
+**Example:**
+
+```python
+import mata
+from mata import Gallery
+from mata.nodes import Detect, ExtractROIs, Embed, GalleryMatchNode
+from mata.core.graph import Graph
+
+# 1. Build the gallery once
+gallery = Gallery()
+gallery.add("alice", alice_embedding)
+gallery.add("bob",   bob_embedding)
+gallery.save("gallery.npz")
+
+# 2. Wire the recognition pipeline
+detector = mata.load("detect", "facebook/detr-resnet-50")
+encoder  = mata.load("embed",  "openai/clip-vit-base-patch32")
+
+graph = (
+    Graph("recognition")
+    .then(Detect(using="detector", out="dets"))
+    .then(ExtractROIs(src_dets="dets", out="rois"))
+    .then(Embed(using="encoder", src="rois", out="embeddings"))
+    .then(GalleryMatchNode(gallery=gallery, top_k=1, threshold=0.6))
+)
+
+result = mata.infer(
+    "scene.jpg",
+    graph=graph,
+    providers={"detector": detector, "encoder": encoder},
+)
+
+for m in result.matches:
+    print(m.label, m.similarity)  # e.g.  "alice"  0.87
+```
+
+**Related:** `Gallery` class — `mata.recognition.Gallery` | `Matches` artifact — `mata.core.artifacts.Matches`
+
+---
+
+## Video Search Nodes (v1.9.7)
+
+Video search nodes connect embedding pipelines to searchable video indices for natural-language video retrieval. They are the graph-layer counterpart of `mata.recognition.index_video()` and `VideoIndex.search()`.
+
+```python
+from mata.nodes import IndexVideo, EmbeddingSearch
+```
+
+---
+
+### `IndexVideo`
+
+Samples frames from a video, embeds them with the specified provider, and stores the result as a `VideoIndexData` artifact for downstream search.
+
+```python
+IndexVideo(
+    using: str,
+    mode: str = "frame",
+    sample_fps: float = 1.0,
+    out: str = "video_index",
+    name: str | None = None,
+    **embed_kwargs,
+)
+```
+
+**Parameters:**
+
+| Parameter        | Type          | Default         | Description                                                                                         |
+| ---------------- | ------------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| `using`          | `str`         | _required_      | Provider name resolved to an `embed` adapter at runtime                                             |
+| `mode`           | `str`         | `"frame"`       | `"frame"` — one embedding per sampled frame; `"clip"` — one embedding per fixed-length clip segment |
+| `sample_fps`     | `float`       | `1.0`           | Frames per second to sample from the video                                                          |
+| `out`            | `str`         | `"video_index"` | Output artifact key                                                                                 |
+| `name`           | `str \| None` | `None`          | Optional human-readable node name                                                                   |
+| `**embed_kwargs` | `Any`         | —               | Extra kwargs forwarded to `index_video()` (e.g. `embed_dim=`)                                       |
+
+**I/O:**
+
+| I/O    | Name          | Type             |
+| ------ | ------------- | ---------------- |
+| Input  | `video`       | `VideoPath`      |
+| Output | `video_index` | `VideoIndexData` |
+
+**Metrics recorded:** `indexed_frames` (int).
+
+**Example:**
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+
+graph = (
+    Graph("search")
+    .then(IndexVideo(using="embedder", sample_fps=1.0))
+    .then(EmbeddingSearch(using="embedder", text=["red car", "pedestrian"]))
+)
+result = graph.run(video="traffic.mp4", providers={"embedder": embedder})
+```
+
+---
+
+### `EmbeddingSearch`
+
+Searches a `VideoIndexData` artifact with one or more text queries. Embeds each query using the specified provider and performs cosine nearest-neighbour search.
+
+```python
+EmbeddingSearch(
+    using: str,
+    text: str | list[str],
+    src: str = "video_index",
+    out: str = "search_results",
+    top_k: int = 5,
+    threshold: float | None = None,
+    name: str | None = None,
+    **embed_kwargs,
+)
+```
+
+**Parameters:**
+
+| Parameter   | Type               | Default            | Description                                             |
+| ----------- | ------------------ | ------------------ | ------------------------------------------------------- |
+| `using`     | `str`              | _required_         | Provider name resolved to an `embed` adapter at runtime |
+| `text`      | `str \| list[str]` | _required_         | One or more natural-language query strings              |
+| `src`       | `str`              | `"video_index"`    | Input artifact key for the `VideoIndexData` artifact    |
+| `out`       | `str`              | `"search_results"` | Output artifact key for the `SearchResults` artifact    |
+| `top_k`     | `int`              | `5`                | Maximum matches to return per query                     |
+| `threshold` | `float \| None`    | `None`             | Minimum cosine similarity; `None` disables filtering    |
+| `name`      | `str \| None`      | `None`             | Optional human-readable node name                       |
+
+**I/O:**
+
+| I/O    | Name             | Type             |
+| ------ | ---------------- | ---------------- |
+| Input  | `video_index`    | `VideoIndexData` |
+| Output | `search_results` | `SearchResults`  |
+
+**Metrics recorded:** `num_queries` (int).
+
+**Full example:**
+
+```python
+import mata
+from mata.nodes import IndexVideo, EmbeddingSearch
+from mata.core.graph import Graph
+
+# Works with any embed-capable model
+embedder = mata.load("embed", "Qwen/Qwen3-VL-Embedding-2B", dtype="bfloat16")
+
+graph = (
+    Graph("urban_traffic_search")
+    .then(IndexVideo(using="embedder", mode="frame", sample_fps=1.0))
+    .then(EmbeddingSearch(
+        using="embedder",
+        text=["red bus", "jaywalking pedestrian", "cyclist"],
+        top_k=3,
+        threshold=0.18,
+    ))
+)
+
+result = graph.run(video="dashcam.mp4", providers={"embedder": embedder})
+
+sr = result["search_results"]
+for qr in sr:
+    print(f'Query: "{qr.query}"')
+    for rank, m in enumerate(qr.matches, 1):
+        mm, ss = int(m.start_s) // 60, int(m.start_s) % 60
+        print(f"  #{rank}  sim={m.similarity:.4f}  @ {mm:02d}m{ss:02d}s")
+```
+
+**Also works with CLIP (`mode="frame"` recommended):**
+
+```python
+embedder = mata.load("embed", "openai/clip-vit-base-patch32")
+graph = (
+    Graph("clip_search")
+    .then(IndexVideo(using="embedder", sample_fps=2.0))  # mode="frame" default
+    .then(EmbeddingSearch(using="embedder", text="bus", top_k=5, threshold=0.22))
+)
+result = graph.run(video="video.mp4", providers={"embedder": embedder})
+```
+
+> **CLIP vs X-CLIP in chunk mode**
+>
+> `mode="chunk"` embeds a window of frames as a single vector. The two supported encoders use different strategies:
+>
+> | Encoder                                                   | Chunk strategy                                                                          | Temporal awareness                             |
+> | --------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+> | `microsoft/xclip-base-patch32`                            | `predict_video([f1, f2, ...])` — native temporal transformer                            | ✓ Captures motion and actions across frames    |
+> | `openai/clip-vit-base-patch32` (and other image encoders) | Each frame embedded independently via `predict()`, then **mean-pooled + L2-normalised** | ✗ Bag-of-frames only; no cross-frame reasoning |
+>
+> Use `mode="frame"` (the default) with CLIP — it embeds one frame at a time and avoids the mean-pool approximation entirely. Reserve `mode="chunk"` for X-CLIP or other models with a native `predict_video()` interface.
+
+**Related:** `mata.recognition.index_video()`, `VideoIndex`, `VideoIndexData` artifact, `SearchResults` artifact, `VideoPath` artifact.
+
+---
+
+## Graph Builder
+
+### `Graph`
+
+```python
+from mata.core.graph import Graph
+```
+
+#### Constructor
+
+```python
+Graph(name: str = None)
+```
+
+#### Methods
+
+| Method                                                  | Returns                                                 | Description                                         |
+| ------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------- |
+| `then(node)`                                            | `Graph`                                                 | Add node sequentially with auto-wiring              |
+| `add(node, inputs=None)`                                | `Graph`                                                 | Add node with optional explicit wiring              |
+| `parallel(nodes)`                                       | `Graph`                                                 | Add nodes for parallel execution                    |
+| `conditional(predicate, then_branch, else_branch=None)` | `Graph`                                                 | Add conditional branch                              |
+| `compile(providers)`                                    | `CompiledGraph`                                         | Validate and compile to executable DAG              |
+| `run(source, providers, *, ...)`                        | `MultiResult \| list[MultiResult] \| Generator \| None` | Execute on image, video file, or stream (see below) |
+| `visualize(output_path)`                                | `None`                                                  | Generate graph visualization (DOT/PNG/PDF)          |
+
+#### `run()`
+
+Unified execution entry point. Accepts single images, video files, RTSP/RTMP streams, and webcam indices. For image sources it delegates to `mata.infer()`. For temporal sources it internally constructs a `VideoProcessor`.
+
+```python
+def run(
+    image: Union[str, Path, int, PIL.Image.Image, np.ndarray],
+    providers: Dict[str, Any],
+    *,
+    scheduler: SyncScheduler | ParallelScheduler | OptimizedParallelScheduler | None = None,
+    device: str = "auto",
+    frame_policy: Optional[FramePolicy] = None,
+    max_frames: Optional[int] = None,
+    callback: Optional[Callable[..., None]] = None,
+    stop_event: Optional[threading.Event] = None,
+    output_path: Optional[str] = None,
+    **kwargs,
+) -> Union[MultiResult, list[MultiResult], Generator[MultiResult, None, None], None]
+```
+
+**Parameters:**
+
+| Parameter      | Type                                                                       | Default           | Description                                                                                                                     |
+| -------------- | -------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `image`        | `str \| Path \| int \| PIL.Image \| np.ndarray`                            | _required_        | Image path, video file path, stream URL, webcam index, or in-memory image                                                       |
+| `providers`    | `dict[str, Any]`                                                           | _required_        | Provider instances keyed by name (flat or nested)                                                                               |
+| `scheduler`    | `SyncScheduler \| ParallelScheduler \| OptimizedParallelScheduler \| None` | `SyncScheduler()` | Execution strategy per frame                                                                                                    |
+| `device`       | `str`                                                                      | `"auto"`          | Device placement (`"auto"`, `"cuda"`, `"cpu"`) — image sources only                                                             |
+| `frame_policy` | `FramePolicy \| None`                                                      | `None`            | **Required** for video/stream/webcam. Controls which frames are processed.                                                      |
+| `max_frames`   | `int \| None`                                                              | `None`            | Stop after this many total frames (including skipped). `None` = no limit.                                                       |
+| `callback`     | `Callable[..., None] \| None`                                              | `None`            | Per-frame callback. **Video files** receive `(result, frame_num, frame_bgr)`. **Streams/webcam** receive `(result, frame_num)`. |
+| `stop_event`   | `threading.Event \| None`                                                  | `None`            | Stop a stream/webcam callback loop gracefully.                                                                                  |
+| `output_path`  | `str \| None`                                                              | `None`            | Reserved for annotated video output (future release).                                                                           |
+
+**Return value by source type:**
+
+| Source type                    | Return type                                                     |
+| ------------------------------ | --------------------------------------------------------------- |
+| Image (file, PIL, numpy)       | `MultiResult`                                                   |
+| Video file, no callback        | `list[MultiResult]`                                             |
+| Video file, with callback      | `list[MultiResult]` (callback also invoked per processed frame) |
+| Stream / webcam, no callback   | `Generator[MultiResult]`                                        |
+| Stream / webcam, with callback | `None` (blocking)                                               |
+
+**Example — Single image (unchanged):**
+
+```python
+result = (Graph("top5")
+    .then(Detect(using="detector", out="dets"))
+    .then(Filter(src="dets", score_gt=0.3, out="filtered"))
+    .then(Fuse(dets="filtered", out="final"))
+    .run("photo.jpg", providers={"detector": detector})
+)
+print(result.final)
+```
+
+**Example — Video file:**
+
+```python
+from mata.core.graph.temporal import FramePolicyEveryN
+
+results = graph.run(
+    "dashcam.mp4",
+    providers={"detector": detector},
+    frame_policy=FramePolicyEveryN(n=3),
+    max_frames=300,
+)
+for r in results:
+    print(len(r.final.instances), "objects")
+```
+
+**Example — RTSP stream (generator mode):**
+
+```python
+from mata.core.graph.temporal import FramePolicyLatest
+
+for result in graph.run(
+    "rtsp://192.168.1.100/stream",
+    providers={"detector": detector},
+    frame_policy=FramePolicyLatest(),
+):
+    process(result)
+```
+
+**Example — Video file with per-frame callback:**
+
+```python
+from mata.core.graph.temporal import FramePolicyEveryN
+
+callback_frames = []
+
+def on_frame(result, frame_num, frame_bgr):
+    # frame_bgr is np.ndarray in BGR colour space
+    n = len(result.tracks.tracks) if result.has_channel("tracks") else 0
+    print(f"Frame {frame_num}: {n} tracks")
+    callback_frames.append(frame_num)
+
+results = graph.run(
+    "dashcam.mp4",
+    providers={"detector": detector, "tracker": tracker},
+    frame_policy=FramePolicyEveryN(n=3),
+    callback=on_frame,
+)
+# results is still list[MultiResult]; callback was invoked for each processed frame
+```
+
+**Example — Stream with callback (blocking):**
+
+```python
+import threading
+
+stop = threading.Event()
+graph.run(
+    "rtsp://cam/stream",
+    providers={"detector": detector},
+    frame_policy=FramePolicyLatest(),
+    callback=lambda result, frame_num: print(f"Frame {frame_num}"),
+    stop_event=stop,
+)
+```
+
+**Example — Webcam:**
+
+```python
+for result in graph.run(0, providers={"detector": detector},
+                        frame_policy=FramePolicyLatest()):
+    show(result)
+```
+
+---
+
+### `CompiledGraph`
+
+```python
+from mata.core.graph import CompiledGraph
+```
+
+| Attribute           | Type                 | Description                 |
+| ------------------- | -------------------- | --------------------------- |
+| `name`              | `str`                | Graph name                  |
+| `nodes`             | `list[Node]`         | Validated nodes             |
+| `wiring`            | `dict[str, str]`     | Wiring connections          |
+| `dag`               | `nx.DiGraph \| None` | NetworkX DAG (if available) |
+| `validation_result` | `ValidationResult`   | Validation outcome          |
+| `execution_order`   | `list[list[Node]]`   | Stages of parallel nodes    |
+
+| Method                   | Returns            | Description        |
+| ------------------------ | ------------------ | ------------------ |
+| `get_parallel_stages()`  | `list[list[Node]]` | Execution stages   |
+| `visualize(output_path)` | `None`             | Save visualization |
+
+---
+
+## Schedulers
+
+### `SyncScheduler`
+
+Sequential execution in topological order.
+
+```python
+from mata.core.graph import SyncScheduler
+
+scheduler = SyncScheduler()
+result = scheduler.execute(compiled, context, {"input.image": image})
+```
+
+### `ParallelScheduler`
+
+Concurrent execution using `ThreadPoolExecutor` for independent stages.
+
+```python
+from mata.core.graph import ParallelScheduler
+
+scheduler = ParallelScheduler(max_workers=4)
+result = scheduler.execute(compiled, context, {"input.image": image})
+```
+
+### `OptimizedParallelScheduler`
+
+Advanced scheduler with device placement and multi-GPU support.
+
+```python
+from mata.core.graph import OptimizedParallelScheduler
+
+scheduler = OptimizedParallelScheduler(
+    strategy="memory_aware",  # or "auto", "round_robin"
+    unload_models=True,
+)
+result = scheduler.execute(compiled, context, {"input.image": image})
+```
+
+**Device strategies:**
+
+- `"auto"` — Automatic device selection
+- `"round_robin"` — Distribute across GPUs
+- `"memory_aware"` — Place based on available GPU memory
+
+---
+
+## Execution Context
+
+```python
+from mata.core.graph import ExecutionContext
+
+ctx = ExecutionContext(
+    providers={"detect": {"detr": adapter}},
+    device="auto",
+    cache_artifacts=False,
+)
+```
+
+| Method                               | Description                       |
+| ------------------------------------ | --------------------------------- |
+| `store(name, artifact)`              | Store artifact in context         |
+| `retrieve(name)`                     | Retrieve artifact by name         |
+| `has(name)`                          | Check artifact existence          |
+| `get_provider(capability, name)`     | Get provider by capability + name |
+| `record_metric(node, metric, value)` | Record execution metric           |
+| `get_metrics()`                      | Get all collected metrics         |
+
+| Attribute            | Type                | Description                           |
+| -------------------- | ------------------- | ------------------------------------- |
+| `device`             | `str`               | Resolved device (`"cuda"` or `"cpu"`) |
+| `providers`          | `dict`              | Nested provider registry              |
+| `metrics_collector`  | `MetricsCollector`  | Metrics subsystem                     |
+| `tracer`             | `ExecutionTracer`   | Tracing subsystem                     |
+| `provenance_tracker` | `ProvenanceTracker` | Provenance subsystem                  |
+
+---
+
+## Providers & Protocols
+
+### Capability Protocols
+
+All protocols are in `mata.core.registry.protocols` and are `@runtime_checkable`.
+
+| Protocol              | Method Signature                                        | Returns           |
+| --------------------- | ------------------------------------------------------- | ----------------- |
+| `Detector`            | `predict(image: Image, **kw)`                           | `Detections`      |
+| `Segmenter`           | `segment(image: Image, **kw)`                           | `Masks`           |
+| `Classifier`          | `classify(image: Image, **kw)`                          | `Classifications` |
+| `DepthEstimator`      | `estimate(image: Image, **kw)`                          | `DepthResult`     |
+| `PoseEstimator`       | `estimate(image: Image, rois: ROIs = None, **kw)`       | `Keypoints`       |
+| `Tracker`             | `update(dets: Detections, frame_id: str, **kw)`         | `Tracks`          |
+| `Embedder`            | `embed(input: Image \| ROIs, **kw)`                     | `np.ndarray`      |
+| `VisionLanguageModel` | `query(image: Image \| list[Image], prompt: str, **kw)` | `VisionResult`    |
+
+### ProviderRegistry
+
+```python
+from mata.core.registry.providers import ProviderRegistry
+
+registry = ProviderRegistry()
+registry.register("detr", Detector, adapter_factory=factory_fn, lazy=True)
+detector = registry.get(Detector, "detr")
+registry.list_providers(Detector)  # ["detr"]
+registry.unregister(Detector, "detr")
+```
+
+| Method                                                   | Description                   |
+| -------------------------------------------------------- | ----------------------------- |
+| `register(name, capability, adapter_factory, lazy=True)` | Register provider             |
+| `get(capability, name)`                                  | Retrieve (triggers lazy load) |
+| `list_providers(capability=None)`                        | List by capability or all     |
+| `unregister(capability, name)`                           | Remove provider               |
+| `has(capability, name)`                                  | Check existence               |
+
+---
+
+## Conditional Execution
+
+```python
+from mata.core.graph import If, Pass, HasLabel, CountAbove, ScoreAbove
+```
+
+### `If` Node
+
+```python
+If(
+    predicate: Callable[[ExecutionContext], bool],
+    then_branch: Node,
+    else_branch: Node = Pass(),
+)
+```
+
+### Built-in Predicates
+
+| Predicate    | Signature                    | Condition                                      |
+| ------------ | ---------------------------- | ---------------------------------------------- |
+| `HasLabel`   | `HasLabel(src, label)`       | Label present in detections (case-insensitive) |
+| `CountAbove` | `CountAbove(src, n)`         | Detection count > n                            |
+| `ScoreAbove` | `ScoreAbove(src, threshold)` | Max score > threshold                          |
+
+**Functional helpers:** `has_label(src, label)`, `count_above(src, n)`, `score_above(src, threshold)` — return predicate instances.
+
+### `Pass` Node
+
+No-op node for else branches that should do nothing.
+
+---
+
+### `EarlyExit` Node (v1.9.5)
+
+```python
+from mata.nodes import EarlyExit, EarlyExitException
+# also available at:
+# from mata import EarlyExit, EarlyExitException
+# from mata.core.graph import EarlyExit, EarlyExitException
+```
+
+Halts graph execution cleanly when a user-supplied predicate returns `True`. Both `SyncScheduler` and `ParallelScheduler` catch `EarlyExitException`, stop processing remaining nodes, and return the partial `MultiResult` accumulated so far. This is **not** an error — it is a first-class control-flow signal.
+
+```python
+EarlyExit(
+    predicate: Callable[[ExecutionContext], bool],
+    reason: str = "EarlyExit condition met",
+    name: str | None = None,
+)
+```
+
+| Parameter   | Type                                 | Default                     | Description                                    |
+| ----------- | ------------------------------------ | --------------------------- | ---------------------------------------------- |
+| `predicate` | `Callable[[ExecutionContext], bool]` | _required_                  | Raises `EarlyExitException` when `True`        |
+| `reason`    | `str`                                | `"EarlyExit condition met"` | Logged message and `EarlyExitException.reason` |
+| `name`      | `str \| None`                        | `"EarlyExit"`               | Human-readable node name                       |
+
+**I/O:** No declared inputs or outputs (`inputs = {}`, `outputs = {}`).
+
+**`EarlyExitException`** — lightweight sentinel; catchable when calling `mata.infer()` directly:
+
+```python
+from mata import EarlyExitException
+
+try:
+    result = mata.infer(graph, image="image.jpg", providers={...})
+except EarlyExitException as e:
+    print(f"Stopped: {e.reason} (node: {e.node_name})")
+```
+
+| Attribute   | Type  | Description                 |
+| ----------- | ----- | --------------------------- |
+| `reason`    | `str` | Message from `EarlyExit`    |
+| `node_name` | `str` | Name of the triggering node |
+
+**Example:**
+
+```python
+from mata.nodes import Detect, EarlyExit
+
+graph = (Graph("triage")
+    .then(Detect(using="detector", out="dets"))
+    .then(EarlyExit(
+        predicate=lambda ctx: len(ctx.retrieve("dets").instances) == 0,
+        reason="No detections — skipping segmentation",
+        name="quality_gate",
+    ))
+    .then(SegmentImage(using="sam", out="masks"))  # skipped on early exit
+)
+```
+
+---
+
+### `While` Node (v1.9.5)
+
+```python
+from mata.nodes import While
+# also available at:
+# from mata import While
+# from mata.core.graph import While
+```
+
+Wraps a list of nodes in a do-while loop. The body executes at least once, then repeats while `condition(ctx)` returns `True`. `max_iterations` is always enforced and **cannot be disabled**.
+
+```python
+While(
+    body: list[Node],
+    condition: Callable[[ExecutionContext], bool],
+    max_iterations: int = 10,
+    name: str | None = None,
+)
+```
+
+| Parameter        | Type                                 | Default    | Description                                 |
+| ---------------- | ------------------------------------ | ---------- | ------------------------------------------- |
+| `body`           | `list[Node]`                         | _required_ | One or more nodes to execute each iteration |
+| `condition`      | `Callable[[ExecutionContext], bool]` | _required_ | Continue looping while returns `True`       |
+| `max_iterations` | `int`                                | `10`       | Hard iteration cap; always enforced         |
+| `name`           | `str \| None`                        | `"While"`  | Human-readable node name                    |
+
+**I/O:** Inherits inputs from `body[0]`; outputs are the union of all effective body-node outputs.
+
+**Metrics recorded:** `iterations` (int), `max_iterations_reached` (bool).
+
+**Example:**
+
+```python
+from mata.nodes import Detect, While
+
+# Retry detect up to 3 times, zooming in each iteration
+graph.add(While(
+    body=[Detect(using="detector", out="dets")],
+    condition=lambda ctx: len(ctx.retrieve("dets").instances) == 0,
+    max_iterations=3,
+))
+```
+
+---
+
+### `Graph.add(condition=...)` — Conditional Node Guard (v1.9.5)
+
+Attaches a guard predicate to a node. When `condition(ctx)` returns `False` the node is silently skipped and its output artifacts are not written. Downstream nodes that consume those artifacts must also guard themselves or accept missing values.
+
+```python
+graph.add(
+    node,
+    inputs=None,
+    condition: Callable[[ExecutionContext], bool] | None = None,
+)
+```
+
+| Parameter   | Type                                         | Description                                  |
+| ----------- | -------------------------------------------- | -------------------------------------------- |
+| `condition` | `Callable[[ExecutionContext], bool] \| None` | Guard predicate; `None` means always execute |
+
+`CompiledGraph.edge_conditions` — `dict[str, Callable]` mapping `node_name → condition_callable`; populated at compile time and respected by all schedulers.
+
+**Example:**
+
+```python
+graph.add(
+    Classify(using="classifier", out="cls"),
+    condition=lambda ctx: len(ctx.retrieve("dets").instances) > 0,
+)
+```
+
+---
+
+### `Graph.conditional()` — Branch Helper (v1.9.5)
+
+High-level sugar that wraps both branches in a single `If` node for correct mutual-exclusion semantics.
+
+```python
+graph.conditional(
+    predicate: Callable[[ExecutionContext], bool],
+    then_branch: Node,
+    else_branch: Node | None = None,
+) -> Graph
+```
+
+| Parameter     | Type                                 | Description                                                                 |
+| ------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| `predicate`   | `Callable[[ExecutionContext], bool]` | Branch predicate                                                            |
+| `then_branch` | `Node`                               | Executed when predicate returns `True`                                      |
+| `else_branch` | `Node \| None`                       | Executed when predicate returns `False`; if `None`, a `Pass()` node is used |
+
+**Example:**
+
+```python
+graph.conditional(
+    predicate=lambda ctx: len(ctx.retrieve("dets").instances) > 5,
+    then_branch=Annotate(using="drawer", heavy=True,  out="annotated"),
+    else_branch=Annotate(using="drawer", heavy=False, out="annotated"),
+)
+```
+
+---
+
+## Temporal / Video
+
+```python
+from mata.core.graph import (
+    VideoProcessor, Window,
+    FramePolicyEveryN, FramePolicyLatest, FramePolicyQueue,
+)
+```
+
+### Frame Policies
+
+| Class               | Constructor                      | Description                            |
+| ------------------- | -------------------------------- | -------------------------------------- |
+| `FramePolicyEveryN` | `FramePolicyEveryN(n=5)`         | Process every N-th frame               |
+| `FramePolicyLatest` | `FramePolicyLatest()`            | Keep only the latest frame (real-time) |
+| `FramePolicyQueue`  | `FramePolicyQueue(max_queue=10)` | Queue up to N frames                   |
+
+### `VideoProcessor`
+
+```python
+processor = VideoProcessor(
+    graph=compiled_graph,
+    providers={"detect": {"detr": adapter}},
+    frame_policy=FramePolicyEveryN(n=5),
+    scheduler=SyncScheduler(),
+)
+```
+
+| Method                                  | Returns             | Description                |
+| --------------------------------------- | ------------------- | -------------------------- |
+| `process_video(path, output_path=None)` | `list[MultiResult]` | Process video file         |
+| `process_stream(source, callback)`      | `None`              | Process RTSP/camera stream |
+
+### `Window` Node
+
+Buffers N frames for temporal operations.
+
+```python
+Window(n: int = 8)
+```
+
+| I/O    | Name     | Type          |
+| ------ | -------- | ------------- |
+| Input  | `image`  | `Image`       |
+| Output | `images` | `list[Image]` |
+
+---
+
+## Observability
+
+### `MetricsCollector`
+
+```python
+from mata.core.graph import MetricsCollector
+```
+
+| Method                        | Description                   |
+| ----------------------------- | ----------------------------- |
+| `start()`                     | Begin timing                  |
+| `stop()`                      | End timing                    |
+| `record_latency(node, ms)`    | Record node latency           |
+| `record_memory(node, mb)`     | Record memory usage           |
+| `record_gpu_memory(node, mb)` | Record GPU memory             |
+| `record(node, metric, value)` | Record custom metric          |
+| `get_node_metrics(node)`      | Get metrics for one node      |
+| `get_summary()`               | Get aggregated summary        |
+| `export(format)`              | Export as `"json"` or `"csv"` |
+
+**Property:** `wall_time_ms` — Total wall clock time.
+
+### `ExecutionTracer`
+
+```python
+from mata.core.graph import ExecutionTracer, Span
+```
+
+| Method                                              | Description     |
+| --------------------------------------------------- | --------------- |
+| `start_span(name, parent_id=None, attributes=None)` | Create span     |
+| `end_span(span, status="ok", error_message=None)`   | End span        |
+| `add_span_attribute(span, key, value)`              | Attach metadata |
+| `get_span(span_id)`                                 | Retrieve span   |
+| `export_trace(format)`                              | Export as JSON  |
+
+**Properties:** `spans` (all spans), `active_spans` (unfinished spans).
+
+**`Span` attributes:** `span_id`, `name`, `parent_id`, `start_time`, `end_time`, `status`, `duration_ms`.
+
+### `ProvenanceTracker`
+
+```python
+from mata.core.graph import ProvenanceTracker
+```
+
+| Method                                   | Description                    |
+| ---------------------------------------- | ------------------------------ |
+| `record_model(name, adapter)`            | Record model info from adapter |
+| `record_model_info(name, model_id, ...)` | Record model info manually     |
+| `record_graph(compiled_graph)`           | Record graph structure         |
+| `get_provenance()`                       | Get full provenance dict       |
+| `export(format)`                         | Export as JSON                 |
+
+---
+
+## DSL Helpers
+
+```python
+from mata.core.graph.dsl import NodePipe, out, bind, sequential, parallel_tasks, pipeline
+```
+
+### `NodePipe`
+
+Chain nodes with `>>` operator:
+
+```python
+pipe = NodePipe(Detect(using="detr")) >> Filter(score_gt=0.5) >> Fuse()
+graph = pipe.build(name="my_graph")
+```
+
+### Helper Functions
+
+| Function                           | Description                                    |
+| ---------------------------------- | ---------------------------------------------- |
+| `out(node, name)`                  | Override node's output artifact name           |
+| `bind(node, **inputs)`             | Bind specific input artifact sources to a node |
+| `sequential(nodes, name=None)`     | Build graph from sequential list               |
+| `parallel_tasks(nodes, name=None)` | Build graph with parallel nodes                |
+| `pipeline(stages, name=None)`      | Build multi-stage graph                        |
+
+---
+
+## Presets
+
+```python
+from mata.presets import (
+    grounding_dino_sam,
+    segment_and_refine,
+    detection_pose,
+    full_scene_analysis,
+    detect_and_track,
+    vlm_grounded_detection,
+    vlm_scene_understanding,
+    vlm_multi_image_comparison,
+)
+```
+
+### Traditional CV Presets
+
+#### `grounding_dino_sam()`
+
+```python
+grounding_dino_sam(
+    detection_threshold: float = 0.3,
+    nms_iou_threshold: float = None,
+    refine_method: str = "morph_close",
+    refine_radius: int = 3,
+) -> Graph
+```
+
+**Pipeline:** Detect → Filter → [NMS] → PromptBoxes → RefineMask → Fuse  
+**Providers:** `"detector"`, `"segmenter"`
+
+#### `segment_and_refine()`
+
+```python
+segment_and_refine(
+    segmentation_method: str = "everything",
+    refine_method: str = "morph_close",
+    refine_radius: int = 3,
+) -> Graph
+```
+
+**Pipeline:** SegmentEverything → RefineMask → Fuse  
+**Providers:** `"segmenter"`
+
+#### `detection_pose()`
+
+```python
+detection_pose(
+    detection_threshold: float = 0.5,
+    person_only: bool = True,
+    top_k: int = None,
+    nms_iou_threshold: float = 0.5,
+) -> Graph
+```
+
+**Pipeline:** Detect → Filter [person] → [NMS] → [TopK] → Fuse  
+**Providers:** `"detector"`, `"pose"`
+
+#### `full_scene_analysis()`
+
+```python
+full_scene_analysis(
+    detection_threshold: float = 0.3,
+    classification_labels: list[str] = None,
+) -> Graph
+```
+
+**Pipeline:** Parallel(Detect, Classify, EstimateDepth) → Filter → Fuse  
+**Providers:** `"detector"`, `"classifier"`, `"depth"`
+
+#### `detect_and_track()`
+
+```python
+detect_and_track(
+    detection_threshold: float = 0.5,
+    track_threshold: float = 0.5,
+    match_threshold: float = 0.8,
+    track_buffer: int = 30,
+) -> Graph
+```
+
+**Pipeline:** Detect → Filter → Track → Fuse  
+**Providers:** `"detector"`, `"tracker"`
+
+### VLM Presets
+
+#### `vlm_grounded_detection()`
+
+```python
+vlm_grounded_detection(
+    vlm_prompt: str = ...,
+    detection_threshold: float = 0.3,
+    match_strategy: str = "label_fuzzy",
+    auto_promote: bool = False,
+) -> Graph
+```
+
+**Pipeline:** Parallel(VLMDetect, Detect) → Filter → PromoteEntities → Fuse  
+**Providers:** `"vlm"`, `"detector"`
+
+#### `vlm_scene_understanding()`
+
+```python
+vlm_scene_understanding(
+    describe_prompt: str = ...,
+    detection_threshold: float = 0.3,
+    classification_labels: list[str] = None,
+) -> Graph
+```
+
+**Pipeline:** Parallel(VLMDescribe, Detect, EstimateDepth, [Classify]) → Fuse  
+**Providers:** `"vlm"`, `"detector"`, `"depth"`, optional `"classifier"`
+
+#### `vlm_multi_image_comparison()`
+
+```python
+vlm_multi_image_comparison(
+    prompt: str = ...,
+    output_mode: str = None,
+) -> Graph
+```
+
+**Pipeline:** VLMQuery → Fuse  
+**Provider:** `"vlm"`
+
+---
+
+## Converters & Utilities
+
+```python
+from mata.core.artifacts import (
+    # VisionResult conversions
+    vision_result_to_detections,
+    detections_to_vision_result,
+    vision_result_to_masks,
+    masks_to_vision_result,
+    classify_result_to_artifact,
+    artifact_to_classify_result,
+    depth_result_to_artifact,
+    artifact_to_depth_result,
+    # Instance ID management
+    generate_instance_ids,
+    ensure_instance_ids,
+    align_instance_ids,
+    # Entity promotion
+    promote_entities_to_instances,
+    match_entity_to_instance,
+    merge_entity_attributes,
+    auto_promote_vision_result,
+)
+```
+
+### VisionResult ↔ Detections
+
+| Function                            | Description                                |
+| ----------------------------------- | ------------------------------------------ |
+| `vision_result_to_detections(vr)`   | Convert VisionResult → Detections artifact |
+| `detections_to_vision_result(dets)` | Convert Detections → VisionResult          |
+| `vision_result_to_masks(vr)`        | Convert VisionResult → Masks artifact      |
+| `masks_to_vision_result(masks)`     | Convert Masks → VisionResult               |
+
+### Instance ID Management
+
+| Function                                     | Description                        |
+| -------------------------------------------- | ---------------------------------- |
+| `generate_instance_ids(n, prefix="inst")`    | Generate N stable instance IDs     |
+| `ensure_instance_ids(instances)`             | Add IDs if missing                 |
+| `align_instance_ids(artifacts1, artifacts2)` | Align IDs across two artifact sets |
+
+### Entity Promotion (VLM)
+
+| Function                                                | Description                                             |
+| ------------------------------------------------------- | ------------------------------------------------------- |
+| `promote_entities_to_instances(entities, spatial)`      | Batch promote entities using spatial data               |
+| `match_entity_to_instance(entity, instances, strategy)` | Find best match for one entity                          |
+| `merge_entity_attributes(instance, entity)`             | Merge entity attributes into instance                   |
+| `auto_promote_vision_result(result)`                    | Auto-promote entities with spatial data in VisionResult |

@@ -1,0 +1,42 @@
+---
+title: "Inference"
+description: "Overview of datamata inference capabilities — runtimes, batching, and hardware targets."
+sidebar:
+  order: 1
+---
+
+# Inference
+
+datamata supports multiple inference backends and hardware targets. This section covers everything you need to run models in production.
+
+## Supported backends
+
+| Backend | Format | Use case |
+|---|---|---|
+| PyTorch | `.pt` / `.pth` | Research, flexible pipelines |
+| ONNX Runtime | `.onnx` | Cross-platform CPU/GPU |
+| TFLite | `.tflite` | Edge devices, mobile |
+
+## Runtime selection
+
+```python
+from datamata.kaca import KACA
+
+# Explicit runtime
+model = KACA.from_pack("kaca-nano", runtime="onnx")
+
+# Auto-select (fastest available)
+model = KACA.from_pack("kaca-nano", runtime="auto")
+```
+
+## Batching
+
+```python
+images = ["img1.jpg", "img2.jpg", "img3.jpg"]
+results = model.predict_batch(images, batch_size=4)
+```
+
+## Topics
+
+- [Python API](/inference/python-api)
+- [CLI](/inference/cli)

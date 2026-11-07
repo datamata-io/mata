@@ -1,0 +1,188 @@
+---
+title: "Quickstart"
+description: "Run your first datamata vision pipeline in under five minutes."
+sidebar:
+  order: 3
+---
+
+# Quickstart
+
+This guide goes from zero to a working computer vision pipeline in under five minutes. You will run object detection on an image, build a two-model pipeline with MATA, and serve inference over HTTP with MATAVISION.
+
+## Prerequisites
+
+Python 3.9+ installed. That is all.
+
+## Part 1 — Single image detection with KACA
+
+### Install
+
+```bash
+pip install datamata-kaca
+```
+
+### Pull a model pack
+
+Model packs contain weights, config, and class labels in a single versioned bundle:
+
+```bash
+datamata pull kaca-nano
+# Downloading kaca-nano v0.1.0 (12 MB)... ✓
+```
+
+### Run inference
+
+```python
+from datamata.kaca import KACA
+
+# Load the model from the downloaded pack
+model = KACA.from_pack("kaca-nano")
+
+# Run detection on an image path, URL, or numpy array
+results = model.predict("https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/MK_09_Persimmon.jpg/301px-MK_09_Persimmon.jpg")
+
+# Inspect detections
+for det in results.detections:
+    print(f"{det.label:15s}  conf={det.confidence:.2f}  bbox={det.bbox}")
+```
+
+Example output:
+
+```
+fruit           conf=0.94  bbox=BBox(x=42, y=18, w=218, h=243)
+```
+
+### Save annotated output
+
+```python
+# Draw bounding boxes and labels onto the image
+annotated = results.annotate()
+annotated.save("output.jpg")
+```
+
+## Part 2 — Multi-model pipeline with MATA
+
+MATA lets you chain models into a graph. This example detects objects, crops each detection, then classifies the crops.
+
+```bash
+pip install datamata-mata datamata-kaca
+datamata pull kaca-nano
+datamata pull kaca-classifier-nano
+```
+
+```python
+from datamata.mata import Graph, SourceNode, KACANode, CropNode, ClassifyNode, OutputNode
+
+# Define the pipeline as a graph
+graph = Graph()
+
+src    = graph.add(SourceNode(path="scene.jpg"))
+detect = graph.add(KACANode(pack="kaca-nano"))
+crop   = graph.add(CropNode(padding=0.1))          # Crop each detection with 10% padding
+clsfy  = graph.add(ClassifyNode(pack="kaca-classifier-nano"))
+out    = graph.add(OutputNode(format="json", path="results.json"))
+
+# Wire nodes together
+graph.connect(src >> detect >> crop >> clsfy >> out)
+
+# Execute the graph
+result = graph.run()
+print(f"Processed {result.frame_count} frames, {result.detection_count} detections")
+```
+
+<Callout type="tip">
+  Independent branches in a MATA graph run in parallel automatically. If you
+  add a second output branch (e.g., an `AnnotateNode`), MATA executes both the
+  classify branch and the annotate branch concurrently.
+</Callout>
+
+## Part 3 — Serving inference over HTTP with MATAVISION
+
+MATAVISION wraps a MATA graph in a production HTTP server with a REST API.
+
+```bash
+pip install datamata-matavision
+```
+
+Create a pipeline config file (`pipeline.yaml`):
+
+```yaml
+version: "0"
+pipeline:
+  source:
+    type: http           # Accept frames via POST /infer
+  model:
+    type: kaca
+    pack: kaca-nano
+  output:
+    type: json
+```
+
+Start the server:
+
+```bash
+matavision serve pipeline.yaml
+# MATAVISION 0.1.0
+# Listening on http://0.0.0.0:8080
+# Model: kaca-nano  Backend: pytorch  Device: cpu
+```
+
+Send an inference request:
+
+```bash
+curl -X POST http://localhost:8080/infer \
+  -H "Content-Type: image/jpeg" \
+  --data-binary @image.jpg | jq
+```
+
+Response:
+
+```json
+{
+  "detections": [
+    {
+      "label": "fruit",
+      "confidence": 0.94,
+      "bbox": { "x": 42, "y": 18, "w": 218, "h": 243 }
+    }
+  ],
+  "latency_ms": 12.4
+}
+```
+
+## Part 4 — Video stream processing
+
+Process every frame from a webcam or video file:
+
+```python
+from datamata.mata import Graph, SourceNode, KACANode, OutputNode
+
+graph = Graph()
+src   = graph.add(SourceNode(path="rtsp://camera.local/stream"))
+det   = graph.add(KACANode(pack="kaca-nano"))
+out   = graph.add(OutputNode(format="annotated_video", path="output.mp4"))
+graph.connect(src >> det >> out)
+
+# Stream processing with a progress callback
+def on_frame(frame_idx, result):
+    print(f"Frame {frame_idx}: {len(result.detections)} detections")
+
+graph.run(on_frame=on_frame, max_frames=300)
+```
+
+## Summary
+
+You have now:
+
+1. Run single-image detection with KACA Nano
+2. Built a multi-model detect → crop → classify pipeline with MATA
+3. Served inference over HTTP with MATAVISION
+4. Processed a video stream
+
+## Next steps
+
+- [Python API reference](/inference/python-api) — full API documentation
+- [MATA Graph concepts](/concepts/mata-graph) — understand the graph model in depth
+- [Training configuration](/training) — fine-tune KACA on your own data
+- [Deployment guide](/deployment) — Docker, Kubernetes, and cloud deployment
+- [Model Zoo](/reference/supported-models) — browse all available model packs

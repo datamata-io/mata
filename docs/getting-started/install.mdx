@@ -1,0 +1,162 @@
+---
+title: "Installation"
+description: "Install datamata and its dependencies using pip, conda, or Docker."
+sidebar:
+  order: 2
+---
+
+# Installation
+
+## Requirements
+
+| Requirement | Minimum version | Notes |
+|-------------|----------------|-------|
+| Python | 3.9 | 3.11 recommended |
+| pip | 22.0 | Run `pip install --upgrade pip` |
+| CUDA | 11.8 | Optional — required for GPU acceleration |
+| Node.js | 20 | Only needed for MATAVISION CLI tools |
+
+datamata does not require a GPU. CPU inference is fully supported for all model sizes.
+
+## Install via pip
+
+The `datamata` meta-package installs all three products and their shared utilities:
+
+```bash
+pip install datamata
+```
+
+## Install individual packages
+
+If you only need one product, install it directly to keep your environment lean:
+
+```bash
+# MATA orchestration core only
+pip install datamata-mata
+
+# KACA detection models only
+pip install datamata-kaca
+
+# MATAVISION pipeline runtime only
+pip install datamata-matavision
+```
+
+## Install with extras
+
+Extras install optional runtime backends and hardware acceleration libraries:
+
+```bash
+# GPU inference via CUDA 11.8+
+pip install "datamata[cuda]"
+
+# ONNX Runtime backend (works on CPU, CUDA, TensorRT)
+pip install "datamata[onnx]"
+
+# TFLite backend (for edge/embedded deployments)
+pip install "datamata[tflite]"
+
+# CoreML backend (Apple Silicon, macOS 12+)
+pip install "datamata[coreml]"
+
+# Install everything
+pip install "datamata[all]"
+```
+
+<Callout type="info">
+  When running on CUDA, ensure your CUDA toolkit version matches the `[cuda]`
+  extra. datamata ships with CUDA 11.8 wheels by default. For CUDA 12.x:
+  `pip install "datamata[cuda12]"`.
+</Callout>
+
+## Install in a virtual environment (recommended)
+
+Always use a virtual environment to avoid dependency conflicts:
+
+```bash
+# Create and activate venv
+python -m venv .venv
+source .venv/bin/activate  # Linux / macOS
+.venv\Scripts\activate     # Windows
+
+# Install
+pip install datamata
+```
+
+## Install with conda
+
+```bash
+conda create -n datamata python=3.11
+conda activate datamata
+pip install datamata
+```
+
+A conda-forge channel package is planned for a future release.
+
+## Docker
+
+The official Docker image ships with datamata pre-installed and CUDA 11.8 drivers:
+
+```bash
+# CPU image
+docker pull ghcr.io/datamata/datamata:latest
+
+# GPU image (requires nvidia-container-toolkit)
+docker pull ghcr.io/datamata/datamata:latest-cuda
+
+# Run an interactive shell
+docker run --rm -it ghcr.io/datamata/datamata:latest python
+```
+
+To use GPU acceleration with Docker:
+
+```bash
+docker run --rm --gpus all ghcr.io/datamata/datamata:latest-cuda python
+```
+
+## Verify installation
+
+```python
+import datamata
+print(datamata.__version__)  # e.g. "0.1.0"
+
+# Check available backends
+from datamata.runtime import list_backends
+print(list_backends())
+# ['pytorch', 'onnx']  — or ['pytorch', 'onnx', 'cuda'] with GPU extras
+```
+
+From the command line:
+
+```bash
+datamata --version
+# datamata 0.1.0
+
+datamata info
+# Platform: Linux-6.1.0-x86_64
+# Python:   3.11.6
+# Backends: pytorch, onnx, cuda
+# CUDA:     11.8 (device: NVIDIA RTX 4090)
+```
+
+## Upgrading
+
+```bash
+pip install --upgrade datamata
+```
+
+Check the [changelog](/migration) before upgrading across major versions.
+
+## Troubleshooting
+
+**`ImportError: libcudart.so not found`** — Install the CUDA extras: `pip install "datamata[cuda]"`.
+
+**`ModuleNotFoundError: No module named 'datamata'`** — Make sure you installed into the active Python environment. Check `which python` vs the environment where you ran `pip install`.
+
+**`RuntimeError: ONNX model requires opset >= 17`** — Update ONNX Runtime: `pip install --upgrade onnxruntime`.
+
+For more help, open an issue on [GitHub](https://github.com/datamata/datamata) or ask in the [Discord community](https://discord.gg/datamata).
+
+## Next steps
+
+- [Quickstart](/getting-started/quickstart)
+- [Python API reference](/inference/python-api)
