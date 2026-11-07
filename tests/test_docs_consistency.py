@@ -91,8 +91,8 @@ def test_docs_do_not_pin_a_version_stamp():
 
 FLOOR_DOC_FILES = (
     "README.md",
-    "docs/SUPPORTED_MODELS.md",
-    "docs/VLM_MODEL_SUPPORT.md",
+    "docs/reference/supported-models.md",
+    "docs/guides/vlm.md",
 )
 
 # Documented on purpose but NOT enforced at load time: the model works on
@@ -131,7 +131,7 @@ def test_enforced_floors_are_documented():
     }
     assert not missing, (
         "Add a table row containing the model id and `transformers>=X` to "
-        f"README.md or docs/SUPPORTED_MODELS.md for: {missing}"
+        f"README.md or docs/reference/supported-models.md for: {missing}"
     )
 
 
