@@ -1,7 +1,8 @@
 ---
 title: "Zero-Shot Detection"
 description: "Run prompt-driven object detection with open-vocabulary models and practical thresholding guidance."
-sidebar_position: 2
+sidebar:
+  order: 2
 ---
 
 # Zero-Shot Object Detection Guide

@@ -1,7 +1,8 @@
 ---
 title: "Design and Architecture"
 description: "System-level view of the MATA architecture, package boundaries, execution model, and design tradeoffs."
-sidebar_position: 1
+sidebar:
+  order: 1
 ---
 
 # MATA Multi‑Task Vision Architecture & Code Structure (Practical)

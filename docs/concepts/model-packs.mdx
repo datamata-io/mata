@@ -1,0 +1,63 @@
+---
+title: "Model Packs"
+description: "Learn about model packs — the unit of packaging, distribution, and versioning for datamata models."
+sidebar:
+  order: 3
+---
+
+# Model Packs
+
+A **model pack** is a versioned, self-describing archive containing model weights, metadata, and a manifest file. Model packs are the primary unit of distribution in datamata.
+
+## Pack manifest
+
+Each pack contains a `manifest.json`:
+
+```json
+{
+  "slug": "kaca-nano",
+  "version": "0.1.0",
+  "tasks": ["detection"],
+  "runtimes": [
+    { "format": "pytorch", "filename": "kaca-nano.pt", "sha256": "..." },
+    { "format": "onnx",    "filename": "kaca-nano.onnx", "sha256": "..." }
+  ],
+  "input_size": [640, 640],
+  "license": "Apache-2.0"
+}
+```
+
+## Using a pack
+
+```bash
+# Pull from the datamata registry
+datamata pull kaca-nano
+
+# Pull a specific version
+datamata pull kaca-nano@0.1.0
+
+# Pull to a custom directory
+datamata pull kaca-nano --dir ./models
+```
+
+```python
+from datamata.kaca import KACA
+model = KACA.from_pack("kaca-nano")
+```
+
+## Pack storage
+
+By default, packs are stored in `~/.datamata/packs/`. You can override this with the `DATAMATA_PACK_DIR` environment variable.
+
+## Offline use
+
+Packs can be downloaded once and used offline. Specify the local path:
+
+```python
+model = KACA.from_pack("/path/to/kaca-nano")
+```
+
+## Next steps
+
+- [Model Zoo](/models)
+- [Inference: Python API](/docs/v0/inference/python-api)

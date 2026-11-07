@@ -1,7 +1,8 @@
 ---
 title: "Vision-Language Models"
 description: "Choose and run supported vision-language models in MATA, including runtime notes and model-specific constraints."
-sidebar_position: 5
+sidebar:
+  order: 5
 ---
 
 # VLM Model Support

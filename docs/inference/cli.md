@@ -1,7 +1,6 @@
 ---
 title: "CLI"
-description: "Use the mata CLI for one-shot inference, recognition, tracking, validation, and export workflows."
-sidebar_position: 1
+description: "Use the mata CLI to run inference, recognition, tracking, validation and export workflows from the terminal."
 ---
 
 # MATA CLI Reference
@@ -10,6 +9,16 @@ MATA ships a `mata` command installed alongside the Python package. It exposes t
 
 ```
 mata <command> [options]
+```
+
+
+## Installation
+
+The CLI ships with the package — no extra install step:
+
+```bash
+pip install datamata
+mata --version
 ```
 
 ---

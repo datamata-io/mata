@@ -1,7 +1,8 @@
 ---
 title: "OCR"
 description: "Run OCR workflows in MATA and understand the implementation tradeoffs for document and scene text extraction."
-sidebar_position: 7
+sidebar:
+  order: 7
 ---
 # OCR Implementation Summary — MATA v1.9.4
 

@@ -1,7 +1,8 @@
 ---
 title: "Supported Models"
 description: "Representative model families supported by MATA across detection, segmentation, VLM, OCR, embedding, and barcode workflows."
-sidebar_position: 3
+sidebar:
+  order: 3
 ---
 
 # Supported Models

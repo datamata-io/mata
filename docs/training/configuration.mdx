@@ -1,0 +1,77 @@
+---
+title: "Training Configuration"
+description: "Reference for all datamata training hyperparameters, augmentation options, and hardware settings."
+sidebar:
+  order: 2
+---
+
+# Training Configuration
+
+All training options can be specified via CLI flags or a YAML config file.
+
+## Config file
+
+```yaml
+# train.yaml
+model: kaca-nano
+data: dataset/data.yaml
+epochs: 100
+batch: 16
+imgsz: 640
+device: cuda
+workers: 8
+lr0: 0.01
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3
+patience: 50
+project: runs/train
+name: kaca-nano-custom
+```
+
+```bash
+datamata train --config train.yaml
+```
+
+## Key hyperparameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `epochs` | `100` | Total training epochs |
+| `batch` | `16` | Batch size per GPU |
+| `imgsz` | `640` | Input image size |
+| `lr0` | `0.01` | Initial learning rate |
+| `lrf` | `0.01` | Final learning rate (fraction of `lr0`) |
+| `momentum` | `0.937` | SGD momentum |
+| `weight_decay` | `0.0005` | L2 regularization |
+| `patience` | `50` | Early stopping epochs (0 to disable) |
+
+## Augmentation options
+
+```yaml
+hsv_h: 0.015   # Hue shift
+hsv_s: 0.7     # Saturation shift
+hsv_v: 0.4     # Value shift
+flipud: 0.0    # Vertical flip probability
+fliplr: 0.5    # Horizontal flip probability
+mosaic: 1.0    # Mosaic augmentation probability
+mixup: 0.0     # MixUp probability
+```
+
+## Multi-GPU training
+
+```bash
+datamata train kaca-nano --data data.yaml --device 0,1,2,3
+```
+
+## Exporting after training
+
+```bash
+datamata export kaca-nano --format onnx
+datamata export kaca-nano --format tflite --imgsz 320
+```
+
+## Next steps
+
+- [Deployment](/docs/v0/deployment)

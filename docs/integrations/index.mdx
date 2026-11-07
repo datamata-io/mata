@@ -1,0 +1,55 @@
+---
+title: "Integrations"
+description: "Connect datamata with popular frameworks, cloud providers, and third-party tools."
+sidebar:
+  order: 1
+---
+
+# Integrations
+
+datamata integrates with a variety of ML frameworks, cloud providers, and observability tools.
+
+## ML Frameworks
+
+| Framework | Status | Notes |
+|---|---|---|
+| PyTorch | ✅ Supported | Primary training framework |
+| ONNX Runtime | ✅ Supported | CPU + GPU inference |
+| TensorFlow / TFLite | ✅ Supported | Edge deployment |
+| OpenVINO | 🔜 Planned | Intel hardware optimization |
+| TensorRT | 🔜 Planned | NVIDIA production inference |
+
+## Cloud providers
+
+| Provider | Integration | Guide |
+|---|---|---|
+| AWS | S3 model storage, ECR, ECS | Coming soon |
+| GCP | GCS, Cloud Run, Vertex AI | Coming soon |
+| Azure | Blob Storage, ACI, AML | Coming soon |
+
+## Observability
+
+```python
+# Prometheus metrics (built-in)
+datamata serve kaca-nano --metrics --metrics-port 9090
+```
+
+Metrics exposed:
+- `datamata_predictions_total` — total predictions by model
+- `datamata_latency_seconds` — inference latency histogram
+- `datamata_errors_total` — prediction errors by type
+
+## Webhooks
+
+```python
+from datamata.mata import Graph, WebhookSinkNode
+
+graph = Graph()
+# ...
+sink = graph.add(WebhookSinkNode(url="https://your-app.com/webhook"))
+```
+
+## Next steps
+
+- [Reference](/docs/v0/reference)
+- [Migration guide](/docs/v0/migration)

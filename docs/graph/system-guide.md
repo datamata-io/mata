@@ -1,7 +1,8 @@
 ---
 title: "Graph System"
 description: "Understand MATA's typed graph architecture, node model, execution flow, and multi-result output bundle."
-sidebar_position: 2
+sidebar:
+  order: 2
 ---
 
 # MATA Graph System Architecture Guide

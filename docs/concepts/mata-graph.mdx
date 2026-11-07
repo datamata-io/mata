@@ -1,0 +1,191 @@
+---
+title: "MATA Graph"
+description: "Understand how the MATA computation graph orchestrates vision model pipelines."
+sidebar:
+  order: 1
+---
+
+# MATA Graph
+
+The MATA Graph is the central abstraction in datamata. It is a **directed acyclic graph (DAG)** of computation nodes — each representing a model, data transform, or I/O operation — that the MATA engine executes with automatic dependency resolution and optional parallelism.
+
+## Why a graph?
+
+Real-world computer vision pipelines are not linear. A typical production system:
+
+- Reads frames from a stream
+- Runs a fast detection model to find regions of interest
+- Crops those regions and runs a slower, more accurate classifier on each one **in parallel**
+- Emits JSON events to a webhook _and_ annotated video to storage simultaneously
+
+A graph model expresses this naturally. Sequential imperative code cannot represent the parallel branches without manual threading and synchronization. MATA handles all of that for you.
+
+## Node types
+
+| Category | Node types | Inputs / Outputs |
+|----------|-----------|------------------|
+| **Source** | `SourceNode` | — → `Frame` |
+| **Model** | `KACANode`, `ClassifyNode`, `SegmentNode`, `PoseNode` | `Frame` → `ModelResult` |
+| **Transform** | `CropNode`, `ResizeNode`, `FilterNode`, `NMSNode` | `ModelResult` → `ModelResult` |
+| **Sink** | `OutputNode` | `ModelResult` → — |
+
+All node inputs and outputs are **typed**. The graph validates connections at construction time — connecting a `ClassifyNode` output directly to a `SourceNode` input is a type error caught before any inference runs.
+
+## Defining a graph
+
+```python
+from datamata.mata import Graph, SourceNode, KACANode, CropNode, ClassifyNode, OutputNode
+
+graph = Graph()
+
+# Add nodes
+src    = graph.add(SourceNode(path="video.mp4"))
+detect = graph.add(KACANode(pack="kaca-nano"))
+crop   = graph.add(CropNode(padding=0.1))
+clsfy  = graph.add(ClassifyNode(pack="kaca-classifier-nano"))
+out    = graph.add(OutputNode(format="json", path="results.json"))
+
+# Connect them
+graph.connect(src >> detect >> crop >> clsfy >> out)
+
+# Run
+graph.run()
+```
+
+The `>>` operator creates a directed edge from the left node's output to the right node's input. `graph.connect()` accepts any number of chained `>>` expressions or individual edges.
+
+## Parallel branches
+
+When nodes do not depend on each other, MATA runs them in parallel on a thread pool (or across processes for CPU-bound nodes):
+
+```python
+graph = Graph()
+
+src    = graph.add(SourceNode(path="stream.rtsp"))
+detect = graph.add(KACANode(pack="kaca-nano"))
+
+# Two independent branches after detection
+json_out    = graph.add(OutputNode(format="json",            path="events.jsonl"))
+video_out   = graph.add(OutputNode(format="annotated_video", path="output.mp4"))
+
+graph.connect(src >> detect)
+graph.connect(detect >> json_out)    # Branch 1
+graph.connect(detect >> video_out)   # Branch 2 — runs in parallel with Branch 1
+
+graph.run()
+```
+
+MATA resolves the topological execution order at `graph.run()` and schedules independent nodes concurrently. You never write `threading.Thread` or `asyncio.create_task()`.
+
+## Node execution order
+
+MATA performs a **topological sort** of the graph before execution:
+
+1. Source nodes run first.
+2. A node runs as soon as all its upstream dependencies have produced output for the current frame.
+3. Sink nodes (outputs) run last, after all their upstream dependencies.
+
+Nodes in the same "wave" (no dependency between them) execute in parallel.
+
+## Passing data between nodes
+
+Each node receives the outputs of its upstream dependencies as keyword arguments to its `forward()` method. The type system enforces that your connections are valid:
+
+```python
+from datamata.mata import Node, DetectionResult, Frame
+
+class MyFilterNode(Node):
+    """Keep only high-confidence detections."""
+
+    def __init__(self, threshold: float = 0.7):
+        super().__init__()
+        self.threshold = threshold
+
+    def forward(self, result: DetectionResult) -> DetectionResult:
+        return result.filter(lambda d: d.confidence >= self.threshold)
+```
+
+## Error handling
+
+By default, any node that raises an exception halts the graph and the exception propagates to `graph.run()`. You can attach per-node fallback handlers:
+
+```python
+def fallback(node, frame, error):
+    # Log the error and return an empty result rather than stopping the graph
+    print(f"Node {node.name} failed on frame {frame.index}: {error}")
+    return DetectionResult(detections=[])
+
+detect = graph.add(KACANode(pack="kaca-nano"), on_error=fallback)
+```
+
+Or configure a global error policy on the graph:
+
+```python
+graph = Graph(error_policy="skip_frame")  # skip frames that cause errors
+graph = Graph(error_policy="halt")        # default — halt on any error
+graph = Graph(error_policy="retry", max_retries=2)  # retry up to 2 times
+```
+
+## Serializing a graph
+
+MATA graphs can be serialized to YAML or JSON for version control, review, and portability:
+
+```python
+# Export
+yaml_str = graph.to_yaml()
+print(yaml_str)
+```
+
+```yaml
+version: "0"
+nodes:
+  - id: src
+    type: SourceNode
+    config: { path: video.mp4 }
+  - id: detect
+    type: KACANode
+    config: { pack: kaca-nano }
+  - id: out
+    type: OutputNode
+    config: { format: json, path: results.json }
+edges:
+  - [src, detect]
+  - [detect, out]
+```
+
+```python
+# Load from YAML
+from datamata.mata import Graph
+graph = Graph.from_yaml("pipeline.yaml")
+graph.run()
+```
+
+## Graph introspection
+
+```python
+# List all nodes
+for node in graph.nodes:
+    print(node.id, node.node_type)
+
+# Visualize the graph (requires matplotlib)
+graph.visualize()  # Opens a matplotlib window
+graph.visualize(save="pipeline.png")
+
+# Profile execution (wall time per node)
+result = graph.run(profile=True)
+for node_id, duration_ms in result.profile.items():
+    print(f"{node_id}: {duration_ms:.1f} ms")
+```
+
+## Limitations
+
+- Graphs must be **acyclic** (no loops). Recurrent pipelines (e.g., tracking with state) use a stateful node API instead of edges.
+- Graphs are **statically typed** at construction time. Dynamic dispatch based on runtime output values is not supported in v0.
+- Maximum node count is 1 000 per graph (sufficient for all practical pipelines).
+
+## Next steps
+
+- [Outputs and schemas](/docs/v0/concepts/outputs-and-schemas) — typed output contracts for each node type
+- [Model packs](/docs/v0/concepts/model-packs) — how model weights and configs are packaged
+- [Inference API](/docs/v0/inference/python-api) — detailed `Graph`, `Node`, and `Result` API reference
+- [Deployment guide](/docs/v0/deployment) — running MATA graphs in production

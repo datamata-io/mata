@@ -1,0 +1,15 @@
+{
+  "name": "mata-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "blume dev",
+    "build": "blume build",
+    "validate": "blume validate --strict",
+    "audit:content": "node scripts/audit.mjs",
+    "check": "npm run audit:content && npm run build && npm run validate"
+  },
+  "devDependencies": {
+    "blume": "2.2.4"
+  }
+}

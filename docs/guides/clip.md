@@ -1,7 +1,8 @@
 ---
 title: "CLIP Embeddings"
 description: "Use CLIP-based embeddings for similarity search, zero-shot classification, and reusable image-text representations."
-sidebar_position: 1
+sidebar:
+  order: 1
 ---
 # CLIP Zero-Shot Image Classification - Quick Start Guide
 

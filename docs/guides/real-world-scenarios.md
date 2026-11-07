@@ -1,7 +1,8 @@
 ---
 title: "Real-World Scenarios"
 description: "End-to-end pipeline scenarios that show how to combine MATA tasks for production-style workflows."
-sidebar_position: 3
+sidebar:
+  order: 3
 ---
 
 # Real-World Scenarios Showcase — MATA Industry Applications

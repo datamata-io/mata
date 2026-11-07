@@ -1,7 +1,8 @@
 ---
 title: "Tracking"
 description: "Track objects across frames, manage identities, and integrate temporal state into MATA workflows."
-sidebar_position: 3
+sidebar:
+  order: 3
 ---
 
 # Object Tracking Guide

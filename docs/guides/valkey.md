@@ -1,7 +1,8 @@
 ---
 title: "Valkey"
 description: "Configure Valkey-backed caching and shared state for MATA workloads that need fast coordination across runs."
-sidebar_position: 2
+sidebar:
+  order: 2
 ---
 
 # MATA Valkey/Redis Integration Guide

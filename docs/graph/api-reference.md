@@ -1,7 +1,8 @@
 ---
 title: "Graph API"
 description: "Reference for graph builders, nodes, artifacts, execution options, and pipeline composition APIs."
-sidebar_position: 1
+sidebar:
+  order: 1
 ---
 
 # MATA Graph System — API Reference

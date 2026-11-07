@@ -1,3 +1,7 @@
+---
+title: "MATA Training Guide"
+description: "MATA Training Guide — MATA documentation."
+---
 # MATA Training Guide
 
 > **Module**: `mata.training`  

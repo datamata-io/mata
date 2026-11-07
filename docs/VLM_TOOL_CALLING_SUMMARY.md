@@ -1,7 +1,8 @@
 ---
 title: "VLM Tool Calling"
 description: "Understand tool-calling patterns for VLM workflows, structured outputs, and agent-style orchestration."
-sidebar_position: 6
+sidebar:
+  order: 6
 ---
 
 # VLM Tool-Calling Agent System — Architecture Summary

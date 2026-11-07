@@ -1,7 +1,8 @@
 ---
 title: "Graph Cookbook"
 description: "Worked graph examples for common multi-step vision workflows, branching patterns, and result fusion."
-sidebar_position: 2
+sidebar:
+  order: 2
 ---
 
 # MATA Graph Cookbook

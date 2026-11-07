@@ -1,0 +1,46 @@
+---
+title: "Deployment"
+description: "Deploy datamata models to production — REST API, streaming, and edge targets."
+sidebar:
+  order: 1
+---
+
+# Deployment
+
+datamata provides multiple deployment targets for production vision workloads.
+
+## Deployment options
+
+| Option | Best for |
+|---|---|
+| **REST API server** | Web services, microservices |
+| **Docker container** | Cloud deployments, Kubernetes |
+| **Edge runtime** | Raspberry Pi, NVIDIA Jetson, mobile |
+| **Serverless** | Bursty workloads, event-driven |
+
+## REST API server
+
+Start a model server in one command:
+
+```bash
+datamata serve kaca-nano --port 8080
+```
+
+Query the server:
+
+```bash
+curl -X POST http://localhost:8080/predict \
+  -F "image=@photo.jpg" \
+  | jq .
+```
+
+## Health check
+
+```bash
+curl http://localhost:8080/health
+# { "status": "ok", "model": "kaca-nano", "uptime": 42 }
+```
+
+## Topics
+
+- [Docker deployment](/docs/v0/deployment/docker)

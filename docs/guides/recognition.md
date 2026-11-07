@@ -1,7 +1,8 @@
 ---
 title: "Recognition"
 description: "Build gallery-based recognition flows using embeddings, reference sets, and top-k matching."
-sidebar_position: 4
+sidebar:
+  order: 4
 ---
 
 # Recognition Guide

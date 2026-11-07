@@ -1,3 +1,7 @@
+---
+title: "Load from HuggingFace (recommended)"
+description: "Load from HuggingFace (recommended) — MATA documentation."
+---
 ﻿# MATA Quick Reference — v2.0.0
 
 ## 📋 Table of Contents

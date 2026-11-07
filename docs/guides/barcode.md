@@ -1,7 +1,8 @@
 ---
 title: "Barcode"
 description: "Detect and decode barcodes in MATA pipelines with guidance for common formats and image quality issues."
-sidebar_position: 8
+sidebar:
+  order: 8
 ---
 
 # MATA Barcode & QR Code Guide

@@ -1,0 +1,36 @@
+---
+title: "Migration Guide"
+description: "Upgrade guide and breaking changes between datamata versions."
+sidebar:
+  order: 1
+---
+
+# Migration Guide
+
+This page tracks breaking changes and upgrade steps between datamata releases.
+
+## v0 — Initial release
+
+This is the initial public release of datamata (`v0`). There is no prior version to migrate from.
+
+### New in v0
+
+- KACA model family (nano, small)
+- MATA Graph orchestration
+- MATAVISION pipeline runtime
+- `datamata` CLI
+- Model pack format v1
+
+## Upcoming: v1 (planned)
+
+The following breaking changes are planned for `v1`:
+
+- `KACA.from_pack()` — the `device` parameter will accept a `torch.device` in addition to strings
+- `DetectionResult.to_dict()` — field `latency_ms` will be renamed to `inference_latency_ms`
+- CLI `datamata predict` — `--output` default will change from overwrite to timestamped file
+
+We will publish the full migration guide here when `v1` enters beta.
+
+## Getting help
+
+If you encounter migration issues not covered here, please [open an issue](https://github.com/datamata/datamata/issues) or ask in our [Discord community](https://discord.gg/datamata).
