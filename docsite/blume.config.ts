@@ -10,6 +10,7 @@ export default defineConfig({
     exclude: [
       "plans/**",
       "benchmarks/**",
+      "README.md",
       "OCR_IMPLEMENTATION_SUMMARY.md",
       "VLM_TOOL_CALLING_SUMMARY.md",
     ],

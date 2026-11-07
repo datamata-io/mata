@@ -896,7 +896,7 @@ print(f"mAP@50: {metrics.box.map50:.3f}")
 - `ground_truth` is a path to a COCO-format JSON file (detection/segmentation) or task-specific JSON
 - Images are matched by filename between predictions and ground truth
 
-See [`examples/validation.py`](../examples/validation.py) for complete, runnable examples of all four tasks plus the standalone workflow.
+See [`examples/validation.py`](https://github.com/datamata-io/mata/blob/main/examples/validation.py) for complete, runnable examples of all four tasks plus the standalone workflow.
 
 ---
 

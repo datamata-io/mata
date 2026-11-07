@@ -221,9 +221,9 @@ mata track video.mp4 --model facebook/detr-resnet-50 --reid-model openai/clip-vi
 
 ## Examples
 
-- [Basic Tracking](../examples/track/basic_tracking.py) — Video file tracking with save output
-- [Persistent Tracking](../examples/track/persist_tracking.py) — Frame-by-frame with `persist=True`
-- [ReID Tracking](../examples/track/reid_tracking.py) — Single-camera BotSort ReID with `reid_model=`
-- [Cross-Camera ReID](../examples/track/cross_camera_reid.py) — Valkey-backed identity sharing across cameras
-- [Stream Tracking](../examples/track/stream_tracking.py) — Memory-efficient generator mode
-- [Graph Tracking](../examples/graph/video_tracking.py) — Graph pipeline integration
+- [Basic Tracking](https://github.com/datamata-io/mata/blob/main/examples/track/basic_tracking.py) — Video file tracking with save output
+- [Persistent Tracking](https://github.com/datamata-io/mata/blob/main/examples/track/persist_tracking.py) — Frame-by-frame with `persist=True`
+- [ReID Tracking](https://github.com/datamata-io/mata/blob/main/examples/track/reid_tracking.py) — Single-camera BotSort ReID with `reid_model=`
+- [Cross-Camera ReID](https://github.com/datamata-io/mata/blob/main/examples/track/cross_camera_reid.py) — Valkey-backed identity sharing across cameras
+- [Stream Tracking](https://github.com/datamata-io/mata/blob/main/examples/track/stream_tracking.py) — Memory-efficient generator mode
+- [Graph Tracking](https://github.com/datamata-io/mata/blob/main/examples/graph/video_tracking.py) — Graph pipeline integration

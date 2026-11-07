@@ -995,8 +995,8 @@ python examples/segment/grounding_sam_pipeline.py
 
 ## Further Reading
 
-- [MATA Quick Reference](../QUICK_REFERENCE.md)
-- [API Documentation](../README.md)
+- [MATA Quick Reference](/docs/reference/quick-reference)
+- [API Documentation](https://github.com/datamata-io/mata/blob/main/README.md)
 
 **Research Papers:**
 

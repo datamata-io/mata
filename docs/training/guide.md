@@ -1001,11 +1001,11 @@ See the `examples/train/` directory for complete, runnable scripts:
 
 | Script                                                                     | Description                                                      |
 | -------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [finetune_detection.py](../examples/train/finetune_detection.py)           | Fine-tune DETR on COCO-format data → evaluate → reload → predict |
-| [finetune_classification.py](../examples/train/finetune_classification.py) | Fine-tune ResNet-50 on ImageFolder → evaluate → export →         |
+| [finetune_detection.py](https://github.com/datamata-io/mata/blob/main/examples/train/finetune_detection.py)           | Fine-tune DETR on COCO-format data → evaluate → reload → predict |
+| [finetune_classification.py](https://github.com/datamata-io/mata/blob/main/examples/train/finetune_classification.py) | Fine-tune ResNet-50 on ImageFolder → evaluate → export →         |
 
 ## Related Documentation
 
 - [VALIDATION_GUIDE.md](VALIDATION_GUIDE.md) — full `mata.val()` reference
-- [examples/configs/training_detect.yaml](../examples/configs/training_detect.yaml) — detection config reference
-- [examples/configs/training_classify.yaml](../examples/configs/training_classify.yaml) — classification config reference
+- [examples/configs/training_detect.yaml](https://github.com/datamata-io/mata/blob/main/examples/configs/training_detect.yaml) — detection config reference
+- [examples/configs/training_classify.yaml](https://github.com/datamata-io/mata/blob/main/examples/configs/training_classify.yaml) — classification config reference

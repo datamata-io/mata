@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("../../docs", import.meta.url).pathname;
-const INTERNAL = ["plans/", "benchmarks/", "OCR_IMPLEMENTATION_SUMMARY.md", "VLM_TOOL_CALLING_SUMMARY.md"];
+const INTERNAL = ["plans/", "benchmarks/", "README.md", "OCR_IMPLEMENTATION_SUMMARY.md", "VLM_TOOL_CALLING_SUMMARY.md"];
 const findings = [];
 
 function walk(dir) {

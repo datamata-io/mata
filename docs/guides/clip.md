@@ -640,10 +640,10 @@ ClassifyResult(
 
 ## Next Steps
 
-- 📖 See [examples/classify/clip_zeroshot.py](../../examples/classify/clip_zeroshot.py) for complete examples
+- 📖 See [examples/classify/clip_zeroshot.py](https://github.com/datamata-io/mata/blob/main/examples/classify/clip_zeroshot.py) for complete examples
 - 🔧 Read [SUPPORTED_MODELS.md](./SUPPORTED_MODELS.md) for model compatibility details
 - 🚀 Explore [ZEROSHOT_DETECTION_GUIDE.md](./ZEROSHOT_DETECTION_GUIDE.md) for zero-shot detection
-- 📚 Check [QUICK_REFERENCE.md](../QUICK_REFERENCE.md) for all MATA tasks
+- 📚 Check [QUICK_REFERENCE.md](/docs/reference/quick-reference) for all MATA tasks
 
 ---
 

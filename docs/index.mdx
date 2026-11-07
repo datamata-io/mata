@@ -1,0 +1,42 @@
+---
+title: "MATA Documentation"
+description: "MATA — Model-Agnostic Task Architecture: load any vision model, compose typed graph pipelines, and run inference locally."
+---
+
+# MATA Documentation
+
+**MATA (Model-Agnostic Task Architecture)** lets you write a vision pipeline once and swap any model —
+HuggingFace, ONNX, Torchvision — without changing your code.
+
+```python
+import mata
+
+result = mata.run("detect", "image.jpg", model="facebook/detr-resnet-50")
+for det in result.instances:
+    print(f"{det.label_name}: {det.score:.2f} at {det.bbox}")
+```
+
+<Columns cols={3}>
+  <Card title="Install" href="/docs/getting-started/install">
+    pip, conda or Docker — CPU works out of the box.
+  </Card>
+  <Card title="Quickstart" href="/docs/getting-started/quickstart">
+    Detect, classify and embed in a few lines.
+  </Card>
+  <Card title="Concepts" href="/docs/concepts/mata-graph">
+    How the graph schedules models and transforms.
+  </Card>
+</Columns>
+
+## Where to go next
+
+- **New here** → [Overview](/docs/getting-started/overview), then
+  [Installation](/docs/getting-started/install) and [Quickstart](/docs/getting-started/quickstart).
+- **Running models** → [Inference](/docs/inference), the [CLI](/docs/inference/cli), and
+  [supported models](/docs/reference/supported-models).
+- **Task guides** → [Recognition](/docs/guides/recognition), [Tracking](/docs/guides/tracking),
+  [Annotation](/docs/guides/annotation), [Zero-shot detection](/docs/guides/zeroshot-detection),
+  [Barcodes and QR](/docs/guides/barcode).
+- **Training and validation** → [Training](/docs/training), [Validation](/docs/validation).
+- **Graph** → [System guide](/docs/graph/system-guide), [API reference](/docs/graph/api-reference),
+  [Cookbook](/docs/graph/cookbook).

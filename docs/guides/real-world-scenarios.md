@@ -1399,10 +1399,10 @@ defect_detect_classify(
 
 ### Documentation
 
-- **Main README**: [README.md](../README.md)
+- **Main README**: [README.md](https://github.com/datamata-io/mata/blob/main/README.md)
 - **Graph System Guide**: [docs/GRAPH_SYSTEM_GUIDE.md](./GRAPH_SYSTEM_GUIDE.md)
-- **Example Scripts**: [examples/graph/scenarios/](../examples/graph/scenarios/)
-- **Preset API Reference**: [src/mata/presets/](../src/mata/presets/)
+- **Example Scripts**: [examples/graph/scenarios/](https://github.com/datamata-io/mata/blob/main/examples/graph/scenarios/)
+- **Preset API Reference**: [src/mata/presets/](https://github.com/datamata-io/mata/blob/main/src/mata/presets/)
 
 ### Example Code
 
@@ -1467,7 +1467,7 @@ pytest tests/ -v
 
 **Contributors**: MATA Development Team  
 **Last Updated**: February 15, 2026  
-**For Questions**: See [examples/graph/scenarios/README.md](../examples/graph/scenarios/README.md) for usage patterns
+**For Questions**: See [examples/graph/scenarios/README.md](https://github.com/datamata-io/mata/blob/main/examples/graph/scenarios/README.md) for usage patterns
 
 ---
 
